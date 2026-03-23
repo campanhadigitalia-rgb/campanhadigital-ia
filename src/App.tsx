@@ -5,8 +5,8 @@
 import { AnimatePresence, motion } from 'framer-motion';
 import { useState } from 'react';
 import {
-  Users, BarChart2, CheckSquare, Settings, LogOut,
-  Menu, X, Zap, Bot,
+  Users, BarChart2, CalendarDays, Settings, LogOut,
+  Menu, X, Zap, Bot, PenTool, MessageCircle, Brain, Scale
 } from 'lucide-react';
 import { useAuth } from './context/AuthContext';
 import { useCampaign } from './context/CampaignContext';
@@ -14,10 +14,14 @@ import { CampaignBadge } from './components/ui/CampaignBadge';
 
 
 import Dashboard from './pages/Dashboard';
+import { CampaignCalendar } from './components/ui/CampaignCalendar';
+import Contacts from './pages/Contacts';
+import Studio from './pages/Studio';
+import Messaging from './pages/Messaging';
+import OraclePage from './pages/Oracle';
+import LegalPage from './pages/Legal';
 
 // ── Páginas (stubs — serão implementadas nos próximos prompts) ─
-function Contacts()   { return <PlaceholderPage icon={<Users />}     title="Contatos" />; }
-function Tasks()      { return <PlaceholderPage icon={<CheckSquare />} title="Tarefas" />; }
 function MCPPanel()   { return <PlaceholderPage icon={<Bot />}       title="Agentes MCP" />; }
 function SettingsPage(){ return <PlaceholderPage icon={<Settings />} title="Configurações" />; }
 
@@ -154,8 +158,12 @@ function LoginScreen() {
 // ── Sidebar Nav ────────────────────────────────────────────────
 const NAV_ITEMS = [
   { id: 'dashboard',  label: 'Dashboard',  Icon: BarChart2  },
-  { id: 'contacts',   label: 'Contatos',   Icon: Users      },
-  { id: 'tasks',      label: 'Tarefas',    Icon: CheckSquare },
+  { id: 'agenda',     label: 'Agenda',     Icon: CalendarDays },
+  { id: 'contacts',   label: 'Operações',  Icon: Users      },
+  { id: 'studio',     label: 'Estúdio IA', Icon: PenTool    },
+  { id: 'whatsapp',   label: 'Mensageria', Icon: MessageCircle },
+  { id: 'oracle',     label: 'O Oráculo',  Icon: Brain      },
+  { id: 'legal',      label: 'Jurídico',   Icon: Scale      },
   { id: 'mcp',        label: 'Agentes AI', Icon: Bot        },
   { id: 'settings',   label: 'Config',     Icon: Settings   },
 ] as const;
@@ -187,8 +195,12 @@ export default function App() {
 
   const PAGE_MAP: Record<NavId, React.ReactNode> = {
     dashboard: <Dashboard />,
+    agenda:    <CampaignCalendar />,
     contacts:  <Contacts />,
-    tasks:     <Tasks />,
+    studio:    <Studio />,
+    whatsapp:  <Messaging />,
+    oracle:    <OraclePage />,
+    legal:     <LegalPage />,
     mcp:       <MCPPanel />,
     settings:  <SettingsPage />,
   };

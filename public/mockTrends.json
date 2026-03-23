@@ -1,0 +1,8 @@
+[
+  { "id": "t1", "region": "Serra", "topic": "Logística e Rodovias", "platform": "Twitter", "text": "As estradas em Caxias estão intrafegáveis de novo! O governo atual não faz nada. 😡", "sentiment": "critico", "timestamp": "2026-03-23T14:30:00Z" },
+  { "id": "t2", "region": "Fronteira Oeste", "topic": "Preço do Arroz", "platform": "Facebook", "text": "Consumidor e produtor sofrendo com os custos altíssimos. O preço base tá matando a nossa conta no RS.", "sentiment": "negativo", "timestamp": "2026-03-23T14:45:00Z" },
+  { "id": "t3", "region": "Porto Alegre", "topic": "Segurança Pública", "platform": "Instagram", "text": "Muito boa a nova operação Integrada na Orla do Guaíba, policiamento reforçado e seguro para a família. 😊", "sentiment": "positivo", "timestamp": "2026-03-23T15:00:00Z" },
+  { "id": "t4", "region": "Vale do Taquari", "topic": "Reconstrução Climática", "platform": "Twitter", "text": "Ainda aguardando os repasses oficiais prometidos em Brasília para as pontes. Precisamos de respostas urgentes!", "sentiment": "critico", "timestamp": "2026-03-23T15:10:00Z" },
+  { "id": "t5", "region": "Pelotas", "topic": "Piso da Educação", "platform": "Facebook", "text": "Espero que o novo piso do magistério seja cumprido nesta gestão como foi prometido na zona sul...", "sentiment": "neutro", "timestamp": "2026-03-23T15:15:00Z" },
+  { "id": "t6", "region": "Serra", "topic": "Infraestrutura", "platform": "Twitter", "text": "Absurdo o pedágio subir e a gente não ver a duplicação andar! Isso vai dar problema na eleição!!!", "sentiment": "critico", "timestamp": "2026-03-23T15:30:00Z" }
+]
