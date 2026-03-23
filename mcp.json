@@ -1,0 +1,28 @@
+{
+  "mcpVersion": "1.0",
+  "projectInfo": {
+    "name": "CampanhaDigital IA",
+    "type": "SaaS Platform",
+    "architecture": "Multi-Tenant (Isolated by campaign_id)",
+    "frameworks": ["React 19", "Vite 8", "Tailwind 4", "Firebase 12"],
+    "language": "TypeScript"
+  },
+  "agentAccess": {
+    "capabilities": [
+      "read_source_code",
+      "propose_feature_commits",
+      "sync_database_schema",
+      "execute_queue_actions"
+    ],
+    "contextPaths": [
+      "/ARCHITECTURE.md",
+      "/src/types/index.ts",
+      "/src/services/mcp.ts"
+    ],
+    "guidelines": [
+      "Always append campaign_id for Firestore queries via campaignQuery() or useCampaignQueryHook().",
+      "Never mutate users collection without admin role logic verification.",
+      "Check mcp_queue collection in Firestore for background async assignments."
+    ]
+  }
+}
