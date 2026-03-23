@@ -13,8 +13,9 @@ import { useCampaign } from './context/CampaignContext';
 import { CampaignBadge } from './components/ui/CampaignBadge';
 
 
+import Dashboard from './pages/Dashboard';
+
 // ── Páginas (stubs — serão implementadas nos próximos prompts) ─
-function Dashboard()  { return <PlaceholderPage icon={<BarChart2 />} title="Dashboard" />; }
 function Contacts()   { return <PlaceholderPage icon={<Users />}     title="Contatos" />; }
 function Tasks()      { return <PlaceholderPage icon={<CheckSquare />} title="Tarefas" />; }
 function MCPPanel()   { return <PlaceholderPage icon={<Bot />}       title="Agentes MCP" />; }
@@ -37,17 +38,31 @@ function PlaceholderPage({ icon, title }: { icon: React.ReactNode; title: string
 
 // ── Tela de Login ──────────────────────────────────────────────
 function LoginScreen() {
-  const { signInWithGoogle, loading } = useAuth();
+  const { signInWithGoogle, signInWithEmail, signUpWithEmail, loading } = useAuth();
+  const [isRegister, setIsRegister] = useState(false);
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [error, setError] = useState('');
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setError('');
+    try {
+      if (isRegister) await signUpWithEmail(email, password);
+      else await signInWithEmail(email, password);
+    } catch (err: any) {
+      setError(err.message.replace('Firebase: ', ''));
+    }
+  };
 
   return (
-    <div className="gradient-bg flex items-center justify-center min-h-screen">
+    <div className="gradient-bg flex items-center justify-center min-h-screen p-4">
       <motion.div
-        initial={{ opacity: 0, scale: 0.9 }}
-        animate={{ opacity: 1, scale: 1 }}
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
         transition={{ type: 'spring', stiffness: 200, damping: 20 }}
         className="glass-card p-10 flex flex-col items-center gap-6 w-full max-w-sm"
       >
-        {/* Logo */}
         <div style={{
           width: 72, height: 72, borderRadius: '50%',
           background: 'linear-gradient(135deg,#6366f1,#818cf8)',
@@ -56,37 +71,81 @@ function LoginScreen() {
         }}>
           <Zap size={36} color="#fff" />
         </div>
-        <h1 style={{ fontSize: 26, fontWeight: 700, color: '#f1f5f9', margin: 0 }}>
-          CampanhaDigital IA
-        </h1>
-        <p style={{ fontSize: 14, color: '#94a3b8', textAlign: 'center', margin: 0 }}>
-          Plataforma Multi-Campanha de<br />Gestão Política Estratégica
-        </p>
+        <div className="text-center">
+          <h1 style={{ fontSize: 26, fontWeight: 700, color: '#f1f5f9', margin: 0 }}>
+            CampanhaDigital IA
+          </h1>
+          <p style={{ fontSize: 13, color: '#94a3b8', margin: '4px 0 0 0' }}>
+            Acesso Restrito ao Sistema
+          </p>
+        </div>
+
+        {error && (
+          <div className="w-full p-3 rounded-lg text-sm bg-red-500/10 border border-red-500/20 text-red-400 text-center">
+            {error}
+          </div>
+        )}
+
+        <form onSubmit={handleSubmit} className="w-full flex flex-col gap-4">
+          <input
+            type="email"
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            placeholder="Seu e-mail"
+            required
+            className="w-full px-4 py-3 rounded-lg bg-black/20 border border-white/10 text-white placeholder-slate-400 focus:outline-none focus:border-indigo-500 transition-colors"
+          />
+          <input
+            type="password"
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+            placeholder="Sua senha"
+            required
+            className="w-full px-4 py-3 rounded-lg bg-black/20 border border-white/10 text-white placeholder-slate-400 focus:outline-none focus:border-indigo-500 transition-colors"
+          />
+          <button
+            type="submit"
+            disabled={loading}
+            style={{
+              width: '100%', padding: '12px 0', borderRadius: 8, border: 'none', cursor: 'pointer',
+              background: 'linear-gradient(135deg,#6366f1,#4f46e5)', color: '#fff',
+              fontWeight: 600, fontSize: 15, boxShadow: '0 4px 16px rgba(99,102,241,0.4)',
+              transition: 'transform 0.1s', display: 'flex', justifyContent: 'center', alignItems: 'center'
+            }}
+            onMouseDown={e => (e.currentTarget.style.transform = 'scale(0.97)')}
+            onMouseUp={e => (e.currentTarget.style.transform = 'scale(1)')}
+          >
+            {loading ? <motion.div animate={{rotate:360}} transition={{repeat:Infinity,duration:1}} className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full"/> : (isRegister ? 'Criar Conta' : 'Entrar')}
+          </button>
+        </form>
+
+        <div className="flex items-center w-full gap-3">
+          <div className="flex-1 h-px bg-white/10"></div>
+          <span className="text-xs text-slate-500 font-medium">OU</span>
+          <div className="flex-1 h-px bg-white/10"></div>
+        </div>
+
         <button
-          id="google-signin-btn"
+          type="button"
           onClick={signInWithGoogle}
           disabled={loading}
-          style={{
-            width: '100%',
-            padding: '12px 0',
-            borderRadius: 8,
-            border: 'none',
-            cursor: 'pointer',
-            background: 'linear-gradient(135deg,#6366f1,#4f46e5)',
-            color: '#fff',
-            fontWeight: 600,
-            fontSize: 15,
-            boxShadow: '0 4px 16px rgba(99,102,241,0.4)',
-            transition: 'transform 0.1s',
-          }}
-          onMouseDown={e => (e.currentTarget.style.transform = 'scale(0.97)')}
-          onMouseUp={e => (e.currentTarget.style.transform = 'scale(1)')}
+          className="w-full py-3 rounded-lg bg-white/5 border border-white/10 text-white font-medium hover:bg-white/10 transition-colors flex items-center justify-center gap-3"
         >
-          Entrar com Google
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4"/>
+            <path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853"/>
+            <path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" fill="#FBBC05"/>
+            <path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335"/>
+          </svg>
+          Google
         </button>
-        <p style={{ fontSize: 11, color: '#475569', textAlign: 'center', margin: 0 }}>
-          Sistema restrito — acesso autorizado apenas
-        </p>
+
+        <button 
+          onClick={() => setIsRegister(!isRegister)}
+          className="text-xs text-indigo-400 hover:text-indigo-300 bg-transparent border-none cursor-pointer p-0"
+        >
+          {isRegister ? 'Já tenho conta, fazer login' : 'Não tem conta? Criar acesso'}
+        </button>
       </motion.div>
     </div>
   );

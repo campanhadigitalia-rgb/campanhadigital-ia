@@ -11,6 +11,8 @@ import React, {
 import {
   onAuthStateChanged,
   signInWithPopup,
+  signInWithEmailAndPassword,
+  createUserWithEmailAndPassword,
   signOut,
   type User,
 } from 'firebase/auth';
@@ -23,6 +25,8 @@ interface AuthContextValue {
   profile: UserProfile | null;
   loading: boolean;
   signInWithGoogle: () => Promise<void>;
+  signInWithEmail: (e: string, p: string) => Promise<void>;
+  signUpWithEmail: (e: string, p: string) => Promise<void>;
   logout: () => Promise<void>;
 }
 
@@ -74,12 +78,20 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     await signInWithPopup(auth, googleProvider);
   };
 
+  const signInWithEmail = async (e: string, p: string) => {
+    await signInWithEmailAndPassword(auth, e, p);
+  };
+
+  const signUpWithEmail = async (e: string, p: string) => {
+    await createUserWithEmailAndPassword(auth, e, p);
+  };
+
   const logout = async () => {
     await signOut(auth);
   };
 
   const value = useMemo<AuthContextValue>(
-    () => ({ user, profile, loading, signInWithGoogle, logout }),
+    () => ({ user, profile, loading, signInWithGoogle, signInWithEmail, signUpWithEmail, logout }),
     [user, profile, loading],
   );
 
