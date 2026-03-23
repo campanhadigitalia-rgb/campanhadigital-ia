@@ -21,9 +21,10 @@ jobs:
           VITE_FIREBASE_MESSAGING_SENDER_ID: ${{ secrets.VITE_FIREBASE_MESSAGING_SENDER_ID }}
           VITE_FIREBASE_APP_ID: ${{ secrets.VITE_FIREBASE_APP_ID }}
           VITE_FIREBASE_MEASUREMENT_ID: ${{ secrets.VITE_FIREBASE_MEASUREMENT_ID }}
+      - run: echo "${{ secrets.FIREBASE_SERVICE_ACCOUNT_CAMPANHA_DIGITAL_IA }}" | base64 -d > firebase-key.json
       - uses: FirebaseExtended/action-hosting-deploy@v0
         with:
           repoToken: '${{ secrets.GITHUB_TOKEN }}'
-          firebaseServiceAccount: '${{ secrets.FIREBASE_SERVICE_ACCOUNT_CAMPANHA_DIGITAL_IA }}'
+          firebaseServiceAccount: ./firebase-key.json
           channelId: live
           projectId: campanha-digital-ia
