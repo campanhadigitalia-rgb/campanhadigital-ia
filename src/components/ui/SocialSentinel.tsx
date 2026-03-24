@@ -1,7 +1,9 @@
 import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { MessageSquare, AlertTriangle, CheckCircle, HelpCircle, Bot, RefreshCw } from 'lucide-react';
-import { analyzeSentiment, generateResponseOptions } from '../../services/aiService';
+import { generateResponseOptions } from '../../services/aiService';
+import { collection, query, where, limit, orderBy, onSnapshot } from 'firebase/firestore';
+import { db } from '../../services/firebase';
 import { useCampaign } from '../../context/CampaignContext';
 import type { Mention, Sentiment, AIReply } from '../../types';
 
@@ -36,34 +38,46 @@ export function SocialSentinel({ onCrisisAlert }: SentinelProps) {
   const [replies, setReplies] = useState<Record<string, AIReply[]>>({});
 
   useEffect(() => {
-    async function loadFeed() {
-      try {
-        const res = await fetch('/mockTrends.json');
-        const rawFeed: Mention[] = await res.json();
-        
-        // Remove sentiment locally to simulate AI analysis in real-time
-        const strippedFeed = rawFeed.map(item => ({ ...item, sentiment: undefined }));
-        setFeed(strippedFeed);
-        setLoadingInitial(false);
-
-        // Simulando a processamento do stream via AI piece by piece
-        for (let i = 0; i < strippedFeed.length; i++) {
-          setTimeout(async () => {
-            const actualSentiment = await analyzeSentiment(strippedFeed[i].text);
-            setFeed(prev => {
-              const novo = [...prev];
-              novo[i].sentiment = actualSentiment;
-              return novo;
-            });
-          }, (i + 1) * 600);
-        }
-      } catch (e) {
-        console.error("Failed to load mock trends", e);
-        setLoadingInitial(false);
-      }
+    if (!activeCampaign?.id) {
+       setLoadingInitial(false);
+       setFeed([]);
+       return;
     }
-    loadFeed();
-  }, []);
+
+    const q = query(
+      collection(db, 'social_mentions'),
+      where('campaign_id', '==', activeCampaign.id),
+      orderBy('timestamp', 'desc'),
+      limit(20)
+    );
+
+    const unsubscribe = onSnapshot(q, (snap) => {
+      setLoadingInitial(false);
+      if (snap.empty) {
+        setFeed([]);
+        return;
+      }
+      
+      const realFeed = snap.docs.map(doc => {
+         const data = doc.data();
+         // Se vier do Webhook Meta, ele insere timestamp via FieldValue.serverTimestamp(), que pode ser object Date.
+         const tstamp = data.timestamp?.toDate ? data.timestamp.toDate() : (data.timestamp || new Date());
+         return {
+           id: doc.id,
+           platform: data.platform || 'Meta',
+           text: data.text || '',
+           sentiment: data.sentiment || 'neutro',
+           region: data.region || 'Geral',
+           topic: data.topic || 'Menção',
+           timestamp: tstamp,
+         } as Mention;
+      });
+      
+      setFeed(realFeed);
+    });
+
+    return () => unsubscribe();
+  }, [activeCampaign?.id]);
 
   // Monitora % de crises para disparar Alerta no Dashboard Pai
   useEffect(() => {

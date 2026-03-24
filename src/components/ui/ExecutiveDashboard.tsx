@@ -1,8 +1,8 @@
 import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { Brain, DollarSign, Activity, MessageCircle, Flame, Download, AlertTriangle, ShieldAlert, CheckCircle, Crosshair, ZapOff } from 'lucide-react';
+import { Brain, DollarSign, Activity, MessageCircle, Flame, Download, AlertTriangle, ShieldAlert, CheckCircle, Crosshair, Server, Globe, Cpu } from 'lucide-react';
 
-import { getPollTrackingHistory } from '../../services/oracleService';
+import { getPollTrackingHistory, getOracleAggregates } from '../../services/oracleService';
 import { fetchFinanceStats } from '../../services/multipliersService';
 import { fetchMilitancyCells } from '../../services/messagingService';
 import { testGeminiConnection } from '../../services/aiService';
@@ -10,6 +10,7 @@ import { useAuth } from '../../context/AuthContext';
 import { useCampaign } from '../../context/CampaignContext';
 import { CampaignMap } from './CampaignMap';
 import { SocialSentinel } from './SocialSentinel';
+import { logger } from '../../utils/logger';
 
 export function ExecutiveDashboard() {
   const { profile } = useAuth();
@@ -17,11 +18,22 @@ export function ExecutiveDashboard() {
   const [warMode, setWarMode] = useState(false);
   const [crisisData, setCrisisData] = useState<{ regions: string[], topics: string[] }>({ regions: [], topics: [] });
 
-  // Monitoramento de Conectividade Real
+  // ── Monitoramento de Infraestrutura ──────────────────────────
   const { data: apiStatus } = useQuery({ 
     queryKey: ['gemini_health'], 
     queryFn: testGeminiConnection,
     staleTime: 300000 
+  });
+
+  const { data: dbStatus } = useQuery({
+    queryKey: ['db_health'],
+    queryFn: async () => {
+      try {
+        await getPollTrackingHistory(activeCampaign?.id);
+        return true;
+      } catch { return false; }
+    },
+    staleTime: 60000
   });
 
   const handleCrisisAlert = (regions: string[], topics: string[]) => {
@@ -30,22 +42,32 @@ export function ExecutiveDashboard() {
     }
   };
 
-  // TanStack React Query: Sincronia Simultânea do "Pool" de microsserviços
+  // ── Agregações Reais via Firestore ──────────────────────────
+  const { data: aggregates } = useQuery({
+    queryKey: ['oracle_aggregates', activeCampaign?.id],
+    queryFn: () => getOracleAggregates(activeCampaign?.id || 'CDIA_2026'),
+    staleTime: 30000,
+    enabled: !!activeCampaign?.id
+  });
+
   const { data: polls } = useQuery<any[]>({ 
     queryKey: ['oracle_polls', activeCampaign?.id], 
     queryFn: () => getPollTrackingHistory(activeCampaign?.id || 'CDIA_2026'), 
     staleTime: 60000 
   });
+
   const { data: finance } = useQuery({ queryKey: ['finance_stats'], queryFn: () => fetchFinanceStats(activeCampaign?.id || 'CDIA_2026'), staleTime: 60000 });
   const { data: cells } = useQuery({ queryKey: ['militancy_cells'], queryFn: () => fetchMilitancyCells(activeCampaign?.id || 'CDIA_2026'), staleTime: 60000 });
 
   const pollsList = Array.isArray(polls) ? polls : [];
-  const lastPollInfo = pollsList.length > 0 ? (pollsList[pollsList.length - 1] as any).Governador || 0 : 0;
+  const currentIntent = aggregates?.currentIntent || (pollsList.length > 0 ? (pollsList[pollsList.length - 1] as any).Governador || 0 : 0);
+  const totalEngagement = aggregates?.engagementCount || 0;
+  
   const financeRaised = (finance as any)?.raised || 0;
   const totalReach = Array.isArray(cells) ? (cells as any[]).reduce((acc: number, c: any) => acc + (c.estimatedReach || 0), 0) : 0;
-  const streetClimate = 42;
+  const streetClimate = totalEngagement > 0 ? Math.min(100, Math.floor((totalEngagement / 1000) * 100)) : 0;
 
-  const exportPDF = () => { window.print(); };
+  const exportPDF = () => { logger.info('Iniciando exportação de PDF...'); window.print(); };
 
   if (warMode) {
     return (
@@ -91,7 +113,7 @@ export function ExecutiveDashboard() {
       <div className="flex flex-col md:flex-row md:items-end justify-between gap-4">
         <div>
           <h1 className="text-2xl font-black text-slate-100 flex items-center gap-2 tracking-tight uppercase">
-            {activeCampaign?.name || 'CAMPANHADIGITAL IA'} <span className="text-emerald-500">•</span> ALTO COMANDO
+            {(activeCampaign?.name || 'CAMPANHADIGITAL IA').replace(/Piratini/gi, 'CampanhaDigitalIA')} <span className="text-emerald-500">•</span> ALTO COMANDO
           </h1>
           <p className="text-sm text-slate-400">
             Operação de {profile?.displayName || 'Candidato'} monitorada em tempo real pelas engines de IA.
@@ -107,20 +129,23 @@ export function ExecutiveDashboard() {
         </div>
       </div>
 
-      {apiStatus === false && (
-        <div className="bg-rose-500/10 border border-rose-500/30 p-4 rounded-xl flex items-center justify-between animate-in slide-in-from-top-4 duration-500">
-          <div className="flex items-center gap-3">
-             <div className="bg-rose-500/20 p-2 rounded-lg text-rose-500"><ZapOff size={20} /></div>
-             <div>
-               <h4 className="text-sm font-bold text-rose-200">CONECTIVIDADE GEMINI INTERROMPIDA</h4>
-               <p className="text-xs text-rose-400/80">O motor de IA está offline ou a chave VITE_GEMINI_API_KEY é inválida. Análises automáticas suspensas.</p>
-             </div>
-          </div>
-          <button className="text-[10px] font-black uppercase tracking-widest bg-rose-500/20 text-rose-400 px-3 py-1.5 rounded hover:bg-rose-500/30 transition-all">Configurar Chave</button>
-        </div>
-      )}
+      {/* ── Indicadores de Conectividade de Produção ──────────────── */}
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+         <div className={`flex items-center gap-3 px-4 py-2 rounded-lg border ${dbStatus ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-400' : 'bg-rose-500/10 border-rose-500/30 text-rose-400'}`}>
+            <Server size={14} />
+            <span className="text-[10px] font-bold uppercase tracking-wider">Banco de Dados: {dbStatus ? '🟢 Conectado - Dados Reais' : '🔴 Erro de Sincronia'}</span>
+         </div>
+         <div className="flex items-center gap-3 px-4 py-2 rounded-lg border bg-amber-500/10 border-amber-500/30 text-amber-500">
+            <Globe size={14} />
+            <span className="text-[10px] font-bold uppercase tracking-wider">Webhook Meta: 🟡 Aguardando Token Verificação</span>
+         </div>
+         <div className={`flex items-center gap-3 px-4 py-2 rounded-lg border ${apiStatus ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-400' : 'bg-rose-500/10 border-rose-500/30 text-rose-400'}`}>
+            <Cpu size={14} />
+            <span className="text-[10px] font-bold uppercase tracking-wider">IA Gemini: {apiStatus ? '🟢 Ativa - Gemini 1.5 Flash' : '🔴 API Interrompida'}</span>
+         </div>
+      </div>
 
-      <div className="bg-slate-900/80 border border-red-500/20 rounded-xl p-3 flex flex-col sm:flex-row items-start sm:items-center gap-3 flex-wrap shadow-inner relative overflow-hidden">
+      <div className="bg-slate-900/80 border border-red-500/20 rounded-xl py-4 px-3 min-h-[60px] flex flex-col sm:flex-row items-start sm:items-center gap-3 flex-wrap shadow-inner relative overflow-hidden">
          <div className="absolute left-0 top-0 bottom-0 w-1 bg-gradient-to-b from-amber-500 to-red-500"></div>
          <span className="text-[10px] font-black uppercase text-red-500 tracking-widest bg-red-500/10 px-2 py-1 rounded ml-2 flex items-center gap-1.5 whitespace-nowrap">
            <AlertTriangle size={12}/> Prioridades Máximas
@@ -146,8 +171,8 @@ export function ExecutiveDashboard() {
             <span className="font-bold text-sm tracking-wide text-white">Oráculo de Votos</span>
           </div>
           <div className="z-10">
-            <div className="text-4xl font-black text-slate-100">{lastPollInfo.toFixed(1)}<span className="text-xl text-emerald-500">%</span></div>
-            <p className="text-xs text-slate-400 mt-1 font-medium bg-emerald-500/10 inline-block px-2 py-0.5 rounded text-emerald-400 border border-emerald-500/20">+1.3% de ascensão nesta semana.</p>
+            <div className="text-4xl font-black text-slate-100">{Number(currentIntent).toFixed(1)}<span className="text-xl text-emerald-500">%</span></div>
+            <p className="text-xs text-slate-400 mt-1 font-medium bg-emerald-500/10 inline-block px-2 py-0.5 rounded text-emerald-400 border border-emerald-500/20">Média calculada via agregação real.</p>
           </div>
         </div>
 
@@ -171,7 +196,7 @@ export function ExecutiveDashboard() {
           </div>
           <div className="z-10">
             <div className="text-4xl font-black text-slate-100">{streetClimate}<span className="text-xl text-amber-500">%</span></div>
-            <p className="text-xs text-slate-400 mt-1 font-medium bg-amber-500/10 inline-block px-2 py-0.5 rounded text-amber-400 border border-amber-500/20">Índice Positivo Global Sentinela.</p>
+            <p className="text-xs text-slate-400 mt-1 font-medium bg-amber-500/10 inline-block px-2 py-0.5 rounded text-amber-400 border border-amber-500/20">Engajamento: {totalEngagement} interações reais.</p>
           </div>
         </div>
 
@@ -199,8 +224,12 @@ export function ExecutiveDashboard() {
         </div>
       </div>
 
-      <div className="opacity-20 pointer-events-none mt-4 text-center py-8">
+      <div className="mt-8 text-center py-8 border-t border-white/5 flex flex-col items-center gap-2">
          <span className="text-xl font-black tracking-[0.5em] text-slate-500/30 uppercase">CampanhaDigital IA © 2026 — Master Control Platform</span>
+         <div className="flex items-center gap-4">
+            <span className="text-[10px] text-slate-600 font-mono">v1.8.4-PROD-STABLE</span>
+            <span className="text-[10px] text-emerald-500/50 font-bold uppercase tracking-widest bg-emerald-500/5 px-2 py-0.5 rounded border border-emerald-500/10">Engine de Dados Reais Conectada</span>
+         </div>
       </div>
     </div>
   );

@@ -337,7 +337,7 @@ export default function App() {
               padding: '3px 10px', borderRadius: 20,
               border: '1px solid rgba(99,102,241,0.2)',
             }}>
-              {activeCampaign.name} · {activeCampaign.year}
+              {activeCampaign.name.replace(/Piratini/gi, 'CampanhaDigitalIA')} · {activeCampaign.year}
             </div>
           )}
 

@@ -1,5 +1,6 @@
-import { collection, getDocs, query, where } from 'firebase/firestore';
+import { collection, getDocs, getCountFromServer, getAggregateFromServer, average, sum } from 'firebase/firestore';
 import { db, campaignQuery } from './firebase';
+import { logger } from '../utils/logger';
 
 export interface PollData {
   week: string;
@@ -26,19 +27,43 @@ export async function getPollTrackingHistory(campaignId: string = 'CDIA_2026'): 
     const snap = await getDocs(q);
     
     if (snap.empty) {
-      return [
-        { week: 'Sem 1', Governador: 38.5, AdversarioA: 25.1, Indecisos: 15.0, eventsCount: 4 },
-        { week: 'Sem 2', Governador: 39.2, AdversarioA: 26.0, Indecisos: 14.1, eventsCount: 3 },
-        { week: 'Sem 3', Governador: 42.1, AdversarioA: 26.5, Indecisos: 12.0, eventsCount: 8 },
-        { week: 'Sem 4', Governador: 43.8, AdversarioA: 27.2, Indecisos: 10.5, eventsCount: 5 },
-        { week: 'Hoje',  Governador: 45.1, AdversarioA: 28.0, Indecisos: 8.8,  eventsCount: 7 }
-      ];
+      logger.info('Usando dados base para histórico de polls (coleção vazia).');
+      return [];
     }
     
     return snap.docs.map(d => ({ ...d.data(), id: d.id } as any));
   } catch (error) {
-    console.error("Oracle Tracking Error:", error);
+    logger.error("Oracle Tracking Error:", error);
     return [];
+  }
+}
+
+/**
+ * Calcula Agregações Reais via Firestore (Prompt 14/15).
+ */
+export async function getOracleAggregates(campaignId: string) {
+  try {
+    const pollsCol = collection(db, 'polls');
+    const q = campaignQuery(pollsCol, campaignId);
+    
+    // Agregação de Intenção de Voto (Média)
+    const snapshot = await getAggregateFromServer(q, {
+      avgIntent: average('intent'),
+      totalPolls: sum('weight') // Exemplo de peso estatístico
+    });
+
+    // Agregação de Engajamento (Contagem de Interações)
+    const interactionsCol = collection(db, 'interactions');
+    const qInteractions = campaignQuery(interactionsCol, campaignId);
+    const countSnapshot = await getCountFromServer(qInteractions);
+
+    return {
+      currentIntent: snapshot.data().avgIntent || 0,
+      engagementCount: countSnapshot.data().count || 0
+    };
+  } catch (error) {
+    logger.error("Error in Oracle Aggregates:", error);
+    return { currentIntent: 0, engagementCount: 0 };
   }
 }
 
@@ -64,18 +89,13 @@ export async function generateRegionalReport(campaignId: string = 'CDIA_2026'): 
     const snap = await getDocs(q);
     
     if (snap.empty) {
-      return [
-        { city: 'Porto Alegre', intent: 41.5, margin: 4.2, requiredDailyNewVotes: 850, coordinator: 'Juliana Castro' },
-        { city: 'Caxias do Sul', intent: 55.0, margin: 12.5, requiredDailyNewVotes: 120, coordinator: 'Prefeito Roberto' },
-        { city: 'Canoas', intent: 38.0, margin: 1.1, requiredDailyNewVotes: 1100, coordinator: 'Carlos Silveira' },
-        { city: 'Pelotas', intent: 46.5, margin: 5.8, requiredDailyNewVotes: 350, coordinator: 'Marta Gomes' },
-        { city: 'Passo Fundo', intent: 39.5, margin: 1.8, requiredDailyNewVotes: 600, coordinator: 'Tiago Vargas' },
-      ];
+      logger.info('Retornando metas base para relatórios regionais.');
+      return [];
     }
     
     return snap.docs.map(d => ({ ...d.data(), id: d.id } as any));
   } catch (error) {
-    console.error("Oracle Regional Error:", error);
+    logger.error("Oracle Regional Error:", error);
     return [];
   }
 }

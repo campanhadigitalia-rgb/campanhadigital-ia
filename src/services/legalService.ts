@@ -30,24 +30,34 @@ export async function fetchAuditLogs(): Promise<AuditLog[]> {
   ];
 }
 
+import { GoogleGenerativeAI } from '@google/generative-ai';
+
+const API_KEY = import.meta.env.VITE_GEMINI_API_KEY || '';
+const genAI = new GoogleGenerativeAI(API_KEY);
+
 /**
- * Escaneia um texto gerado pela IA (Scripts CStudio) contra Violações.
+ * Escaneia um texto gerado pela IA (Scripts CStudio) contra Violações usando Gemini.
  */
 export async function validateContentCompliance(text: string): Promise<{ status: 'Safe' | 'Warning' | 'Blocked', flags: string[] }> {
-  return new Promise((resolve) => setTimeout(() => {
-    const raw = text.toLowerCase();
-    const isFakeNews = raw.includes('fraude') || raw.includes('urgente repasse');
-    const isAttack = raw.includes('canalha') || raw.includes('ladrão') || raw.includes('oponente');
-    const isEarlyPropaganda = raw.includes('vote') || raw.includes('número') || raw.includes('futuro governador');
+  if (!API_KEY) return { status: 'Safe', flags: [] };
 
-    const flags: string[] = [];
-    if (isFakeNews) flags.push('Alerta de Gatilho de Fake News / Desinformação');
-    if (isAttack) flags.push('Linguagem Ofensiva (Ataque Pessoal)');
-    if (isEarlyPropaganda) flags.push('Propaganda Antecipada (Pedido Explícito de Voto)');
-
-    if (flags.length > 0) resolve({ status: 'Warning', flags });
-    else resolve({ status: 'Safe', flags: [] });
-  }, 1200));
+  try {
+    const model = genAI.getGenerativeModel({ model: "gemini-flash-latest" });
+    const prompt = `Como um auditor jurídico especializado em direito eleitoral brasileiro (TSE/TRE), analise o seguinte conteúdo de campanha: "${text}".
+    Identifique possíveis violações como: Fake News, Propaganda Antecipada (pedido de voto antes do prazo), Ofensas Pessoais ou desinformação técnica.
+    Responda APENAS com um JSON no formato:
+    { "status": "Safe" | "Warning" | "Blocked", "flags": ["Descrição da violação 1", "..."] }`;
+    
+    const result = await model.generateContent(prompt);
+    let resultText = result.response.text().trim();
+    if (resultText.startsWith('```json')) resultText = resultText.replace(/^```json/, '').replace(/```$/, '').trim();
+    if (resultText.startsWith('```')) resultText = resultText.replace(/^```/, '').replace(/```$/, '').trim();
+    
+    return JSON.parse(resultText);
+  } catch (error) {
+    console.error("Legal Compliance AI Error:", error);
+    return { status: 'Safe', flags: [] };
+  }
 }
 
 /**

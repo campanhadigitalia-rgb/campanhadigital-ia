@@ -1,4 +1,39 @@
 {
-  "indexes": [],
+  "indexes": [
+    {
+      "collectionGroup": "polls",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "campaign_id", "order": "ASCENDING" },
+        { "fieldPath": "intent", "order": "ASCENDING" },
+        { "fieldPath": "weight", "order": "ASCENDING" }
+      ]
+    },
+
+    {
+      "collectionGroup": "social_mentions",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "campaign_id", "order": "ASCENDING" },
+        { "fieldPath": "timestamp", "order": "DESCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "finances",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "campaign_id", "order": "ASCENDING" },
+        { "fieldPath": "amount", "order": "ASCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "events",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "campaign_id", "order": "ASCENDING" },
+        { "fieldPath": "date", "order": "ASCENDING" }
+      ]
+    }
+  ],
   "fieldOverrides": []
 }

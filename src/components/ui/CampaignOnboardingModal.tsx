@@ -1,13 +1,16 @@
 import { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Building2, Plus, Sparkles, Users, History, Check, Loader2 } from 'lucide-react';
+import { Building2, Plus, Sparkles, Users, History, Check, Loader2, Mail } from 'lucide-react';
 import { useCampaign } from '../../context/CampaignContext';
+import { useAuth } from '../../context/AuthContext';
 
 export function CampaignOnboardingModal() {
   const { activeCampaign, campaigns, selectCampaign, createCampaign, loading } = useCampaign();
+  const { profile } = useAuth();
   
   const [isCreating, setIsCreating] = useState(false);
   const [newCampaignName, setNewCampaignName] = useState('');
+  const [adminEmail, setAdminEmail] = useState('');
   const [legacyId, setLegacyId] = useState('');
   const [syncCrm, setSyncCrm] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -17,13 +20,14 @@ export function CampaignOnboardingModal() {
   if (!isVisible) return null;
 
   const handleCreate = async () => {
-    if (!newCampaignName) return;
+    if (!newCampaignName || !adminEmail) return;
     setIsSubmitting(true);
     await createCampaign({
       name: newCampaignName,
       year: 2026,
       legacy_id: legacyId || undefined,
-      sync_crm: syncCrm
+      sync_crm: syncCrm,
+      admin_email: adminEmail
     });
     setIsSubmitting(false);
     setIsCreating(false);
@@ -72,14 +76,24 @@ export function CampaignOnboardingModal() {
                 ))
               )}
               
-              <button 
-                onClick={() => setIsCreating(true)}
-                className="w-full mt-4 p-4 border-2 border-dashed border-indigo-500/30 hover:border-indigo-500/60 rounded-xl text-center transition-all group"
-              >
-                <div className="flex items-center justify-center gap-2 text-indigo-400 font-bold uppercase text-xs tracking-widest">
-                  <Plus size={16} /> Nova Campanha 2026
-                </div>
-              </button>
+              {profile?.role === 'Proprietor' ? (
+                <button 
+                  onClick={() => setIsCreating(true)}
+                  className="w-full mt-4 p-4 border-2 border-dashed border-indigo-500/30 hover:border-indigo-500/60 rounded-xl text-center transition-all group"
+                >
+                  <div className="flex items-center justify-center gap-2 text-indigo-400 font-bold uppercase text-xs tracking-widest">
+                    <Plus size={16} /> Nova Campanha 2026
+                  </div>
+                </button>
+              ) : (
+                campaigns.length === 0 && (
+                  <div className="mt-4 p-4 bg-slate-800/50 border border-slate-700 rounded-xl text-center">
+                    <p className="text-sm text-slate-400">
+                      Aguardando a atribuição de uma campanha pelo Proprietário do sistema.
+                    </p>
+                  </div>
+                )
+              )}
             </div>
           ) : (
             <div className="flex flex-col gap-5 w-full">
@@ -91,6 +105,19 @@ export function CampaignOnboardingModal() {
                   className="w-full bg-slate-950 border border-white/10 rounded-lg px-4 py-3 text-slate-200 focus:border-indigo-500/50 focus:outline-none transition-all"
                   value={newCampaignName}
                   onChange={e => setNewCampaignName(e.target.value)}
+                />
+              </div>
+
+              <div className="space-y-1">
+                <label className="text-[10px] uppercase font-black text-slate-500 tracking-widest pl-1 flex items-center gap-2">
+                  <Mail size={12} /> E-mail do Administrador (Cliente)
+                </label>
+                <input 
+                  type="email" 
+                  placeholder="Ex: candidato@partido.com.br"
+                  className="w-full bg-slate-950 border border-white/10 rounded-lg px-4 py-3 text-slate-200 focus:border-indigo-500/50 focus:outline-none transition-all"
+                  value={adminEmail}
+                  onChange={e => setAdminEmail(e.target.value)}
                 />
               </div>
 
@@ -144,7 +171,7 @@ export function CampaignOnboardingModal() {
                 </button>
                 <button 
                   onClick={handleCreate}
-                  disabled={!newCampaignName || isSubmitting}
+                  disabled={!newCampaignName || !adminEmail || isSubmitting}
                   className="flex-[2] bg-indigo-600 hover:bg-indigo-500 disabled:opacity-50 text-white font-black text-xs uppercase py-3 rounded-xl shadow-lg shadow-indigo-500/20 flex items-center justify-center gap-2 transition-all"
                 >
                   {isSubmitting ? <Loader2 size={16} className="animate-spin" /> : <Sparkles size={16} />}

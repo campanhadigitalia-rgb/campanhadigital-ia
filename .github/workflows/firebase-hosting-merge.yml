@@ -24,6 +24,7 @@ jobs:
           VITE_META_AI_ENDPOINT: ${{ secrets.VITE_META_AI_ENDPOINT }}
           VITE_META_AI_API_KEY: ${{ secrets.VITE_META_AI_API_KEY }}
           VITE_MANUS_AI_API_KEY: ${{ secrets.VITE_MANUS_AI_API_KEY }}
+          VITE_GEMINI_API_KEY: ${{ secrets.VITE_GEMINI_API_KEY }}
       - run: npx firebase-tools deploy --only hosting --project campanha-digital-ia --token "$FIREBASE_TOKEN" --non-interactive
         env:
           FIREBASE_TOKEN: ${{ secrets.FIREBASE_TOKEN }}

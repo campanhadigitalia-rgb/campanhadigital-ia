@@ -55,6 +55,7 @@ export interface Campaign {
   
   // Herança e Dados Históricos
   legacy_campaign_id?: string;
+  admin_email: string;
   historical_results?: {
     city: string;
     real_votes: number;

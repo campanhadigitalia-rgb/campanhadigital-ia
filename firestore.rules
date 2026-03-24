@@ -20,8 +20,17 @@ service cloud.firestore {
       return isSignedIn() && (getProfile().role == 'Admin' || getProfile().role == 'Proprietor');
     }
 
+    function isCampaignAdmin(campaignId) {
+      let camp = get(/databases/$(database)/documents/campaigns/$(campaignId));
+      return camp != null && camp.data.admin_email == request.auth.token.email;
+    }
+
     function hasCampaignAccess(campaignId) {
-      return isProprietor() || (isSignedIn() && campaignId in getProfile().campaigns);
+      return isProprietor() || (isSignedIn() && (
+        campaignId == getProfile().campaign_id || 
+        campaignId in getProfile().campaigns || 
+        isCampaignAdmin(campaignId)
+      ));
     }
 
     // Regras por Coleção
@@ -38,8 +47,9 @@ service cloud.firestore {
 
     // Campanhas - Admin ou Proprietário
     match /campaigns/{campaignId} {
-      allow read: if isSignedIn() && hasCampaignAccess(campaignId);
-      allow write: if isProprietor() || (isAdmin() && hasCampaignAccess(campaignId));
+      allow read: if isProprietor() || (isSignedIn() && resource.data.admin_email == request.auth.token.email);
+      allow write: if isProprietor() || (isSignedIn() && resource.data.admin_email == request.auth.token.email);
+      allow create: if isProprietor();
     }
 
     // Contatos, Interações, Mensagens, etc. (Multi-Tenant isolado por campaign_id)

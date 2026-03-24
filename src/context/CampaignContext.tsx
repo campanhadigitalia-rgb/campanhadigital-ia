@@ -10,7 +10,7 @@ import React, {
   useMemo,
   useState,
 } from 'react';
-import { onSnapshot, doc, updateDoc, serverTimestamp, setDoc, collection } from 'firebase/firestore';
+import { onSnapshot, doc, updateDoc, serverTimestamp, setDoc, collection, query, where } from 'firebase/firestore';
 import { col, COLLECTIONS, db } from '../services/firebase';
 import type { Campaign, CampaignYear, ViewMode } from '../types';
 import { useAuth } from './AuthContext';
@@ -35,7 +35,7 @@ interface CampaignContextValue {
   historicalYear: CampaignYear | null;
   setHistoricalYear: (year: CampaignYear | null) => void;
   /** Cria uma nova campanha com suporte a legado */
-  createCampaign: (data: { name: string; year: CampaignYear; legacy_id?: string; sync_crm?: boolean }) => Promise<void>;
+  createCampaign: (data: { name: string; year: CampaignYear; legacy_id?: string; sync_crm?: boolean; admin_email: string }) => Promise<void>;
 }
 
 // ── Contexto ───────────────────────────────────────────────────
@@ -49,11 +49,11 @@ export function CampaignProvider({ children }: { children: React.ReactNode }) {
   const [loading, setLoading]           = useState(true);
   const [historicalYear, setHistoricalYear] = useState<CampaignYear | null>(null);
 
-  const { user } = useAuth();
+  const { user, profile } = useAuth();
 
   // Escuta mudanças em tempo real na coleção de campanhas apenas se logado
   useEffect(() => {
-    if (!user) {
+    if (!user || !profile) {
       setCampaigns([]);
       setActiveCampaign(null);
       setLoading(false);
@@ -61,7 +61,14 @@ export function CampaignProvider({ children }: { children: React.ReactNode }) {
     }
 
     setLoading(true);
-    const unsubscribe = onSnapshot(col<Campaign>(COLLECTIONS.CAMPAIGNS), (snap) => {
+    let q;
+    if (profile.role === 'Proprietor') {
+      q = col<Campaign>(COLLECTIONS.CAMPAIGNS);
+    } else {
+      q = query(col<Campaign>(COLLECTIONS.CAMPAIGNS), where('admin_email', '==', user.email));
+    }
+
+    const unsubscribe = onSnapshot(q, (snap) => {
       const data = snap.docs.map((d) => ({
         ...(d.data() as Campaign),
         id: d.id,
@@ -82,7 +89,7 @@ export function CampaignProvider({ children }: { children: React.ReactNode }) {
     });
 
     return unsubscribe;
-  }, [user]); // re-avalia se usuário mudar
+  }, [user, profile]); // re-avalia se usuário ou perfil mudar
 
   const selectCampaign = useCallback(
     (id: string) => {
@@ -105,7 +112,7 @@ export function CampaignProvider({ children }: { children: React.ReactNode }) {
   );
 
   const createCampaign = useCallback(
-    async (data: { name: string; year: CampaignYear, legacy_id?: string, sync_crm?: boolean }) => {
+    async (data: { name: string; year: CampaignYear, legacy_id?: string, sync_crm?: boolean, admin_email: string }) => {
       if (!user) return;
       
       const newRef = doc(collection(db, COLLECTIONS.CAMPAIGNS));
@@ -116,8 +123,12 @@ export function CampaignProvider({ children }: { children: React.ReactNode }) {
         year: data.year,
         active: true,
         createdAt: new Date(),
-        legacy_campaign_id: data.legacy_id,
+        admin_email: data.admin_email,
       };
+
+      if (data.legacy_id) {
+        campaignData.legacy_campaign_id = data.legacy_id;
+      }
 
       await setDoc(newRef, campaignData);
 

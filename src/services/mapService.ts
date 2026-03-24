@@ -1,4 +1,4 @@
-import { collection, query, where, getDocs } from 'firebase/firestore';
+import { collection, where, getDocs } from 'firebase/firestore';
 import { db, campaignQuery } from './firebase';
 
 export type MapPeriod = 'current' | 'history';
@@ -23,16 +23,7 @@ export async function fetchMapData(campaignId: string, period: MapPeriod): Promi
     const snap = await getDocs(q);
     
     if (snap.empty) {
-      if (period === 'current') {
-        return [
-          { id: 'c1', lat: -30.0346, lng: -51.2177, weight: 0.9, type: 'engagement', city: 'Porto Alegre' }
-        ];
-      } else {
-        return [
-          { id: 'h1', lat: -30.0346, lng: -51.2177, weight: 1.0, type: 'engagement', city: 'Porto Alegre' },
-          { id: 'l1', lat: -30.0346, lng: -51.2177, type: 'leader', city: 'Porto Alegre', name: 'Coordenação Histórica (RS)' }
-        ];
-      }
+      return [];
     }
     
     return snap.docs.map(d => ({ ...d.data(), id: d.id } as MapPoint));

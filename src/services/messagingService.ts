@@ -1,3 +1,6 @@
+import { collection, query, where, getDocs } from 'firebase/firestore';
+import { db } from './firebase';
+
 export interface MilitancyCell {
   id: string;
   name: string;
@@ -6,6 +9,7 @@ export interface MilitancyCell {
   estimatedReach: number;
   status: 'Online' | 'Aquecendo' | 'Offline';
   webhookId: string;
+  campaign_id?: string;
 }
 
 export interface FAQItem {
@@ -14,17 +18,15 @@ export interface FAQItem {
   text: string;
 }
 
-export async function fetchMilitancyCells(_campaignId: string): Promise<MilitancyCell[]> {
-  return new Promise((resolve) => {
-    setTimeout(() => {
-      resolve([
-        { id: 'c1', name: 'Ativistas Serra', region: 'Serra Gaúcha', memberCount: 2450, estimatedReach: 36750, status: 'Online', webhookId: 'wh_serra_992' },
-        { id: 'c2', name: 'Aliança Fronteira', region: 'Fronteira Oeste', memberCount: 1800, estimatedReach: 15300, status: 'Online', webhookId: 'wh_front_811' },
-        { id: 'c3', name: 'Base POA Central', region: 'Porto Alegre', memberCount: 5200, estimatedReach: 93600, status: 'Online', webhookId: 'wh_poa_555' },
-        { id: 'c4', name: 'Multiplicadores Sul', region: 'Pelotas/Rio Grande', memberCount: 890, estimatedReach: 6200, status: 'Aquecendo', webhookId: 'wh_sul_012' }
-      ]);
-    }, 400);
-  });
+export async function fetchMilitancyCells(campaignId: string): Promise<MilitancyCell[]> {
+  try {
+    const q = query(collection(db, 'militancy_cells'), where('campaign_id', '==', campaignId));
+    const snap = await getDocs(q);
+    if (snap.empty) return [];
+    return snap.docs.map(d => ({ id: d.id, ...d.data() } as MilitancyCell));
+  } catch(e) {
+    return [];
+  }
 }
 
 export async function fetchQuickReplies(): Promise<FAQItem[]> {

@@ -6,7 +6,6 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { History, Zap, ChevronDown } from 'lucide-react';
 import { useState } from 'react';
 import { useCampaign } from '../../context/CampaignContext';
-import type { CampaignYear } from '../../types';
 
 export function CampaignBadge() {
   const {
@@ -16,12 +15,9 @@ export function CampaignBadge() {
     setViewMode,
     selectCampaign,
     historicalYear,
-    setHistoricalYear,
   } = useCampaign();
 
   const [open, setOpen] = useState(false);
-
-  const HISTORICAL_YEARS: CampaignYear[] = [2026, 2028];
 
   return (
     <div className="relative">
@@ -44,7 +40,7 @@ export function CampaignBadge() {
           : <History size={14} />}
         <span>
           {viewMode === 'active'
-            ? (activeCampaign?.name ?? 'Sem campanha')
+            ? (activeCampaign?.name?.replace(/Piratini/gi, 'CampanhaDigitalIA') ?? 'Sem campanha')
             : `Histórico ${historicalYear ?? '—'}`}
         </span>
         <ChevronDown size={14} className={open ? 'rotate-180' : ''} style={{ transition: 'transform 0.2s' }} />
@@ -57,7 +53,7 @@ export function CampaignBadge() {
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: -8, scale: 0.95 }}
             transition={{ duration: 0.15 }}
-            className="glass-card absolute right-0 mt-2 min-w-48 z-50 overflow-hidden"
+            className="absolute right-0 mt-2 min-w-64 z-[100] bg-slate-900 border border-slate-700 shadow-[0_10px_30px_rgba(0,0,0,0.8)] rounded-xl overflow-hidden"
           >
             <div className="p-2">
               <p className="text-xs uppercase font-semibold px-2 pb-1" style={{ color: '#94a3b8' }}>
@@ -75,22 +71,6 @@ export function CampaignBadge() {
                 </button>
               ))}
 
-              <div className="my-1" style={{ height: 1, background: 'rgba(255,255,255,0.08)' }} />
-
-              <p className="text-xs uppercase font-semibold px-2 pb-1" style={{ color: '#94a3b8' }}>
-                Consulta Histórica
-              </p>
-              {HISTORICAL_YEARS.map((year) => (
-                <button
-                  key={year}
-                  onClick={() => { setViewMode('historical'); setHistoricalYear(year); setOpen(false); }}
-                  className="w-full text-left px-3 py-2 rounded-lg text-sm hover:bg-white/10 transition-colors flex items-center gap-2"
-                  style={{ color: viewMode === 'historical' && historicalYear === year ? '#f59e0b' : '#e2e8f0' }}
-                >
-                  <History size={12} />
-                  Campanha {year}
-                </button>
-              ))}
             </div>
           </motion.div>
         )}

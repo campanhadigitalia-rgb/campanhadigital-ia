@@ -4,22 +4,32 @@ export interface ContentPayload {
   twitter: string;
 }
 
-/**
- * Simula a chamada de uma API de IA (ex: OpenAI gpt-4o, Meta Llama-3, ou Claude-3.5)
- * Parametrizada por persona estrita do Governo.
- */
+import { GoogleGenerativeAI } from '@google/generative-ai';
+
+const API_KEY = import.meta.env.VITE_GEMINI_API_KEY || '';
+const genAI = new GoogleGenerativeAI(API_KEY);
+
 export async function generateCampaignScripts(fact: string): Promise<ContentPayload> {
-  return new Promise((resolve) => {
-    setTimeout(() => {
-      resolve({
-        instagram: `🚀 ACOMPANHA SÓ PRA ONDE VAMOS AVANÇAR!\n\nHoje é um dia histórico! Sobre: "${fact}", provamos mais uma vez que o nosso projeto não para! A energia do povo, a união e a entrega não deixam mentir: o trabalho vence qualquer obstáculo. 🚀\n\n#OTrabalhoVence #CampanhaDigital2026 #TecnologiaIA #AvanteSempre`,
-        
-        tiktok: `[Abre câmera no estilo selfie ou drone filmando obra]\n\n"Fala galera, vocês já viram o que acabou de rolar? Rápido, direto ao ponto: ${fact}. Menos promessa e muito, MUITO mais entrega técnica. Confere aí as imagens de trás [aponta para trás]. É esse o Estado de verdade!"\n\n[Música: Trend Upbeat / Dinâmica]`,
-        
-        twitter: `Informamos com a máxima transparência institucional que: ${fact}. O compromisso técnico e fiscal do Governo segue as diretrizes da LDO vigente, focado sempre em sanar problemas reais da população. Gestão responsável se faz com números. 📊🤝 #GestãoEficiente #GovernoDigital #IA`
-      });
-    }, 1500); // Simulando delay do LLM
-  });
+  if (!API_KEY) return { instagram: 'Erro: Chave de API Ausente', tiktok: 'Erro: Chave de API Ausente', twitter: 'Erro: Chave de API Ausente' };
+  
+  try {
+    const model = genAI.getGenerativeModel({ model: "gemini-flash-latest" });
+    const prompt = `Como um estrategista digital político sênior, crie scripts para 3 redes sociais sobre este fato: "${fact}".
+    O tom deve ser inspirador, focado em entregas e autoridade.
+    Redes: Instagram (legenda com hashtags), TikTok (roteiro de vídeo curto/hook), Twitter/X (institucional e direto).
+    Responda APENAS com um JSON puro no formato:
+    { "instagram": "...", "tiktok": "...", "twitter": "..." }`;
+    
+    const result = await model.generateContent(prompt);
+    let text = result.response.text().trim();
+    if (text.startsWith('```json')) text = text.replace(/^```json/, '').replace(/```$/, '').trim();
+    if (text.startsWith('```')) text = text.replace(/^```/, '').replace(/```$/, '').trim();
+    
+    return JSON.parse(text) as ContentPayload;
+  } catch (error) {
+    console.error("Content Generation Error:", error);
+    return { instagram: 'Fallback: Erro na geração IA', tiktok: 'Fallback: Erro na geração IA', twitter: 'Fallback: Erro na geração IA' };
+  }
 }
 
 /**

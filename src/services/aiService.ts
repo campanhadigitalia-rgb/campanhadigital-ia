@@ -6,13 +6,19 @@ export type Sentiment = 'positivo' | 'neutro' | 'negativo' | 'critico';
 const API_KEY = import.meta.env.VITE_GEMINI_API_KEY || '';
 const genAI = new GoogleGenerativeAI(API_KEY);
 
+if (typeof window !== 'undefined') {
+  console.log('[CDIA-AI] Key Length:', API_KEY?.length);
+  console.log('[CDIA-AI] Key Preview:', API_KEY?.substring(0, 8) + '...');
+}
+
 /**
  * Verifica se a chave do Gemini está operando corretamente.
  */
 export async function testGeminiConnection(): Promise<boolean> {
   if (!API_KEY || API_KEY === 'YOUR_API_KEY_HERE') return false;
   try {
-    const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
+    console.log('[CDIA-AI] Health Check for gemini-flash-latest...');
+    const model = genAI.getGenerativeModel({ model: "gemini-flash-latest" });
     await model.generateContent("Ping");
     return true;
   } catch (error) {
@@ -34,7 +40,7 @@ export async function analyzeSentiment(text: string): Promise<Sentiment> {
   }
   
   try {
-    const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
+    const model = genAI.getGenerativeModel({ model: "gemini-flash-latest" });
     const prompt = `Analise o seguinte texto: "${text}". 
 Responda APENAS com uma destas quatro palavras exatas em minúsculo: positivo, neutro, negativo, critico.`;
     
@@ -73,7 +79,7 @@ export async function generateResponseOptions(
     : `Você é o time de inteligência de comunicação de um candidato político.`;
 
   try {
-    const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
+    const model = genAI.getGenerativeModel({ model: "gemini-flash-latest" });
     
     const prompt = `${identityContext}
 Cidadão da região "${mention.region}" relatou: "${mention.text}"
@@ -115,7 +121,7 @@ export async function suggestOpponents(position: string, location: string): Prom
   if (!API_KEY || API_KEY === 'YOUR_API_KEY_HERE') return [];
 
   try {
-    const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
+    const model = genAI.getGenerativeModel({ model: "gemini-flash-latest" });
     const prompt = `Com base no cargo político "${position}" em "${location}", cite 3 oponentes prováveis ou figuras políticas rivais de destaque nessa região.
                    Retorne APENAS um JSON no formato: [{"name": "Nome", "socials": {"instagram": "@user"}}].`;
     
@@ -141,7 +147,7 @@ export async function analyzeLegacyContext(
   if (!API_KEY || API_KEY === 'YOUR_API_KEY_HERE') return "Memória IA: Analisando dados legados... (Chave ausente)";
 
   try {
-    const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
+    const model = genAI.getGenerativeModel({ model: "gemini-flash-latest" });
     const prompt = `Como estrategista político sênior, analise estes dados da campanha anterior:
     "${legacySentimentSummary}"
     

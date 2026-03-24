@@ -82,7 +82,7 @@ export function CampaignMap() {
   };
 
   return (
-    <div className="flex flex-col gap-4 w-full h-[600px] mt-4">
+    <div className="flex flex-col gap-4 w-full h-[500px] mt-4">
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
         <div>
           <h2 className="text-xl font-bold text-slate-100 flex items-center gap-2 m-0">

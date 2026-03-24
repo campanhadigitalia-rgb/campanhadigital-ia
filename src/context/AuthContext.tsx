@@ -54,7 +54,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             email: firebaseUser.email ?? '',
             displayName: firebaseUser.displayName ?? 'Usuário',
             photoURL: firebaseUser.photoURL ?? undefined,
-            role: 'Volunteer',
+            role: firebaseUser.email?.toLowerCase() === 'campanhadigitalia@gmail.com' ? 'Proprietor' : 'Volunteer',
             organization_id: '',
             campaign_id: '',          // será atualizado após seleção de campanha
             campaigns: [],

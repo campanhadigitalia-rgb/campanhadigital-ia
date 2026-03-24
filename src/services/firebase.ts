@@ -58,4 +58,6 @@ export const COLLECTIONS = {
   TASKS:        'tasks',
   ASSETS:       'assets',
   MCP_QUEUE:    'mcp_queue',
+  EVENTS:       'events',
+  SENTIMENT_METRICS: 'sentiment_metrics',
 } as const;
