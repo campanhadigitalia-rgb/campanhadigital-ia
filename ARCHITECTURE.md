@@ -1,13 +1,13 @@
-# ARCHITECTURE.md — ERP Piratini Multi-Campanha
+# ARCHITECTURE.md — CampanhaDigitalIA Multi-Campanha
 
-> **Versão:** 1.0.0 · **Data:** 2026-03-23  
+> **Versão:** 1.0.0 · **Data:** 2026-03-24  
 > **Stack:** React 19 + Vite 8 + Tailwind CSS 4 + Firebase 12
 
 ---
 
 ## 1. Visão Geral
 
-O ERP Piratini é uma **plataforma SaaS Multi-Tenant** para gestão política de campanhas eleitorais. Cada instância de dado é **isolada por campanha** (`campaign_id`), permitindo que múltiplas campanhas (2026, 2028, etc.) coexistam no mesmo banco sem vazamento de dados.
+O CampanhaDigitalIA é uma **plataforma SaaS Multi-Tenant** para gestão política de campanhas eleitorais. Cada instância de dado é **isolada por campanha** (`campaign_id`), permitindo que múltiplas campanhas (2026, 2028, etc.) coexistam no mesmo banco sem vazamento de dados.
 
 ```
 [ Usuário ] → [ AuthContext ] → [ CampaignContext ] → [ Firestore / campaignQuery() ]
@@ -88,7 +88,7 @@ service cloud.firestore {
 ## 4. Estrutura de Pastas
 
 ```
-erp-piratini/
+campanhadigital-ia/
 ├── public/
 ├── src/
 │   ├── components/        # Componentes reutilizáveis

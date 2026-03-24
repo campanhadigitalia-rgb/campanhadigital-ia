@@ -1,16 +1,28 @@
 import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { Brain, DollarSign, Activity, MessageCircle, Flame, Download, AlertTriangle, ShieldAlert, CheckCircle, Crosshair } from 'lucide-react';
+import { Brain, DollarSign, Activity, MessageCircle, Flame, Download, AlertTriangle, ShieldAlert, CheckCircle, Crosshair, ZapOff } from 'lucide-react';
 
 import { getPollTrackingHistory } from '../../services/oracleService';
 import { fetchFinanceStats } from '../../services/multipliersService';
 import { fetchMilitancyCells } from '../../services/messagingService';
+import { testGeminiConnection } from '../../services/aiService';
+import { useAuth } from '../../context/AuthContext';
+import { useCampaign } from '../../context/CampaignContext';
 import { CampaignMap } from './CampaignMap';
 import { SocialSentinel } from './SocialSentinel';
 
 export function ExecutiveDashboard() {
+  const { profile } = useAuth();
+  const { activeCampaign } = useCampaign();
   const [warMode, setWarMode] = useState(false);
   const [crisisData, setCrisisData] = useState<{ regions: string[], topics: string[] }>({ regions: [], topics: [] });
+
+  // Monitoramento de Conectividade Real
+  const { data: apiStatus } = useQuery({ 
+    queryKey: ['gemini_health'], 
+    queryFn: testGeminiConnection,
+    staleTime: 300000 
+  });
 
   const handleCrisisAlert = (regions: string[], topics: string[]) => {
     if (JSON.stringify(regions) !== JSON.stringify(crisisData.regions)) {
@@ -19,13 +31,18 @@ export function ExecutiveDashboard() {
   };
 
   // TanStack React Query: Sincronia Simultânea do "Pool" de microsserviços
-  const { data: polls } = useQuery({ queryKey: ['oracle_polls'], queryFn: getPollTrackingHistory, staleTime: 60000 });
-  const { data: finance } = useQuery({ queryKey: ['finance_stats'], queryFn: () => fetchFinanceStats('CDIA_2026'), staleTime: 60000 });
-  const { data: cells } = useQuery({ queryKey: ['militancy_cells'], queryFn: () => fetchMilitancyCells('CDIA_2026'), staleTime: 60000 });
+  const { data: polls } = useQuery<any[]>({ 
+    queryKey: ['oracle_polls', activeCampaign?.id], 
+    queryFn: () => getPollTrackingHistory(activeCampaign?.id || 'CDIA_2026'), 
+    staleTime: 60000 
+  });
+  const { data: finance } = useQuery({ queryKey: ['finance_stats'], queryFn: () => fetchFinanceStats(activeCampaign?.id || 'CDIA_2026'), staleTime: 60000 });
+  const { data: cells } = useQuery({ queryKey: ['militancy_cells'], queryFn: () => fetchMilitancyCells(activeCampaign?.id || 'CDIA_2026'), staleTime: 60000 });
 
-  const lastPollInfo = polls && polls.length > 0 ? polls[polls.length - 1].Governador : 0;
-  const financeRaised = finance ? finance.raised : 0;
-  const totalReach = cells ? cells.reduce((acc: number, c: any) => acc + c.estimatedReach, 0) : 0;
+  const pollsList = Array.isArray(polls) ? polls : [];
+  const lastPollInfo = pollsList.length > 0 ? (pollsList[pollsList.length - 1] as any).Governador || 0 : 0;
+  const financeRaised = (finance as any)?.raised || 0;
+  const totalReach = Array.isArray(cells) ? (cells as any[]).reduce((acc: number, c: any) => acc + (c.estimatedReach || 0), 0) : 0;
   const streetClimate = 42;
 
   const exportPDF = () => { window.print(); };
@@ -73,8 +90,12 @@ export function ExecutiveDashboard() {
     <div className="flex flex-col gap-6 w-full h-full max-w-7xl mx-auto">
       <div className="flex flex-col md:flex-row md:items-end justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-black text-slate-100 flex items-center gap-2 tracking-tight uppercase">CAMPANHADIGITAL IA <span className="text-emerald-500">•</span> ALTO COMANDO</h1>
-          <p className="text-sm text-slate-400">Dados vitais consolidados em tempo real pelas engines de IA da Campanha.</p>
+          <h1 className="text-2xl font-black text-slate-100 flex items-center gap-2 tracking-tight uppercase">
+            {activeCampaign?.name || 'CAMPANHADIGITAL IA'} <span className="text-emerald-500">•</span> ALTO COMANDO
+          </h1>
+          <p className="text-sm text-slate-400">
+            Operação de {profile?.displayName || 'Candidato'} monitorada em tempo real pelas engines de IA.
+          </p>
         </div>
         <div className="flex items-center gap-3">
           <button onClick={exportPDF} className="bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-600 px-4 py-2.5 rounded-lg flex items-center gap-2 text-sm font-bold transition-all shadow-sm">
@@ -85,6 +106,19 @@ export function ExecutiveDashboard() {
           </button>
         </div>
       </div>
+
+      {apiStatus === false && (
+        <div className="bg-rose-500/10 border border-rose-500/30 p-4 rounded-xl flex items-center justify-between animate-in slide-in-from-top-4 duration-500">
+          <div className="flex items-center gap-3">
+             <div className="bg-rose-500/20 p-2 rounded-lg text-rose-500"><ZapOff size={20} /></div>
+             <div>
+               <h4 className="text-sm font-bold text-rose-200">CONECTIVIDADE GEMINI INTERROMPIDA</h4>
+               <p className="text-xs text-rose-400/80">O motor de IA está offline ou a chave VITE_GEMINI_API_KEY é inválida. Análises automáticas suspensas.</p>
+             </div>
+          </div>
+          <button className="text-[10px] font-black uppercase tracking-widest bg-rose-500/20 text-rose-400 px-3 py-1.5 rounded hover:bg-rose-500/30 transition-all">Configurar Chave</button>
+        </div>
+      )}
 
       <div className="bg-slate-900/80 border border-red-500/20 rounded-xl p-3 flex flex-col sm:flex-row items-start sm:items-center gap-3 flex-wrap shadow-inner relative overflow-hidden">
          <div className="absolute left-0 top-0 bottom-0 w-1 bg-gradient-to-b from-amber-500 to-red-500"></div>

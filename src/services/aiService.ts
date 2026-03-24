@@ -7,6 +7,21 @@ const API_KEY = import.meta.env.VITE_GEMINI_API_KEY || '';
 const genAI = new GoogleGenerativeAI(API_KEY);
 
 /**
+ * Verifica se a chave do Gemini está operando corretamente.
+ */
+export async function testGeminiConnection(): Promise<boolean> {
+  if (!API_KEY || API_KEY === 'YOUR_API_KEY_HERE') return false;
+  try {
+    const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
+    await model.generateContent("Ping");
+    return true;
+  } catch (error) {
+    console.error("Gemini Health Check Failed:", error);
+    return false;
+  }
+}
+
+/**
  * Invoca o LLM (Gemini 1.5 Flash) para inferir o sentimento da menção de forma real.
  */
 export async function analyzeSentiment(text: string): Promise<Sentiment> {
