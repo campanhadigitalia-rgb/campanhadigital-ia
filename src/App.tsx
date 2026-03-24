@@ -20,11 +20,10 @@ import Studio from './pages/Studio';
 import Messaging from './pages/Messaging';
 import OraclePage from './pages/Oracle';
 import LegalPage from './pages/Legal';
+import SettingsPage from './pages/Settings';
+import MCPAgents from './pages/MCPAgents';
 
-// ── Páginas (stubs — serão implementadas nos próximos prompts) ─
-function MCPPanel()   { return <PlaceholderPage icon={<Bot />}       title="Agentes MCP" />; }
-function SettingsPage(){ return <PlaceholderPage icon={<Settings />} title="Configurações" />; }
-
+// ── Páginas (stubs) ──
 function PlaceholderPage({ icon, title }: { icon: React.ReactNode; title: string }) {
   return (
     <motion.div
@@ -201,7 +200,7 @@ export default function App() {
     whatsapp:  <Messaging />,
     oracle:    <OraclePage />,
     legal:     <LegalPage />,
-    mcp:       <MCPPanel />,
+    mcp:       <MCPAgents />,
     settings:  <SettingsPage />,
   };
 

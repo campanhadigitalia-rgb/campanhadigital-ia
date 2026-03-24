@@ -13,6 +13,7 @@ import React, {
 import { onSnapshot } from 'firebase/firestore';
 import { col, COLLECTIONS } from '../services/firebase';
 import type { Campaign, CampaignYear, ViewMode } from '../types';
+import { useAuth } from './AuthContext';
 
 // ── Tipagem do contexto ────────────────────────────────────────
 interface CampaignContextValue {
@@ -46,8 +47,18 @@ export function CampaignProvider({ children }: { children: React.ReactNode }) {
   const [loading, setLoading]           = useState(true);
   const [historicalYear, setHistoricalYear] = useState<CampaignYear | null>(null);
 
-  // Escuta mudanças em tempo real na coleção de campanhas
+  const { user } = useAuth();
+
+  // Escuta mudanças em tempo real na coleção de campanhas apenas se logado
   useEffect(() => {
+    if (!user) {
+      setCampaigns([]);
+      setActiveCampaign(null);
+      setLoading(false);
+      return;
+    }
+
+    setLoading(true);
     const unsubscribe = onSnapshot(col<Campaign>(COLLECTIONS.CAMPAIGNS), (snap) => {
       const data = snap.docs.map((d) => ({
         ...(d.data() as Campaign),
@@ -57,7 +68,6 @@ export function CampaignProvider({ children }: { children: React.ReactNode }) {
 
       // Auto-seleciona a campanha ativa se nenhuma estiver selecionada
       if (!activeCampaign) {
-        // Prioridade: campanha marcada como active, senão fallback para PIRATINI_2026
         const ativa = data.find((c) => c.active) ?? data.find((c) => c.id === 'PIRATINI_2026');
         if (ativa) setActiveCampaign(ativa);
       }
@@ -66,7 +76,7 @@ export function CampaignProvider({ children }: { children: React.ReactNode }) {
     });
 
     return unsubscribe;
-  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [user]); // re-avalia se usuário mudar
 
   const selectCampaign = useCallback(
     (id: string) => {
