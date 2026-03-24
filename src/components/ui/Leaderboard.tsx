@@ -1,22 +1,16 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { Users, TrendingUp, Trophy, Search, Star, Shield, ShieldAlert, Award } from 'lucide-react';
 import { motion } from 'framer-motion';
-import { fetchMultipliers, type Leader } from '../../services/multipliersService';
-import { useCampaign } from '../../context/CampaignContext';
+import { type Leader } from '../../services/multipliersService';
+import { useCampaignQuery } from '../../hooks/useCampaignQuery';
+import { col, COLLECTIONS } from '../../services/firebase';
 
 export function Leaderboard() {
-  const { campaignId } = useCampaign();
-  const [leaders, setLeaders] = useState<Leader[]>([]);
-  const [loading, setLoading] = useState(true);
+  const { data: leadersData, loading } = useCampaignQuery<Leader>(col(COLLECTIONS.CONTACTS), 'digitalEngagement');
   const [searchTerm, setSearchTerm] = useState('');
 
-  useEffect(() => {
-    fetchMultipliers(campaignId).then(data => {
-      // Ordenar por poder gamificado (engajamento) no load
-      setLeaders(data.sort((a, b) => b.digitalEngagement - a.digitalEngagement));
-      setLoading(false);
-    });
-  }, [campaignId]);
+  // useCampaignQuery already sorts desc, we just map it.
+  const leaders = leadersData || [];
 
   const filtered = leaders.filter(l => 
     l.name.toLowerCase().includes(searchTerm.toLowerCase()) || 

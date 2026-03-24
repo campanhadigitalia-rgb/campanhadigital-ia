@@ -66,10 +66,14 @@ export function CampaignProvider({ children }: { children: React.ReactNode }) {
       }));
       setCampaigns(data);
 
-      // Auto-seleciona a campanha ativa se nenhuma estiver selecionada
+      // Removemos auto-select forçado para mostrar o Modal
+      // Apenas restaura do LocalStorage se existir
       if (!activeCampaign) {
-        const ativa = data.find((c) => c.active) ?? data.find((c) => c.id === 'PIRATINI_2026');
-        if (ativa) setActiveCampaign(ativa);
+        const savedId = localStorage.getItem('@Campanha_Ativa');
+        if (savedId) {
+          const found = data.find((c) => c.id === savedId);
+          if (found) setActiveCampaign(found);
+        }
       }
 
       setLoading(false);
@@ -81,13 +85,16 @@ export function CampaignProvider({ children }: { children: React.ReactNode }) {
   const selectCampaign = useCallback(
     (id: string) => {
       const found = campaigns.find((c) => c.id === id);
-      if (found) setActiveCampaign(found);
+      if (found) {
+        setActiveCampaign(found);
+        localStorage.setItem('@Campanha_Ativa', id);
+      }
     },
     [campaigns],
   );
 
-  // Fallback para PIRATINI_2026 se nenhuma campanha ativa existir ainda
-  const campaignId = activeCampaign?.id ?? 'PIRATINI_2026';
+  // Removemos o fallback forçado, se não houver campanha o ID fica vazio (esperando Onboarding)
+  const campaignId = activeCampaign?.id ?? '';
 
   const value = useMemo<CampaignContextValue>(
     () => ({

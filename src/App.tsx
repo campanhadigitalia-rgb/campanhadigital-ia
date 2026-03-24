@@ -11,6 +11,7 @@ import {
 import { useAuth } from './context/AuthContext';
 import { useCampaign } from './context/CampaignContext';
 import { CampaignBadge } from './components/ui/CampaignBadge';
+import { CampaignOnboardingModal } from './components/ui/CampaignOnboardingModal';
 
 
 import Dashboard from './pages/Dashboard';
@@ -368,6 +369,8 @@ export default function App() {
           </AnimatePresence>
         </main>
       </div>
+
+      <CampaignOnboardingModal />
     </div>
   );
 }

@@ -1,4 +1,6 @@
-import { Bot, LineChart, Scale, Zap } from 'lucide-react';
+import { useState } from 'react';
+import { Bot, LineChart, Scale, Zap, Loader2, Send } from 'lucide-react';
+import { generateResponseOptions, type AIReply } from '../../services/aiService';
 
 const AGENTS = [
   {
@@ -6,10 +8,10 @@ const AGENTS = [
     name: 'Agente de Resposta Rápida',
     description: 'Monitora menções e Whatsapp, sugerindo respostas automáticas e mantendo a voz do candidato alinhada com as diretrizes da campanha.',
     icon: MessageCircleIcon,
-    status: 'Em Desenvolvimento',
+    status: 'Ativo (Simulação)',
     color: 'text-indigo-400',
     bg: 'bg-indigo-500/10',
-    border: 'border-indigo-500/20'
+    border: 'border-indigo-500/50'
   },
   {
     id: 'data',
@@ -42,8 +44,34 @@ function MessageCircleIcon({ size, className }: { size: number, className?: stri
 }
 
 export default function MCPAgents() {
+  const [topic, setTopic] = useState('');
+  const [loading, setLoading] = useState(false);
+  const [replies, setReplies] = useState<AIReply[]>([]);
+
+  const handleAgentAction = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!topic.trim()) return;
+    
+    setLoading(true);
+    setReplies([]);
+    try {
+      const options = await generateResponseOptions({
+        id: 'sim-1',
+        region: 'Capital',
+        topic,
+        platform: 'Twitter',
+        text: topic,
+        timestamp: new Date().toISOString()
+      });
+      setReplies(options);
+    } finally {
+      setLoading(false);
+      setTopic('');
+    }
+  };
+
   return (
-    <div className="flex flex-col gap-6 h-full">
+    <div className="flex flex-col gap-6 h-full overflow-y-auto pb-10">
       <div>
         <h1 className="text-2xl font-bold text-slate-100 flex items-center gap-2">
           <Bot className="text-indigo-400" />
@@ -73,10 +101,47 @@ export default function MCPAgents() {
               </p>
             </div>
 
+            {/* Simulação Interativa para o Agente de Resposta Rápida */}
+            {agent.id === 'responder' && (
+               <div className="flex flex-col gap-3 mt-2 bg-black/20 p-4 rounded-lg border border-white/5">
+                 <p className="text-xs uppercase text-slate-400 font-bold tracking-wider">Simulador de Resposta</p>
+                 <form onSubmit={handleAgentAction} className="flex flex-col gap-2">
+                   <textarea
+                     value={topic}
+                     onChange={e => setTopic(e.target.value)}
+                     disabled={loading}
+                     placeholder="Ex: Reclamação sobre buracos na via..."
+                     className="w-full bg-slate-900 border border-slate-700 rounded-md p-2 text-sm text-white focus:outline-none focus:border-indigo-500 resize-none h-16"
+                   />
+                   <button 
+                     type="submit" 
+                     disabled={!topic.trim() || loading}
+                     className="bg-indigo-600 hover:bg-indigo-500 disabled:opacity-50 text-white font-medium text-sm py-2 rounded-md transition-colors flex justify-center items-center gap-2"
+                   >
+                     {loading ? <Loader2 size={16} className="animate-spin" /> : <Send size={16} />}
+                     Gerar Rascunhos OFICIAIS
+                   </button>
+                 </form>
+
+                 {replies.length > 0 && (
+                   <div className="mt-4 flex flex-col gap-3">
+                     {replies.map((reply, idx) => (
+                       <div key={idx} className="bg-slate-800/50 border border-slate-700 rounded-md p-3 text-sm">
+                         <span className="text-[10px] uppercase text-indigo-400 font-bold block mb-1">
+                           Persona: {reply.persona}
+                         </span>
+                         <p className="text-slate-300 italic">"{reply.text}"</p>
+                       </div>
+                     ))}
+                   </div>
+                 )}
+               </div>
+            )}
+
             <div className="mt-auto pt-4 border-t border-slate-700/50 flex justify-between items-center">
               <div className="flex items-center gap-2 text-xs text-slate-500">
                 <Zap size={14} className={agent.color} />
-                <span>Integração pendente</span>
+                <span>{agent.id === 'responder' ? 'Motor AI Ativo' : 'Integração pendente'}</span>
               </div>
               <button className="text-sm font-medium text-slate-300 hover:text-white transition-colors bg-white/5 hover:bg-white/10 px-3 py-1.5 rounded">
                 Configurar
