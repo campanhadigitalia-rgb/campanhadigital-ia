@@ -6,9 +6,19 @@ import { Brain, DollarSign, Activity, MessageCircle, Flame, Download, AlertTrian
 import { getPollTrackingHistory } from '../../services/oracleService';
 import { fetchFinanceStats } from '../../services/multipliersService';
 import { fetchMilitancyCells } from '../../services/messagingService';
+import { CampaignMap } from './CampaignMap';
+import { SocialSentinel } from './SocialSentinel';
 
 export function ExecutiveDashboard() {
   const [warMode, setWarMode] = useState(false);
+  const [crisisData, setCrisisData] = useState<{ regions: string[], topics: string[] }>({ regions: [], topics: [] });
+
+  const handleCrisisAlert = (regions: string[], topics: string[]) => {
+    // Apenas atualiza se houver mudança real para evitar loops de render
+    if (JSON.stringify(regions) !== JSON.stringify(crisisData.regions)) {
+      setCrisisData({ regions, topics });
+    }
+  };
 
   // TanStack React Query: Sincronia Simultânea do "Pool" de microsserviços
   const { data: polls } = useQuery({ queryKey: ['oracle_polls'], queryFn: getPollTrackingHistory, staleTime: 60000 });
@@ -98,7 +108,13 @@ export function ExecutiveDashboard() {
            <AlertTriangle size={12}/> Prioridades Máximas
          </span>
          <div className="flex items-center gap-4 text-sm font-medium animate-marquee sm:animate-none flex-1 overflow-hidden">
-           <span className="text-amber-400 truncate cursor-pointer hover:underline">⚠️ Queda súbita de sentimento positivo na região de Caxias do Sul (Sentinela).</span>
+           {crisisData.regions.length > 0 ? (
+             <span className="text-rose-400 truncate animate-pulse font-bold">
+               🔥 ALERTA CRÍTICO: {(crisisData.topics[0] || 'Instabilidade')} detectada em {crisisData.regions.join(', ')}. Acionar Agente MCP!
+             </span>
+           ) : (
+             <span className="text-amber-400 truncate cursor-pointer hover:underline">⚠️ Queda súbita de sentimento positivo na região de Caxias do Sul (Sentinela).</span>
+           )}
            <span className="text-red-400 truncate cursor-pointer hover:underline">⚖️ Nova Representação Jurídica detectada contra CNPJ de Impulsionamento.</span>
            <span className="text-emerald-400 truncate cursor-pointer hover:underline">✅ O Oráculo projeta vitória técnica em Canoas caso roteirizado com prefeita.</span>
          </div>
@@ -185,9 +201,28 @@ export function ExecutiveDashboard() {
 
       </div>
 
-      {/* Espaço em Branco para fechar o layout caso a resolução seja grande */}
-      <div className="flex-1 flex flex-col items-center justify-center p-8 opacity-20 pointer-events-none mt-4 border-2 border-dashed border-slate-700/50 rounded-2xl w-full">
-         <span className="text-2xl font-black tracking-[0.5em] text-slate-500/30 uppercase">Painel Restrito</span>
+      {/* GRID TÁTICO: MAPA E SENTINELA */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
+        
+        {/* Coluna do Mapa (2/3) */}
+        <div className="lg:col-span-2 flex flex-col h-full">
+          <div className="glass-card p-0 overflow-hidden border border-white/5 h-full min-h-[500px]">
+             <CampaignMap />
+          </div>
+        </div>
+
+        {/* Coluna do Sentinel (1/3) */}
+        <div className="lg:col-span-1 flex flex-col h-full">
+           <div className="glass-card p-6 border border-white/5 h-full min-h-[500px] overflow-y-auto">
+              <SocialSentinel onCrisisAlert={handleCrisisAlert} />
+           </div>
+        </div>
+
+      </div>
+
+      {/* Espaço para Rodapé / Branding */}
+      <div className="opacity-20 pointer-events-none mt-4 text-center py-8">
+         <span className="text-xl font-black tracking-[0.5em] text-slate-500/30 uppercase">CampanhaDigital IA © 2026</span>
       </div>
     </div>
   );

@@ -58,7 +58,7 @@ export function PollsOracle() {
                <TrendingUp size={16} /> Evolução: Intenção x Entregas da Agenda
              </h3>
           </div>
-          <div className="flex-1 p-4 pb-0 pt-6">
+          <div className="p-4 pt-6" style={{ height: 300 }}>
             <ResponsiveContainer width="100%" height="100%">
               <ComposedChart data={history} margin={{ top: 0, right: 10, left: -20, bottom: 0 }}>
                 <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="rgba(255,255,255,0.05)" />

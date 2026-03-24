@@ -24,22 +24,6 @@ import LegalPage from './pages/Legal';
 import SettingsPage from './pages/Settings';
 import MCPAgents from './pages/MCPAgents';
 
-// ── Páginas (stubs) ──
-function PlaceholderPage({ icon, title }: { icon: React.ReactNode; title: string }) {
-  return (
-    <motion.div
-      initial={{ opacity: 0, y: 16 }}
-      animate={{ opacity: 1, y: 0 }}
-      className="flex flex-col items-center justify-center h-full gap-4"
-      style={{ color: '#94a3b8' }}
-    >
-      <div style={{ fontSize: 64 }}>{icon}</div>
-      <h2 style={{ fontSize: 24, fontWeight: 600, color: '#e2e8f0' }}>{title}</h2>
-      <p style={{ fontSize: 14 }}>Módulo em desenvolvimento — próximos prompts</p>
-    </motion.div>
-  );
-}
-
 // ── Tela de Login ──────────────────────────────────────────────
 function LoginScreen() {
   const { signInWithGoogle, signInWithEmail, signUpWithEmail, loading } = useAuth();

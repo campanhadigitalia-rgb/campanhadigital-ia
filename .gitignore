@@ -10,7 +10,14 @@ lerna-debug.log*
 node_modules
 dist
 dist-ssr
-*.local
+# Local environment variables
+.env
+.env*.local
+
+# Temporary files
+tmp/
+tmp_seed.js
+.firebase/
 
 # Editor directories and files
 .vscode/*

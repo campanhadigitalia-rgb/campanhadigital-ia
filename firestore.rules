@@ -6,27 +6,37 @@ service cloud.firestore {
       return request.auth != null;
     }
     
-    function getProfile() {
-      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data;
-    }
-    
-    // O usuário acessa apenas campanhas que estejam ativas no perfil dele
-    // ou constem na lista de campanhas do perfil
     function hasCampaignAccess(cid) {
-      let profile = getProfile();
-      return profile != null && (profile.campaign_id == cid || cid in profile.campaigns || profile.role == 'admin');
+      return isAuth() && 
+             cid != null && 
+             cid != "" && 
+             exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
+             (
+               get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'Admin' || 
+               get(/databases/$(database)/documents/users/$(request.auth.uid)).data.campaign_id == cid || 
+               (cid in get(/databases/$(database)/documents/users/$(request.auth.uid)).data.campaigns)
+             );
     }
 
     match /users/{userId} {
-      // Usuário pode ler/escrever o próprio perfil
       allow read, write: if isAuth() && request.auth.uid == userId;
     }
 
-    // Regra global: todo documento deve possuir um campaign_id atrelado (Multi-tenant check)
+    match /campaigns/{campaignId} {
+      allow read: if isAuth();
+      allow write: if isAuth() && exists(/databases/$(database)/documents/users/$(request.auth.uid)) && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'Admin';
+    }
+
     match /{collection}/{docId} {
-      allow read: if isAuth() && hasCampaignAccess(resource.data.campaign_id);
-      allow create: if isAuth() && hasCampaignAccess(request.resource.data.campaign_id);
-      allow update, delete: if isAuth() && hasCampaignAccess(resource.data.campaign_id);
+      allow read: if isAuth() && 
+                    collection != 'users' && 
+                    collection != 'campaigns' && 
+                    hasCampaignAccess(resource.data.campaign_id);
+      
+      allow write: if isAuth() && 
+                     collection != 'users' && 
+                     collection != 'campaigns' && 
+                     hasCampaignAccess(request.resource.data.campaign_id || (resource != null ? resource.data.campaign_id : ""));
     }
   }
 }

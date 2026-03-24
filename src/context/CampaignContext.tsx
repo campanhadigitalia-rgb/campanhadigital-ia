@@ -10,8 +10,8 @@ import React, {
   useMemo,
   useState,
 } from 'react';
-import { onSnapshot } from 'firebase/firestore';
-import { col, COLLECTIONS } from '../services/firebase';
+import { onSnapshot, doc, updateDoc, serverTimestamp } from 'firebase/firestore';
+import { col, COLLECTIONS, db } from '../services/firebase';
 import type { Campaign, CampaignYear, ViewMode } from '../types';
 import { useAuth } from './AuthContext';
 
@@ -88,9 +88,18 @@ export function CampaignProvider({ children }: { children: React.ReactNode }) {
       if (found) {
         setActiveCampaign(found);
         localStorage.setItem('@Campanha_Ativa', id);
+        
+        // Persistência no Firestore para validação das Security Rules
+        if (user) {
+          const ref = doc(db, COLLECTIONS.USERS, user.uid);
+          updateDoc(ref, { 
+            campaign_id: id,
+            updatedAt: serverTimestamp() 
+          }).catch(err => console.error("Erro ao persistir campanha no perfil:", err));
+        }
       }
     },
-    [campaigns],
+    [campaigns, user],
   );
 
   // Removemos o fallback forçado, se não houver campanha o ID fica vazio (esperando Onboarding)
