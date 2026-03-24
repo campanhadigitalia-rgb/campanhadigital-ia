@@ -247,7 +247,10 @@ export default function App() {
 
             {/* Nav */}
             <nav style={{ flex: 1, padding: '12px 8px' }}>
-              {NAV_ITEMS.map(({ id, label, Icon }) => (
+              {NAV_ITEMS.filter(item => {
+                if (profile?.role === 'Volunteer' && ['oracle', 'settings'].includes(item.id)) return false;
+                return true;
+              }).map(({ id, label, Icon }) => (
                 <button
                   key={id}
                   id={`nav-${id}`}
@@ -290,7 +293,7 @@ export default function App() {
                     {profile?.displayName ?? user.displayName}
                   </p>
                   <p style={{ margin: 0, fontSize: 10, color: '#6366f1', textTransform: 'uppercase' }}>
-                    {profile?.role ?? 'viewer'}
+                    {profile?.role ?? 'Volunteer'}
                   </p>
                 </div>
                 <button

@@ -1,3 +1,5 @@
+import { GoogleGenerativeAI } from '@google/generative-ai';
+
 export type Sentiment = 'positivo' | 'neutro' | 'negativo' | 'critico';
 
 export interface Mention {
@@ -15,43 +17,90 @@ export interface AIReply {
   text: string;
 }
 
+const API_KEY = import.meta.env.VITE_GEMINI_API_KEY || '';
+const genAI = new GoogleGenerativeAI(API_KEY);
+
 /**
- * Simula a chamada para um LLM (Meta Llama 3 via Replicate/Groq ou Manus AI) 
- * para inferir o sentimento da menção baseada na PLN local.
+ * Invoca o LLM (Gemini 1.5 Flash) para inferir o sentimento da menção de forma real.
  */
 export async function analyzeSentiment(text: string): Promise<Sentiment> {
-  return new Promise(resolve => {
-    setTimeout(() => {
-      const lower = text.toLowerCase();
-      if (lower.includes('😡') || lower.includes('incompetente') || lower.includes('urgentes') || lower.includes('absurdo')) return resolve('critico');
-      if (lower.includes('ruim') || lower.includes('difícil') || lower.includes('sofrendo')) return resolve('negativo');
-      if (lower.includes('boa') || lower.includes('parabéns') || lower.includes('seguro') || lower.includes('bom')) return resolve('positivo');
-      resolve('neutro');
-    }, 400); // Simulando delay de rede da IA API
-  });
+  if (!API_KEY || API_KEY === 'YOUR_API_KEY_HERE') {
+    // Fallback seguro caso a chave não tenha sido preenchida pelo usuário localmente
+    const lower = text.toLowerCase();
+    if (lower.includes('incompetente') || lower.includes('absurdo')) return 'critico';
+    if (lower.includes('ruim') || lower.includes('difícil')) return 'negativo';
+    if (lower.includes('boa') || lower.includes('bom')) return 'positivo';
+    return 'neutro';
+  }
+  
+  try {
+    const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
+    const prompt = `Analise o seguinte texto: "${text}". 
+Responda APENAS com uma destas quatro palavras exatas em minúsculo: positivo, neutro, negativo, critico.`;
+    
+    const result = await model.generateContent(prompt);
+    const responseText = result.response.text();
+    const sentiment = responseText.toLowerCase().replace(/[^a-z]/g, '') as Sentiment;
+    
+    if (['positivo', 'neutro', 'negativo', 'critico'].includes(sentiment)) {
+      return sentiment;
+    }
+  } catch (error) {
+    console.error("AI Sentiment Error:", error);
+  }
+  return 'neutro';
 }
 
 /**
- * Usa a persona do Governador para tecer rascunhos de resposta (RAG Prompt Template).
- * Gera 3 matizes diferentes de resposta para o gabinete aprovar.
+ * Usa a persona do Governador e o modelo Gemini-1.5 para tecer respostas (RAG).
+ * Gera 3 matizes diferentes de resposta retornando via JSON parse.
  */
 export async function generateResponseOptions(mention: Mention): Promise<AIReply[]> {
-  return new Promise(resolve => {
-    setTimeout(() => {
-      resolve([
-        { 
-          persona: 'Conciliador', 
-          text: `Compreendemos profundamente a sua frustração em ${mention.region} sobre o tema de ${mention.topic.toLowerCase()}. O gabinete está de portas abertas e equipes já foram designadas para buscar uma solução conjunta com a comunidade local.` 
-        },
-        { 
-          persona: 'Técnico', 
-          text: `A temática de ${mention.topic.toLowerCase()} integra o atual plano de metas. O repasse da rubrica orçamentária para ${mention.region} já foi empenhado e a execução técnica ocorrerá em 3 fases, com início previsto para este quadrimestre.` 
-        },
-        { 
-          persona: 'Firme', 
-          text: `Os gargalos históricos de ${mention.topic.toLowerCase()} no estado são complexos. Diferente de gestões passadas que fizeram promessas vazias em ${mention.region}, nosso governo não foge da responsabilidade institucional e resolverá isso com rigor orçamentário e transparência.` 
-        }
-      ]);
-    }, 1200); // Demora mais para gerar o texto simulando LLM Decode
-  });
+  if (!API_KEY || API_KEY === 'YOUR_API_KEY_HERE') {
+    return [
+      { persona: 'Conciliador', text: 'Chave do Gemini ausente no arquivo .env. Configure VITE_GEMINI_API_KEY.' },
+      { persona: 'Técnico', text: 'Chave do Gemini ausente no arquivo .env. Configure VITE_GEMINI_API_KEY.' },
+      { persona: 'Firme', text: 'Chave do Gemini ausente no arquivo .env. Configure VITE_GEMINI_API_KEY.' }
+    ];
+  }
+
+  try {
+    const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
+    
+    const prompt = `Você é o time de inteligência de comunicação do Governador.
+Cidadão da região "${mention.region}" relatou: "${mention.text}"
+Tema: "${mention.topic}", Plataforma: "${mention.platform}"
+
+Gere exatamente 3 opções de rascunho oficial de resposta. As abordagens são:
+1. Conciliador (empático e acolhedor)
+2. Técnico (focado em números, rubricas orçamentárias e metas institucionais)
+3. Firme (postura de autoridade rebatendo críticos e fake news)
+
+Responda ÚNICA E EXCLUSIVAMENTE retornando um array JSON válido (sem marcadores \`\`\`json). Exemplo:
+[
+  { "persona": "Conciliador", "text": "..." },
+  { "persona": "Técnico", "text": "..." },
+  { "persona": "Firme", "text": "..." }
+]`;
+
+    const result = await model.generateContent(prompt);
+    let text = result.response.text().trim();
+    if (text.startsWith('```json')) {
+      text = text.replace(/^```json/, '').replace(/```$/, '').trim();
+    }
+    if (text.startsWith('```')) {
+      text = text.replace(/^```/, '').replace(/```$/, '').trim();
+    }
+
+    const parsedData = JSON.parse(text) as AIReply[];
+    return parsedData;
+
+  } catch (error) {
+    console.error("AI Generate Error:", error);
+    return [
+      { persona: 'Conciliador', text: '🔥 Erro no Cloud Gemini (verifique os logs).' },
+      { persona: 'Técnico', text: '🔥 Erro no Cloud Gemini (verifique os logs).' },
+      { persona: 'Firme', text: '🔥 Erro no Cloud Gemini (verifique os logs).' }
+    ];
+  }
 }

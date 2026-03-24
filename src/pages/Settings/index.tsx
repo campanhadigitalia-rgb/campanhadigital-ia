@@ -1,9 +1,13 @@
 import { useState } from 'react';
 import { useCampaign } from '../../context/CampaignContext';
-import { Save, AlertCircle } from 'lucide-react';
+import { useAuth } from '../../context/AuthContext';
+import { Save, AlertCircle, DatabaseZap, Loader2 } from 'lucide-react';
+import { seedRSRegions } from '../../utils/seedRS';
 
 export default function Settings() {
   const { activeCampaign } = useCampaign();
+  const { profile } = useAuth();
+  const [seeding, setSeeding] = useState(false);
   
   // Basic states for campaign profile management
   const [name, setName] = useState(activeCampaign?.name || '');
@@ -81,6 +85,39 @@ export default function Settings() {
           </div>
         </form>
       </div>
+
+      {/* Painel de DB / Seeder exclusivo para Admins */}
+      {profile?.role === 'Admin' && (
+        <div className="glass-card mt-2 p-6 max-w-2xl border-indigo-500/20">
+           <h2 className="text-lg font-bold text-slate-100 flex items-center gap-2 mb-4">
+             <DatabaseZap size={20} className="text-indigo-400" />
+             Ações de Administrador (DB)
+           </h2>
+           <p className="text-sm text-slate-400 mb-6">
+             Como administrador logado, você pode disparar scripts da aplicação direto no Firestore. A base gerará os documentos do Rio Grande do Sul no tenant {activeCampaign?.id}.
+           </p>
+           
+           <button 
+             onClick={async () => {
+                if (!activeCampaign) return;
+                setSeeding(true);
+                try {
+                  await seedRSRegions(activeCampaign.id);
+                  alert('Carga Inicial Geográfica Injetada com Sucesso no banco de dados!');
+                } catch (e: any) {
+                  alert('Erro ao injetar payload: ' + e.message);
+                } finally {
+                  setSeeding(false);
+                }
+             }}
+             disabled={seeding}
+             className="bg-indigo-600/20 hover:bg-indigo-500/40 border border-indigo-500/50 text-indigo-300 w-full px-4 py-3 rounded-md font-medium transition-colors flex justify-center items-center gap-2 disabled:opacity-50"
+           >
+             {seeding ? <Loader2 size={18} className="animate-spin" /> : <DatabaseZap size={18} />}
+             Forçar Seed de Zonas Geo (Heatmap RS)
+           </button>
+        </div>
+      )}
     </div>
   );
 }

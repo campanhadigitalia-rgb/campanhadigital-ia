@@ -27,7 +27,7 @@ export interface BaseDocument {
 }
 
 /** Roles RBAC */
-export type UserRole = 'admin' | 'manager' | 'operator' | 'viewer';
+export type UserRole = 'Admin' | 'Manager' | 'Volunteer';
 
 export interface UserProfile extends BaseDocument {
   uid: string;
