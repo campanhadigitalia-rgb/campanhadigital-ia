@@ -1,5 +1,5 @@
 // ──────────────────────────────────────────────────────────────
-//  ERP Piratini — Hook: useCampaignQuery
+//  CampanhaDigital IA — Hook: useCampaignQuery
 //  Wrapper seguro para queries Firestore com campaign_id
 // ──────────────────────────────────────────────────────────────
 import { useEffect, useState } from 'react';

@@ -1,6 +1,8 @@
 import { useState } from 'react';
 import { Bot, LineChart, Scale, Zap, Loader2, Send } from 'lucide-react';
-import { generateResponseOptions, type AIReply } from '../../services/aiService';
+import { generateResponseOptions } from '../../services/aiService';
+import { useCampaign } from '../../context/CampaignContext';
+import type { AIReply } from '../../types';
 
 const AGENTS = [
   {
@@ -44,6 +46,7 @@ function MessageCircleIcon({ size, className }: { size: number, className?: stri
 }
 
 export default function MCPAgents() {
+  const { activeCampaign } = useCampaign();
   const [topic, setTopic] = useState('');
   const [loading, setLoading] = useState(false);
   const [replies, setReplies] = useState<AIReply[]>([]);
@@ -62,7 +65,7 @@ export default function MCPAgents() {
         platform: 'Twitter',
         text: topic,
         timestamp: new Date().toISOString()
-      });
+      }, activeCampaign?.identity);
       setReplies(options);
     } finally {
       setLoading(false);

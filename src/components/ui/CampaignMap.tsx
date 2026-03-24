@@ -29,7 +29,8 @@ const leaderIcon = new L.Icon({
 });
 
 export function CampaignMap() {
-  const { campaignId } = useCampaign();
+  const { activeCampaign } = useCampaign();
+  const campaignId = activeCampaign?.id || '';
   const [period, setPeriod] = useState<MapPeriod>('current');
   const [points, setPoints] = useState<MapPoint[]>([]);
   const [geoData, setGeoData] = useState<any>(null);
@@ -129,24 +130,31 @@ export function CampaignMap() {
           {geoData && <GeoJSON data={geoData} style={() => geoJsonStyle} />}
 
           {/* Camada de Calor Simulada (Blur visual) */}
-          {points.filter(p => p.type === 'engagement').map(p => (
-             <CircleMarker
-               key={p.id}
-               center={[p.lat, p.lng]}
-               radius={(p.weight || 0.5) * 45} // Raio aumenta conforme o peso
-               pathOptions={{
-                 fillColor: getHeatmapColor(p.weight || 0.5),
-                 fillOpacity: 0.35,
-                 color: getHeatmapColor(p.weight || 0.5),
-                 weight: 1
-               }}
-             >
-               <Popup className="!bg-slate-900 border border-slate-700 text-white rounded-lg">
-                 <div className="font-semibold text-slate-100">{p.city}</div>
-                 <div className="text-sm text-indigo-300">Intenção / Engajamento: {Math.round((p.weight||0)*100)}%</div>
-               </Popup>
-             </CircleMarker>
-          ))}
+          {points.filter(p => p.type === 'engagement').map(p => {
+             const isNeighborhood = activeCampaign?.neighborhood?.includes(p.city);
+             return (
+               <CircleMarker
+                 key={p.id}
+                 center={[p.lat, p.lng]}
+                 radius={(p.weight || 0.5) * (isNeighborhood ? 60 : 45)}
+                 pathOptions={{
+                   fillColor: getHeatmapColor(p.weight || 0.5),
+                   fillOpacity: isNeighborhood ? 0.5 : 0.35,
+                   color: isNeighborhood ? '#fff' : getHeatmapColor(p.weight || 0.5),
+                   weight: isNeighborhood ? 2 : 1,
+                   dashArray: isNeighborhood ? '5, 5' : undefined
+                 }}
+               >
+                 <Popup className="!bg-slate-900 border border-slate-700 text-white rounded-lg">
+                   <div className="font-semibold text-slate-100 flex items-center gap-2">
+                     {p.city}
+                     {isNeighborhood && <span className="bg-amber-500/20 text-amber-400 text-[9px] px-1.5 py-0.5 rounded border border-amber-500/30">FOCO ESTRATÉGICO</span>}
+                   </div>
+                   <div className="text-sm text-indigo-300">Intenção / Engajamento: {Math.round((p.weight||0)*100)}%</div>
+                 </Popup>
+               </CircleMarker>
+             );
+          })}
 
           {/* Camada tática - Lideranças Activas */}
           {points.filter(p => p.type === 'leader').map(p => (

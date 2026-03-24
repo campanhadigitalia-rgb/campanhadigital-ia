@@ -12,11 +12,11 @@ export async function generateCampaignScripts(fact: string): Promise<ContentPayl
   return new Promise((resolve) => {
     setTimeout(() => {
       resolve({
-        instagram: `🚀 ACOMPANHA SÓ PRA ONDE VAMOS AVANÇAR!\n\nHoje é um dia histórico! Sobre: "${fact}", provamos mais uma vez que o nosso RS não para! A energia do povo, a união e a entrega não deixam mentir: o trabalho vence qualquer obstáculo. 💛💚❤️\n\n#OTrabalhoVence #CampanhaDigital2026 #RioGrandeDoSul #AvanteSempre`,
+        instagram: `🚀 ACOMPANHA SÓ PRA ONDE VAMOS AVANÇAR!\n\nHoje é um dia histórico! Sobre: "${fact}", provamos mais uma vez que o nosso projeto não para! A energia do povo, a união e a entrega não deixam mentir: o trabalho vence qualquer obstáculo. 🚀\n\n#OTrabalhoVence #CampanhaDigital2026 #TecnologiaIA #AvanteSempre`,
         
         tiktok: `[Abre câmera no estilo selfie ou drone filmando obra]\n\n"Fala galera, vocês já viram o que acabou de rolar? Rápido, direto ao ponto: ${fact}. Menos promessa e muito, MUITO mais entrega técnica. Confere aí as imagens de trás [aponta para trás]. É esse o Estado de verdade!"\n\n[Música: Trend Upbeat / Dinâmica]`,
         
-        twitter: `Informamos com a máxima transparência institucional que: ${fact}. O compromisso técnico e fiscal do Governo Estadual segue as diretrizes da LDO vigente, focado sempre em sanar problemas reais da população. Gestão responsável se faz com números. 📊🤝 #GestãoRS #PortoAlegre #Piratini`
+        twitter: `Informamos com a máxima transparência institucional que: ${fact}. O compromisso técnico e fiscal do Governo segue as diretrizes da LDO vigente, focado sempre em sanar problemas reais da população. Gestão responsável se faz com números. 📊🤝 #GestãoEficiente #GovernoDigital #IA`
       });
     }, 1500); // Simulando delay do LLM
   });

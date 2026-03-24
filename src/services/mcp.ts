@@ -1,5 +1,5 @@
 // ──────────────────────────────────────────────────────────────
-//  ERP Piratini — MCP (Model Context Protocol) Service
+//  CampanhaDigital IA — MCP (Model Context Protocol) Service
 //  Interface para comunicação com agentes autônomos da Meta / Manus AI
 // ──────────────────────────────────────────────────────────────
 import {
@@ -71,6 +71,8 @@ export const MCP_ACTIONS = {
   SEND_WHATSAPP:    'send_whatsapp',
   ANALYZE_NETWORK:  'analyze_network',
   SCHEDULE_VISIT:   'schedule_visit',
+  MANUS_SEARCH:     'manus_deep_search', // Para busca de oponentes/notícias
+  TRE_CANDIDACY:    'tre_status_check',  // Para crawler do TRE
 } as const;
 
 export type MCPAction = typeof MCP_ACTIONS[keyof typeof MCP_ACTIONS];

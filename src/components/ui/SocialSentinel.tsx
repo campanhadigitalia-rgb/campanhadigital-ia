@@ -1,7 +1,9 @@
 import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { MessageSquare, AlertTriangle, CheckCircle, HelpCircle, Bot, RefreshCw } from 'lucide-react';
-import { type Mention, type Sentiment, type AIReply, analyzeSentiment, generateResponseOptions } from '../../services/aiService';
+import { analyzeSentiment, generateResponseOptions } from '../../services/aiService';
+import { useCampaign } from '../../context/CampaignContext';
+import type { Mention, Sentiment, AIReply } from '../../types';
 
 // Ícones simplificados para redes sociais
 const PlatformIcon = ({ platform }: { platform: string }) => {
@@ -25,6 +27,7 @@ interface SentinelProps {
 }
 
 export function SocialSentinel({ onCrisisAlert }: SentinelProps) {
+  const { activeCampaign } = useCampaign();
   const [feed, setFeed] = useState<Mention[]>([]);
   const [loadingInitial, setLoadingInitial] = useState(true);
   
@@ -106,7 +109,7 @@ export function SocialSentinel({ onCrisisAlert }: SentinelProps) {
     setSelectedMention(m.id);
     if (!replies[m.id]) {
       setGeneratingReplies(true);
-      const generated = await generateResponseOptions(m);
+      const generated = await generateResponseOptions(m, activeCampaign?.identity);
       setReplies(prev => ({ ...prev, [m.id]: generated }));
       setGeneratingReplies(false);
     }

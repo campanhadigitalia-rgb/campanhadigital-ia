@@ -1,5 +1,5 @@
 // ──────────────────────────────────────────────────────────────
-//  ERP Piratini — main.tsx
+//  CampanhaDigital IA — main.tsx
 // ──────────────────────────────────────────────────────────────
 import React from 'react';
 import ReactDOM from 'react-dom/client';

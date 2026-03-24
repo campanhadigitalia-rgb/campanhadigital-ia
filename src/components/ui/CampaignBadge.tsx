@@ -1,5 +1,5 @@
 // ──────────────────────────────────────────────────────────────
-//  ERP Piratini — CampaignBadge
+//  CampanhaDigital IA — CampaignBadge
 //  Exibe badge com campanha ativa e botão para alternar modo
 // ──────────────────────────────────────────────────────────────
 import { motion, AnimatePresence } from 'framer-motion';

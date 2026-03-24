@@ -1,5 +1,5 @@
 // ──────────────────────────────────────────────────────────────
-//  ERP Piratini — AuthContext
+//  CampanhaDigital IA — AuthContext
 // ──────────────────────────────────────────────────────────────
 import React, {
   createContext,
@@ -55,6 +55,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             displayName: firebaseUser.displayName ?? 'Usuário',
             photoURL: firebaseUser.photoURL ?? undefined,
             role: 'Volunteer',
+            organization_id: '',
             campaign_id: '',          // será atualizado após seleção de campanha
             campaigns: [],
             createdAt: new Date(),

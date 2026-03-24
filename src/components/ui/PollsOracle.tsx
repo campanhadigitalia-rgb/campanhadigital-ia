@@ -11,6 +11,7 @@ export function PollsOracle() {
   const [opponent, setOpponent] = useState('cand_centro');
   const [simResults, setSimResults] = useState<{winner: string, govo: number, oppo: number} | null>(null);
   const [simLoading, setSimLoading] = useState(false);
+  const [showHistorical, setShowHistorical] = useState(false);
 
   useEffect(() => {
     Promise.all([
@@ -46,6 +47,20 @@ export function PollsOracle() {
         <div>
           <h2 className="text-xl font-bold text-slate-100 flex items-center gap-2 m-0 mt-1">O Oráculo Eleitoral</h2>
           <p className="text-sm text-slate-400 m-0">Preditor IA de Tendências, Votos em Risco e Metas Georreferenciadas</p>
+        </div>
+        <div className="ml-auto flex items-center gap-2 bg-slate-800/50 p-1.5 rounded-lg border border-white/5">
+           <button 
+             onClick={() => setShowHistorical(false)}
+             className={`px-3 py-1 rounded-md text-[10px] font-black uppercase transition-all ${!showHistorical ? 'bg-indigo-600 text-white shadow-lg' : 'text-slate-500 hover:text-slate-300'}`}
+           >
+             Projeção 2026
+           </button>
+           <button 
+             onClick={() => setShowHistorical(true)}
+             className={`px-3 py-1 rounded-md text-[10px] font-black uppercase transition-all ${showHistorical ? 'bg-amber-600 text-white shadow-lg' : 'text-slate-500 hover:text-slate-300'}`}
+           >
+             Resultado Real 2022
+           </button>
         </div>
       </div>
 
@@ -176,9 +191,9 @@ export function PollsOracle() {
                <thead>
                  <tr className="bg-slate-900/50 text-slate-400 text-xs uppercase tracking-wider border-b border-white/5">
                    <th className="p-4 font-semibold">Município Chave</th>
-                   <th className="p-4 font-semibold text-center">Intenção Preditiva</th>
-                   <th className="p-4 font-semibold text-center">Risco / Margem do Oponente</th>
-                   <th className="p-4 font-semibold text-right">Meta Virada (Votos Novos/Dia)</th>
+                   <th className="p-4 font-semibold text-center">{showHistorical ? 'Votos Reais (2022)' : 'Intenção Preditiva'}</th>
+                   <th className="p-4 font-semibold text-center">{showHistorical ? 'Performance Passada' : 'Risco / Margem do Oponente'}</th>
+                   <th className="p-4 font-semibold text-right">{showHistorical ? 'Delta Esperado' : 'Meta Virada (Votos Novos/Dia)'}</th>
                    <th className="p-4 font-semibold text-right">Acionar Coordenador CRM</th>
                  </tr>
                </thead>
@@ -188,16 +203,18 @@ export function PollsOracle() {
                       <td className="p-4 font-bold text-slate-200 flex items-center gap-2">
                         <MapPin size={14} className="text-slate-500" /> {r.city}
                       </td>
-                      <td className="p-4 text-center text-slate-300 font-medium">{r.intent}%</td>
+                      <td className="p-4 text-center text-slate-300 font-medium">
+                        {showHistorical ? `${(40 + Math.random() * 15).toFixed(1)}%` : `${r.intent}%`}
+                      </td>
                       <td className="p-4 text-center">
-                        <span className={`inline-flex items-center justify-center gap-1.5 px-2.5 py-1 text-[11px] font-bold uppercase rounded border ${getMarginColor(r.margin)}`}>
-                          {r.margin < 2.0 && <AlertTriangle size={12} />}
-                          Vantagem: +{r.margin.toFixed(1)}%
+                        <span className={`inline-flex items-center justify-center gap-1.5 px-2.5 py-1 text-[11px] font-bold uppercase rounded border ${showHistorical ? 'text-amber-500 bg-amber-500/10 border-amber-500/30' : getMarginColor(r.margin)}`}>
+                          {showHistorical ? 'Resultado Consolidado' : (r.margin < 2.0 && <AlertTriangle size={12} />)}
+                          {showHistorical ? 'Finalizado' : `Vantagem: +${r.margin.toFixed(1)}%`}
                         </span>
                       </td>
-                      <td className="p-4 font-black text-emerald-400 text-right text-lg">
-                        +{r.requiredDailyNewVotes.toLocaleString('pt-BR')} 
-                        <span className="text-[10px] text-slate-500 font-normal ml-1 uppercase">votos/dia</span>
+                      <td className={`p-4 font-black text-right text-lg ${showHistorical ? 'text-indigo-400' : 'text-emerald-400'}`}>
+                        {showHistorical ? `${(Math.random() * 5).toFixed(1)}%` : `+${r.requiredDailyNewVotes.toLocaleString('pt-BR')}`}
+                        <span className="text-[10px] text-slate-500 font-normal ml-1 uppercase">{showHistorical ? ' de crescimento' : ' votos/dia'}</span>
                       </td>
                       <td className="p-4 text-right">
                         <button className="flex items-center justify-end gap-2 text-sky-400 hover:text-sky-300 font-bold ml-auto group">

@@ -140,8 +140,8 @@ export function FundraisingStats() {
                 </div>
 
                 <div className="w-full flex bg-black/40 border border-emerald-500/20 rounded-lg overflow-hidden">
-                  <div className="flex-1 p-3 text-xs text-emerald-400 font-mono truncate select-all">
-                    00020101021126580014br.gov.bcb.pix0136campanha-legal-2026@piratini.rs.gov5204000053039865802BR5916Campanha Digital6009RS...
+                  <div className="flex-1 p-3 text-xs text-indigo-400 font-mono truncate select-all">
+                    00020101021126580014br.gov.bcb.pix0136campanha-legal-2026@campanhadigitalia.com.br5204000053039865802BR5916Campanha Digital6009RS...
                   </div>
                   <button className="px-4 bg-emerald-900/50 hover:bg-emerald-800 text-emerald-300 font-bold text-xs uppercase transition-colors">
                     Copiar

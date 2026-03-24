@@ -1,42 +1,61 @@
 rules_version = '2';
+
 service cloud.firestore {
   match /databases/{database}/documents {
     
-    function isAuth() {
+    // Funções auxiliares de Segurança
+    function isSignedIn() {
       return request.auth != null;
     }
     
-    function hasCampaignAccess(cid) {
-      return isAuth() && 
-             cid != null && 
-             cid != "" && 
-             exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
-             (
-               get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'Admin' || 
-               get(/databases/$(database)/documents/users/$(request.auth.uid)).data.campaign_id == cid || 
-               (cid in get(/databases/$(database)/documents/users/$(request.auth.uid)).data.campaigns)
-             );
+    function getProfile() {
+      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data;
     }
 
+    function isProprietor() {
+      return isSignedIn() && getProfile().role == 'Proprietor';
+    }
+
+    function isAdmin() {
+      return isSignedIn() && (getProfile().role == 'Admin' || getProfile().role == 'Proprietor');
+    }
+
+    function hasCampaignAccess(campaignId) {
+      return isProprietor() || (isSignedIn() && campaignId in getProfile().campaigns);
+    }
+
+    // Regras por Coleção
+    
+    // Organizações - Apenas Proprietários
+    match /organizations/{orgId} {
+      allow read, write: if isProprietor();
+    }
+
+    // Usuários - Dono ou Proprietário
     match /users/{userId} {
-      allow read, write: if isAuth() && request.auth.uid == userId;
+      allow read, write: if isProprietor() || (request.auth != null && request.auth.uid == userId);
     }
 
+    // Campanhas - Admin ou Proprietário
     match /campaigns/{campaignId} {
-      allow read: if isAuth();
-      allow write: if isAuth() && exists(/databases/$(database)/documents/users/$(request.auth.uid)) && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'Admin';
+      allow read: if isSignedIn() && hasCampaignAccess(campaignId);
+      allow write: if isProprietor() || (isAdmin() && hasCampaignAccess(campaignId));
     }
 
+    // Contatos, Interações, Mensagens, etc. (Multi-Tenant isolado por campaign_id)
     match /{collection}/{docId} {
-      allow read: if isAuth() && 
-                    collection != 'users' && 
-                    collection != 'campaigns' && 
-                    hasCampaignAccess(resource.data.campaign_id);
+      allow read, write: if isProprietor() || (
+        isSignedIn() && 
+        'campaign_id' in resource.data && 
+        hasCampaignAccess(resource.data.campaign_id)
+      );
       
-      allow write: if isAuth() && 
-                     collection != 'users' && 
-                     collection != 'campaigns' && 
-                     hasCampaignAccess(request.resource.data.campaign_id || (resource != null ? resource.data.campaign_id : ""));
+      // Permitir criação se o usuário tiver acesso à campanha enviada no payload
+      allow create: if isProprietor() || (
+        isSignedIn() && 
+        'campaign_id' in request.resource.data && 
+        hasCampaignAccess(request.resource.data.campaign_id)
+      );
     }
   }
 }

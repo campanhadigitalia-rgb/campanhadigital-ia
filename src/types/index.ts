@@ -1,17 +1,66 @@
 // ──────────────────────────────────────────────────────────────
-//  ERP Piratini — Types: Multi-Tenant Core
+//  CampanhaDigitalIA — Types: Multi-Tenant Core
 // ──────────────────────────────────────────────────────────────
 
 /** Campanhas disponíveis no sistema */
-export type CampaignYear = 2026 | 2028;
+export type CampaignYear = 2024 | 2026 | 2028;
+
+export type Sentiment = 'positivo' | 'neutro' | 'negativo' | 'critico';
+
+export interface Organization {
+  id: string;
+  name: string;
+  owner_id: string;
+  active: boolean;
+  createdAt: Date;
+  gemini_token_usage?: number;
+  api_config?: {
+    gemini?: string;
+    manus?: string;
+  };
+}
+
+export interface CampaignIdentity {
+  name: string;
+  position: string;
+  location: string;
+  party: string;
+  bio_base: string;
+}
+
+export interface Competitor {
+  id: string;
+  name: string;
+  socials: {
+    instagram?: string;
+    tiktok?: string;
+    twitter?: string;
+    facebook?: string;
+  };
+  sentiment: 'positive' | 'neutral' | 'negative' | 'critical';
+  lastAnalysis?: Date;
+}
 
 export interface Campaign {
   id: string;
+  organization_id: string; // Vínculo com a Organização
   year: CampaignYear;
   name: string;
   description?: string;
   active: boolean;
   createdAt: Date;
+  identity?: CampaignIdentity;
+  competitors?: Competitor[];
+  neighborhood?: string[]; // IDs/Nomes de cidades/regiões vizinhas
+  
+  // Herança e Dados Históricos
+  legacy_campaign_id?: string;
+  historical_results?: {
+    city: string;
+    real_votes: number;
+    real_percentage: number;
+    opponent_percentage: number;
+  }[];
 }
 
 /** Modo de visualização: ativa ou histórica */
@@ -27,7 +76,7 @@ export interface BaseDocument {
 }
 
 /** Roles RBAC */
-export type UserRole = 'Admin' | 'Manager' | 'Volunteer';
+export type UserRole = 'Proprietor' | 'Admin' | 'Manager' | 'Volunteer';
 
 export interface UserProfile extends BaseDocument {
   uid: string;
@@ -35,7 +84,8 @@ export interface UserProfile extends BaseDocument {
   displayName: string;
   photoURL?: string;
   role: UserRole;
-  campaigns: string[]; // camapnhas que o usuário tem acesso
+  organization_id?: string; // Vínculo com a Organização
+  campaigns: string[]; // campanhas que o usuário tem acesso
 }
 
 /** Contato genérico */
@@ -83,4 +133,19 @@ export interface MCPMessage {
   status: 'pending' | 'processing' | 'done' | 'error';
   timestamp: Date;
   response?: Record<string, unknown>;
+}
+
+export interface Mention {
+  id: string;
+  region: string;
+  topic: string;
+  platform: 'Twitter' | 'Facebook' | 'Instagram';
+  text: string;
+  sentiment?: 'positivo' | 'neutro' | 'negativo' | 'critico';
+  timestamp: string;
+}
+
+export interface AIReply {
+  persona: 'Conciliador' | 'Técnico' | 'Firme';
+  text: string;
 }

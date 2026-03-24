@@ -1,21 +1,7 @@
 import { GoogleGenerativeAI } from '@google/generative-ai';
+import type { Mention, AIReply, CampaignIdentity, Competitor } from '../types';
 
 export type Sentiment = 'positivo' | 'neutro' | 'negativo' | 'critico';
-
-export interface Mention {
-  id: string;
-  region: string;
-  topic: string;
-  platform: 'Twitter' | 'Facebook' | 'Instagram';
-  text: string;
-  sentiment?: Sentiment;
-  timestamp: string;
-}
-
-export interface AIReply {
-  persona: 'Conciliador' | 'Técnico' | 'Firme';
-  text: string;
-}
 
 const API_KEY = import.meta.env.VITE_GEMINI_API_KEY || '';
 const genAI = new GoogleGenerativeAI(API_KEY);
@@ -25,7 +11,6 @@ const genAI = new GoogleGenerativeAI(API_KEY);
  */
 export async function analyzeSentiment(text: string): Promise<Sentiment> {
   if (!API_KEY || API_KEY === 'YOUR_API_KEY_HERE') {
-    // Fallback seguro caso a chave não tenha sido preenchida pelo usuário localmente
     const lower = text.toLowerCase();
     if (lower.includes('incompetente') || lower.includes('absurdo')) return 'critico';
     if (lower.includes('ruim') || lower.includes('difícil')) return 'negativo';
@@ -52,31 +37,39 @@ Responda APENAS com uma destas quatro palavras exatas em minúsculo: positivo, n
 }
 
 /**
- * Usa a persona do Governador e o modelo Gemini-1.5 para tecer respostas (RAG).
- * Gera 3 matizes diferentes de resposta retornando via JSON parse.
+ * Gera opções de resposta usando a identidade da campanha (Voz do Candidato).
  */
-export async function generateResponseOptions(mention: Mention): Promise<AIReply[]> {
+export async function generateResponseOptions(
+  mention: Mention, 
+  identity?: CampaignIdentity
+): Promise<AIReply[]> {
   if (!API_KEY || API_KEY === 'YOUR_API_KEY_HERE') {
     return [
-      { persona: 'Conciliador', text: 'Chave do Gemini ausente no arquivo .env. Configure VITE_GEMINI_API_KEY.' },
-      { persona: 'Técnico', text: 'Chave do Gemini ausente no arquivo .env. Configure VITE_GEMINI_API_KEY.' },
-      { persona: 'Firme', text: 'Chave do Gemini ausente no arquivo .env. Configure VITE_GEMINI_API_KEY.' }
+      { persona: 'Conciliador', text: 'Chave do Gemini ausente.' },
+      { persona: 'Técnico', text: 'Chave do Gemini ausente.' },
+      { persona: 'Firme', text: 'Chave do Gemini ausente.' }
     ];
   }
+
+  const identityContext = identity 
+    ? `Você está representando o candidato "${identity.name}", que concorre ao cargo de "${identity.position}" em "${identity.location}" pelo partido "${identity.party}".
+       Biografia/Base de Voz: "${identity.bio_base}". 
+       Toda resposta deve seguir rigorosamente este tom de voz e contexto político.`
+    : `Você é o time de inteligência de comunicação de um candidato político.`;
 
   try {
     const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
     
-    const prompt = `Você é o time de inteligência de comunicação do Governador.
+    const prompt = `${identityContext}
 Cidadão da região "${mention.region}" relatou: "${mention.text}"
 Tema: "${mention.topic}", Plataforma: "${mention.platform}"
 
 Gere exatamente 3 opções de rascunho oficial de resposta. As abordagens são:
 1. Conciliador (empático e acolhedor)
-2. Técnico (focado em números, rubricas orçamentárias e metas institucionais)
-3. Firme (postura de autoridade rebatendo críticos e fake news)
+2. Técnico (focado em números, propostas e histórico de entregas)
+3. Firme (postura de autoridade protegendo a reputação e combatendo desinformação)
 
-Responda ÚNICA E EXCLUSIVAMENTE retornando um array JSON válido (sem marcadores \`\`\`json). Exemplo:
+Responda ÚNICA E EXCLUSIVAMENTE retornando um array JSON válido. Exemplo:
 [
   { "persona": "Conciliador", "text": "..." },
   { "persona": "Técnico", "text": "..." },
@@ -85,22 +78,67 @@ Responda ÚNICA E EXCLUSIVAMENTE retornando um array JSON válido (sem marcadore
 
     const result = await model.generateContent(prompt);
     let text = result.response.text().trim();
-    if (text.startsWith('```json')) {
-      text = text.replace(/^```json/, '').replace(/```$/, '').trim();
-    }
-    if (text.startsWith('```')) {
-      text = text.replace(/^```/, '').replace(/```$/, '').trim();
-    }
+    if (text.startsWith('```json')) text = text.replace(/^```json/, '').replace(/```$/, '').trim();
+    if (text.startsWith('```')) text = text.replace(/^```/, '').replace(/```$/, '').trim();
 
-    const parsedData = JSON.parse(text) as AIReply[];
-    return parsedData;
+    return JSON.parse(text) as AIReply[];
 
   } catch (error) {
     console.error("AI Generate Error:", error);
     return [
-      { persona: 'Conciliador', text: '🔥 Erro no Cloud Gemini (verifique os logs).' },
-      { persona: 'Técnico', text: '🔥 Erro no Cloud Gemini (verifique os logs).' },
-      { persona: 'Firme', text: '🔥 Erro no Cloud Gemini (verifique os logs).' }
+      { persona: 'Conciliador', text: 'Erro ao gerar resposta.' },
+      { persona: 'Técnico', text: 'Erro ao gerar resposta.' },
+      { persona: 'Firme', text: 'Erro ao gerar resposta.' }
     ];
+  }
+}
+
+/**
+ * Sugere oponentes com base no cargo e localização.
+ */
+export async function suggestOpponents(position: string, location: string): Promise<Partial<Competitor>[]> {
+  if (!API_KEY || API_KEY === 'YOUR_API_KEY_HERE') return [];
+
+  try {
+    const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
+    const prompt = `Com base no cargo político "${position}" em "${location}", cite 3 oponentes prováveis ou figuras políticas rivais de destaque nessa região.
+                   Retorne APENAS um JSON no formato: [{"name": "Nome", "socials": {"instagram": "@user"}}].`;
+    
+    const result = await model.generateContent(prompt);
+    let text = result.response.text().trim();
+    if (text.startsWith('```json')) text = text.replace(/^```json/, '').replace(/```$/, '').trim();
+    if (text.startsWith('```')) text = text.replace(/^```/, '').replace(/```$/, '').trim();
+    
+    return JSON.parse(text);
+  } catch (error) {
+    console.error("AI Opponent Suggestion Error:", error);
+    return [];
+  }
+}
+
+/**
+ * Analisa o contexto de uma campanha passada para sugerir melhorias no discurso atual.
+ */
+export async function analyzeLegacyContext(
+  legacySentimentSummary: string, 
+  currentStrategy: string
+): Promise<string> {
+  if (!API_KEY || API_KEY === 'YOUR_API_KEY_HERE') return "Memória IA: Analisando dados legados... (Chave ausente)";
+
+  try {
+    const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
+    const prompt = `Como estrategista político sênior, analise estes dados da campanha anterior:
+    "${legacySentimentSummary}"
+    
+    A estratégia atual é: "${currentStrategy}"
+    
+    Sugira 3 pontos de melhoria no discurso para evitar erros do passado ou capitalizar em sentimentos positivos não explorados. 
+    Responda em um parágrafo curto e direto.`;
+    
+    const result = await model.generateContent(prompt);
+    return result.response.text().trim();
+  } catch (error) {
+    console.error("AI Legacy Context Error:", error);
+    return "Erro ao processar memória IA do legado.";
   }
 }

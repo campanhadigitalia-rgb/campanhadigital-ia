@@ -10,7 +10,7 @@ import React, {
   useMemo,
   useState,
 } from 'react';
-import { onSnapshot, doc, updateDoc, serverTimestamp } from 'firebase/firestore';
+import { onSnapshot, doc, updateDoc, serverTimestamp, setDoc, collection } from 'firebase/firestore';
 import { col, COLLECTIONS, db } from '../services/firebase';
 import type { Campaign, CampaignYear, ViewMode } from '../types';
 import { useAuth } from './AuthContext';
@@ -34,6 +34,8 @@ interface CampaignContextValue {
   /** Ano filtrado no modo histórico (2026 | 2028) */
   historicalYear: CampaignYear | null;
   setHistoricalYear: (year: CampaignYear | null) => void;
+  /** Cria uma nova campanha com suporte a legado */
+  createCampaign: (data: { name: string; year: CampaignYear; legacy_id?: string; sync_crm?: boolean }) => Promise<void>;
 }
 
 // ── Contexto ───────────────────────────────────────────────────
@@ -102,6 +104,35 @@ export function CampaignProvider({ children }: { children: React.ReactNode }) {
     [campaigns, user],
   );
 
+  const createCampaign = useCallback(
+    async (data: { name: string; year: CampaignYear, legacy_id?: string, sync_crm?: boolean }) => {
+      if (!user) return;
+      
+      const newRef = doc(collection(db, COLLECTIONS.CAMPAIGNS));
+      const campaignData: Campaign = {
+        id: newRef.id,
+        organization_id: 'org-principal', // Em produção viria do perfil do user
+        name: data.name,
+        year: data.year,
+        active: true,
+        createdAt: new Date(),
+        legacy_campaign_id: data.legacy_id,
+      };
+
+      await setDoc(newRef, campaignData);
+
+      // Se houver legado e opção de sync, chamamos o serviço
+      if (data.legacy_id && data.sync_crm) {
+        const { cloneCampaignContacts } = await import('../services/legacyService');
+        await cloneCampaignContacts(data.legacy_id, newRef.id, user.uid);
+      }
+
+      // Auto-seleciona a nova
+      selectCampaign(newRef.id);
+    },
+    [user, selectCampaign]
+  );
+
   // Removemos o fallback forçado, se não houver campanha o ID fica vazio (esperando Onboarding)
   const campaignId = activeCampaign?.id ?? '';
 
@@ -116,8 +147,9 @@ export function CampaignProvider({ children }: { children: React.ReactNode }) {
       loading,
       historicalYear,
       setHistoricalYear,
+      createCampaign,
     }),
-    [activeCampaign, campaigns, viewMode, selectCampaign, campaignId, loading, historicalYear],
+    [activeCampaign, campaigns, viewMode, selectCampaign, campaignId, loading, historicalYear, createCampaign],
   );
 
   return (

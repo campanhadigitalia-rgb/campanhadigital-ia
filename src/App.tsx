@@ -1,5 +1,5 @@
 // ──────────────────────────────────────────────────────────────
-//  ERP Piratini — App.tsx
+//  CampanhaDigital IA — App.tsx
 //  Roteamento + Layout principal
 // ──────────────────────────────────────────────────────────────
 import { AnimatePresence, motion } from 'framer-motion';
@@ -139,8 +139,15 @@ function LoginScreen() {
   );
 }
 
+interface NavItem {
+  id: string;
+  label: string;
+  Icon: any;
+  proprietorOnly?: boolean;
+}
+
 // ── Sidebar Nav ────────────────────────────────────────────────
-const NAV_ITEMS = [
+const NAV_ITEMS: NavItem[] = [
   { id: 'dashboard',  label: 'Dashboard',  Icon: BarChart2  },
   { id: 'agenda',     label: 'Agenda',     Icon: CalendarDays },
   { id: 'contacts',   label: 'Operações',  Icon: Users      },
@@ -149,8 +156,9 @@ const NAV_ITEMS = [
   { id: 'oracle',     label: 'O Oráculo',  Icon: Brain      },
   { id: 'legal',      label: 'Jurídico',   Icon: Scale      },
   { id: 'mcp',        label: 'Agentes AI', Icon: Bot        },
+  { id: 'owner',      label: 'Master (Owner)', Icon: Zap, proprietorOnly: true },
   { id: 'settings',   label: 'Config',     Icon: Settings   },
-] as const;
+];
 
 type NavId = typeof NAV_ITEMS[number]['id'];
 
@@ -232,6 +240,7 @@ export default function App() {
             {/* Nav */}
             <nav style={{ flex: 1, padding: '12px 8px' }}>
               {NAV_ITEMS.filter(item => {
+                if (item.proprietorOnly && profile?.role !== 'Proprietor') return false;
                 if (profile?.role === 'Volunteer' && ['oracle', 'settings'].includes(item.id)) return false;
                 return true;
               }).map(({ id, label, Icon }) => (
@@ -340,7 +349,7 @@ export default function App() {
         {/* Page content */}
         <main style={{
           flex: 1, overflow: 'auto', padding: 24,
-          background: 'var(--color-piratini-950)',
+          background: 'var(--color-cdia-950)',
         }}>
           <AnimatePresence mode="wait">
             <motion.div
