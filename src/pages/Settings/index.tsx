@@ -18,6 +18,7 @@ export default function Settings() {
   const [name, setName] = useState(activeCampaign?.name || '');
   const [year, setYear] = useState(activeCampaign?.year || new Date().getFullYear());
   const [status, setStatus] = useState((activeCampaign as any)?.status || 'active');
+  const [baseCity, setBaseCity] = useState(activeCampaign?.base_city || '');
 
   const [adminEmail, setAdminEmail] = useState(activeCampaign?.admin_email || '');
   const [isSavingAccess, setIsSavingAccess] = useState(false);
@@ -27,7 +28,7 @@ export default function Settings() {
     if (!activeCampaign) return;
     try {
       const ref = doc(db, COLLECTIONS.CAMPAIGNS, activeCampaign.id);
-      await updateDoc(ref, { name, year, status });
+      await updateDoc(ref, { name, year, status, base_city: baseCity });
       alert('Configurações gerais salvas com sucesso!');
     } catch(err: any) {
       alert('Erro ao salvar: ' + err.message);
@@ -123,6 +124,18 @@ export default function Settings() {
                       <option value="archived">Arquivada</option>
                     </select>
                   </div>
+                </div>
+
+                <div className="flex flex-col gap-2">
+                  <label className="text-sm font-semibold text-slate-300">Cidade Sede (Início de Rotas)</label>
+                  <input 
+                    type="text" 
+                    value={baseCity}
+                    onChange={e => setBaseCity(e.target.value)}
+                    className="px-4 py-2 rounded-md bg-black/40 border border-slate-700 text-white focus:border-indigo-500 focus:outline-none"
+                    placeholder="Ex: Porto Alegre"
+                  />
+                  <p className="text-[10px] text-slate-500">Esta cidade será usada como ponto de partida matinal no cálculo de tempo de viagem da Agenda.</p>
                 </div>
 
                 <div className="bg-blue-500/10 border border-blue-500/20 p-4 rounded-md flex gap-3 mt-2">

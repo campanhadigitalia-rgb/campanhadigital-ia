@@ -40,8 +40,10 @@ export function isGoogleCalendarConnected(): boolean {
 /**
  * Importa eventos de uma agenda Google selecionada
  */
-export async function importGoogleEvents(): Promise<any[]> {
+export async function importGoogleEvents(calendarId: string = 'primary'): Promise<any[]> {
   if (!isGoogleCalendarConnected()) return [];
+  
+  console.log(`Importando eventos da agenda: ${calendarId}`);
   
   // Simulação de retorno da API do Google Calendar
   return [
@@ -60,4 +62,15 @@ export async function importGoogleEvents(): Promise<any[]> {
 export async function pushEventToGoogle(event: any): Promise<boolean> {
   console.log("Enviando evento para Google Calendar:", event.title);
   return true;
+}
+
+/**
+ * Retorna a lista de agendas do usuário (Simulado)
+ */
+export async function listUserCalendars(): Promise<{id: string, summary: string, primary: boolean}[]> {
+  return [
+    { id: 'primary', summary: 'Agenda Principal (Campanha)', primary: true },
+    { id: 'sec-1', summary: 'Eventos Externos / Comitê', primary: false },
+    { id: 'sec-2', summary: 'Agenda Pessoal Candidato', primary: false }
+  ];
 }

@@ -52,6 +52,7 @@ export interface Campaign {
   identity?: CampaignIdentity;
   competitors?: Competitor[];
   neighborhood?: string[]; // IDs/Nomes de cidades/regiões vizinhas
+  base_city?: string;    // Ponto de partida padrão para rotas
   
   // Herança e Dados Históricos
   legacy_campaign_id?: string;

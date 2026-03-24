@@ -40,14 +40,17 @@ export async function addCampaignEvent(event: Omit<CampaignEvent, 'id'>): Promis
   return docRef.id;
 }
 
-export async function updateCampaignEvent(id: string, updates: Partial<CampaignEvent>): Promise<void> {
-  const docRef = doc(db, COLLECTIONS.EVENTS || 'events', id);
-  await updateDoc(docRef, updates);
+/**
+ * Atualiza um evento existente.
+ */
+export async function updateCampaignEvent(id: string, data: Partial<CampaignEvent>): Promise<void> {
+  const eventRef = doc(db, COLLECTIONS.EVENTS, id);
+  await updateDoc(eventRef, data);
 }
 
 export async function deleteCampaignEvent(id: string): Promise<void> {
-  const docRef = doc(db, COLLECTIONS.EVENTS || 'events', id);
-  await deleteDoc(docRef);
+  const eventRef = doc(db, COLLECTIONS.EVENTS, id);
+  await deleteDoc(eventRef);
 }
 
 // Otimizador simulado via heurística de API de Mapas

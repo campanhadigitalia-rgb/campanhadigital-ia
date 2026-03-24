@@ -1,12 +1,12 @@
 import { useEffect, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Map, Route, Navigation2, CheckCircle, Clock, Zap, Target, X, AlertTriangle, Plus } from 'lucide-react';
-import { type CampaignEvent, fetchEvents, simulateTravelTime, suggestStrategicStop, addCampaignEvent, deleteCampaignEvent } from '../../services/eventService';
-import { connectGoogleCalendar, isGoogleCalendarConnected, importGoogleEvents } from '../../services/googleCalendarService';
+import { type CampaignEvent, fetchEvents, simulateTravelTime, suggestStrategicStop, addCampaignEvent, deleteCampaignEvent, updateCampaignEvent } from '../../services/eventService';
+import { connectGoogleCalendar, isGoogleCalendarConnected, importGoogleEvents, listUserCalendars } from '../../services/googleCalendarService';
 import { useCampaign } from '../../context/CampaignContext';
 
 export function CampaignCalendar() {
-  const { campaignId } = useCampaign();
+  const { campaignId, activeCampaign } = useCampaign();
   // const { user } = useAuth();
   const [events, setEvents] = useState<CampaignEvent[]>([]);
   const [loading, setLoading] = useState(true);
@@ -15,6 +15,10 @@ export function CampaignCalendar() {
   const [gcalConnected, setGcalConnected] = useState(isGoogleCalendarConnected());
   const [selectedEvent, setSelectedEvent] = useState<CampaignEvent | null>(null);
   const [showAddModal, setShowAddModal] = useState(false);
+  const [showSyncModal, setShowSyncModal] = useState(false);
+  const [calendars, setCalendars] = useState<{id: string, summary: string, primary: boolean}[]>([]);
+  const [selectedCalendarId, setSelectedCalendarId] = useState('primary');
+  const [isEditing, setIsEditing] = useState(false);
   const [newEvent, setNewEvent] = useState<Partial<CampaignEvent>>({
     title: '',
     type: 'Reunião',
@@ -42,13 +46,27 @@ export function CampaignCalendar() {
     setSelectedEvent(finalEvent);
   };
 
-  const handleCreate = async (e: React.FormEvent) => {
+  const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!newEvent.title || !newEvent.city) return;
-    const id = await addCampaignEvent({ ...newEvent, campaign_id: campaignId } as any);
-    setEvents(prev => [...prev, { ...newEvent, id } as any].sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime()));
+    
+    if (isEditing && newEvent.id) {
+      await updateCampaignEvent(newEvent.id, newEvent);
+      setEvents(prev => prev.map(e => e.id === newEvent.id ? { ...e, ...newEvent } as CampaignEvent : e).sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime()));
+    } else {
+      const id = await addCampaignEvent({ ...newEvent, campaign_id: campaignId } as any);
+      setEvents(prev => [...prev, { ...newEvent, id } as any].sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime()));
+    }
+    
     setShowAddModal(false);
+    setIsEditing(false);
     setNewEvent({ title: '', type: 'Reunião', city: '', date: new Date().toISOString().split('T')[0], status: 'Pendente', stats: { votes2022: '', localLeader: '', mainComplaint: '' } });
+  };
+
+  const openEditModal = (evt: CampaignEvent) => {
+    setNewEvent(evt);
+    setIsEditing(true);
+    setShowAddModal(true);
   };
 
   const handleDelete = async (id: string) => {
@@ -69,8 +87,19 @@ export function CampaignCalendar() {
       return;
     }
     setSyncing(true);
-    // 1. Import from Google
-    const imported = await importGoogleEvents();
+    const list = await listUserCalendars();
+    setCalendars(list);
+    setShowSyncModal(true);
+    setSyncing(false);
+  };
+
+  const executeSync = async () => {
+    setSyncing(true);
+    setShowSyncModal(false);
+    
+    // 1. Import from Google using selected calendar
+    const imported = await importGoogleEvents(selectedCalendarId);
+    
     for (const gEvt of imported) {
        if (!events.find(e => e.title === gEvt.summary)) {
           const id = await addCampaignEvent({
@@ -82,7 +111,7 @@ export function CampaignCalendar() {
             campaign_id: campaignId,
             stats: { votes2022: 'N/A', localLeader: 'Google Sync', mainComplaint: 'N/A' }
           });
-          setEvents(prev => [...prev, { id, title: gEvt.summary, type: 'Reunião', city: gEvt.location || 'N/A', date: gEvt.start.dateTime, status: 'Confirmado', campaign_id: campaignId, stats: { votes2022: 'N/A', localLeader: 'Google Sync', mainComplaint: 'N/A' } } as any]);
+          setEvents(prev => [...prev, { id, title: gEvt.summary, type: 'Reunião', city: gEvt.location || 'N/A', date: gEvt.start.dateTime, status: 'Confirmado', campaign_id: campaignId, stats: { votes2022: 'N/A', localLeader: 'Google Sync', mainComplaint: 'N/A' } } as any].sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime()));
        }
     }
     setSyncing(false);
@@ -124,7 +153,11 @@ export function CampaignCalendar() {
               {gcalConnected ? 'Sincronizar Google' : 'Conectar Google Calendar'}
             </button>
             <button
-              onClick={() => setShowAddModal(true)}
+              onClick={() => {
+                setNewEvent({ title: '', type: 'Reunião', city: activeCampaign?.base_city || '', date: new Date().toISOString().split('T')[0], status: 'Pendente', stats: { votes2022: '', localLeader: '', mainComplaint: '' } });
+                setIsEditing(false);
+                setShowAddModal(true);
+              }}
               className="flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-bold bg-white/5 border border-white/10 text-white hover:bg-white/10 transition-all"
             >
               <Plus size={16} /> Novo Evento
@@ -149,10 +182,11 @@ export function CampaignCalendar() {
             <AnimatePresence>
               {events.map((evt, idx) => {
                 const prevEvent = idx > 0 ? events[idx - 1] : null;
+                const startCity = prevEvent ? prevEvent.city : activeCampaign?.base_city;
                 let travelInfo = null;
                 
-                if (prevEvent && prevEvent.city !== evt.city) {
-                  travelInfo = simulateTravelTime(prevEvent.city, evt.city);
+                if (startCity && startCity !== evt.city) {
+                  travelInfo = simulateTravelTime(startCity, evt.city);
                 }
 
                 return (
@@ -200,7 +234,13 @@ export function CampaignCalendar() {
                         </div>
                       </div>
                       
-                      <div className="flex items-center justify-center text-slate-600 opacity-0 group-hover/item:opacity-100 transition-opacity">
+                      <div className="flex items-center justify-center text-slate-600 opacity-0 group-hover/item:opacity-100 transition-opacity gap-2">
+                         <button 
+                           onClick={(e) => { e.stopPropagation(); openEditModal(evt); }}
+                           className="p-1 hover:text-indigo-400 bg-transparent border-none cursor-pointer"
+                         >
+                           <Zap size={16} />
+                         </button>
                          <button 
                            onClick={(e) => { e.stopPropagation(); handleDelete(evt.id); }}
                            className="p-1 hover:text-red-400 bg-transparent border-none cursor-pointer"
@@ -297,11 +337,13 @@ export function CampaignCalendar() {
               className="glass-card w-full max-w-md p-6 flex flex-col gap-6 border-white/10"
             >
               <div className="flex items-center justify-between">
-                <h3 className="text-xl font-bold text-white m-0">Novo Evento de Agenda</h3>
+                <h3 className="text-xl font-bold text-white m-0">
+                  {isEditing ? 'Editar Evento de Agenda' : 'Novo Evento de Agenda'}
+                </h3>
                 <button onClick={() => setShowAddModal(false)} className="text-slate-400 hover:text-white bg-transparent border-none cursor-pointer"><X size={20} /></button>
               </div>
 
-              <form onSubmit={handleCreate} className="flex flex-col gap-4">
+              <form onSubmit={handleSave} className="flex flex-col gap-4">
                 <div className="flex flex-col gap-1">
                   <label className="text-xs font-bold text-slate-500 uppercase">Título do Evento</label>
                   <input
@@ -371,6 +413,50 @@ export function CampaignCalendar() {
                   Salvar na Agenda
                 </button>
               </form>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
+      {/* Modal Sync Google */}
+      <AnimatePresence>
+        {showSyncModal && (
+          <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm">
+            <motion.div
+              initial={{ opacity: 0, scale: 0.9 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.9 }}
+              className="glass-card w-full max-w-md p-6 flex flex-col gap-6 border-white/10"
+            >
+              <div className="flex items-center justify-between">
+                <h3 className="text-xl font-bold text-white m-0">Sincronizar com Google</h3>
+                <button onClick={() => setShowSyncModal(false)} className="text-slate-400 hover:text-white bg-transparent border-none cursor-pointer"><X size={20} /></button>
+              </div>
+
+              <div className="flex flex-col gap-2">
+                <p className="text-sm text-slate-400">Escolha qual agenda da sua conta Google deseja utilizar para esta sincronização:</p>
+                {calendars.map(cal => (
+                  <button
+                    key={cal.id}
+                    onClick={() => setSelectedCalendarId(cal.id)}
+                    className={`p-3 rounded-lg border text-left transition-all ${
+                      selectedCalendarId === cal.id 
+                        ? 'bg-indigo-600/20 border-indigo-500 text-indigo-100' 
+                        : 'bg-black/20 border-white/5 text-slate-400 hover:bg-white/5'
+                    }`}
+                  >
+                    <div className="font-bold text-sm">{cal.summary}</div>
+                    {cal.primary && <span className="text-[10px] uppercase text-indigo-400">Principal</span>}
+                  </button>
+                ))}
+              </div>
+
+              <button
+                onClick={executeSync}
+                className="w-full py-3 mt-4 rounded-lg bg-indigo-600 text-white font-bold hover:bg-indigo-500 transition-colors"
+              >
+                Confirmar Sincronização
+              </button>
             </motion.div>
           </div>
         )}
