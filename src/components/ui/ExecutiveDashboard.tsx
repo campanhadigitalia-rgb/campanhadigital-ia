@@ -227,7 +227,7 @@ export function ExecutiveDashboard() {
       <div className="mt-8 text-center py-8 border-t border-white/5 flex flex-col items-center gap-2">
          <span className="text-xl font-black tracking-[0.5em] text-slate-500/30 uppercase">CampanhaDigital IA © 2026 — Master Control Platform</span>
          <div className="flex items-center gap-4">
-            <span className="text-[10px] text-slate-600 font-mono">v1.8.4-PROD-STABLE</span>
+            <span className="text-[10px] text-slate-500 font-mono tracking-tighter opacity-50 select-none">v1.8.6-PROD-STABLE</span>
             <span className="text-[10px] text-emerald-500/50 font-bold uppercase tracking-widest bg-emerald-500/5 px-2 py-0.5 rounded border border-emerald-500/10">Engine de Dados Reais Conectada</span>
          </div>
       </div>
