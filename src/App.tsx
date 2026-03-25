@@ -165,26 +165,26 @@ const NAV_ITEMS: NavItem[] = [
     ]
   },
   {
-    id: 'grp_gestao', label: '2. Gestão', Icon: Zap,
+    id: 'grp_financeiro', label: '2. Financeiro', Icon: DollarSign,
+    subItems: [
+      { id: 'finance_dashboard', label: 'Dashboard Financeiro' },
+      { id: 'finance_caixa', label: 'Livro Caixa (SPCE)' },
+      { id: 'finance_suppliers', label: 'Fornecedores & Contratos' },
+      { id: 'finance_vaquinha', label: 'Vaquinha & Eventos' },
+    ]
+  },
+  {
+    id: 'grp_gestao', label: '3. Gestão', Icon: Zap,
     subItems: [
       { id: 'owner', label: 'Master (Owner Portal)', proprietorOnly: true },
       { id: 'agenda', label: 'Agenda Pessoal & Pública' }
     ]
   },
   {
-    id: 'grp_estrategia', label: '3. Estratégia', Icon: Brain,
+    id: 'grp_estrategia', label: '4. Estratégia', Icon: Brain,
     subItems: [
       { id: 'dashboard', label: 'Doutrina (KPIs Globais)' },
       { id: 'oracle', label: 'O Oráculo (Cérebro IA)', volunteerHidden: true }
-    ]
-  },
-  {
-    id: 'grp_financeiro', label: '4. Financeiro', Icon: DollarSign,
-    subItems: [
-      { id: 'finance_dashboard', label: 'Dashboard Financeiro' },
-      { id: 'finance_caixa', label: 'Livro Caixa (SPCE)' },
-      { id: 'finance_suppliers', label: 'Fornecedores & Contratos' },
-      { id: 'finance_vaquinha', label: 'Vaquinha & Eventos' },
     ]
   },
   {

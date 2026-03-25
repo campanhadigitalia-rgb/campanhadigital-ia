@@ -89,13 +89,13 @@ export function VaquinhaPage() {
     <div className="flex flex-col gap-6 w-full animate-in fade-in duration-300">
       {/* Header */}
       <div className="flex items-center gap-4">
-        <div className="p-3 bg-rose-500/15 text-rose-400 rounded-xl border border-rose-500/20">
+        <div className="p-3 bg-rose-500/15 text-rose-400 rounded-xl border border-rose-500/20 shadow-[0_0_15px_rgba(244,63,94,0.1)]">
           <Heart size={28} />
         </div>
         <div>
-          <h2 className="text-xl font-bold text-slate-100 m-0">Vaquinha Online & Eventos de Arrecadação</h2>
+          <h2 className="text-xl font-bold text-slate-100 m-0 leading-tight">Engajamento: Vaquinhas & Eventos</h2>
           <p className="text-sm text-slate-400 m-0 mt-0.5">
-            Crie campanhas de doação com chave PIX e eventos. Compartilhe o link com multiplicadores.
+            Crie campanhas de micro-doações (CPF) e eventos de arrecadação integrados ao seu caixa.
           </p>
         </div>
       </div>

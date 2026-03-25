@@ -1,10 +1,11 @@
 import { useState, useEffect, useCallback } from 'react';
-import { collection, addDoc, deleteDoc, doc, onSnapshot, serverTimestamp } from 'firebase/firestore';
+import { collection, addDoc, deleteDoc, doc, onSnapshot, serverTimestamp, updateDoc } from 'firebase/firestore';
 import { db } from '../../services/firebase';
 import { useCampaign } from '../../context/CampaignContext';
-import { Plus, Trash2, Building2, User, Car, Package, Info } from 'lucide-react';
+import { Plus, Trash2, Building2, User, Car, Package, ShieldCheck, ShieldAlert, ShieldQuestion, Clock } from 'lucide-react';
 
 type SupplierType = 'Pessoa Física' | 'Pessoa Jurídica' | 'Veículo' | 'Material' | 'Outro';
+type LegalStatus = 'pending' | 'approved' | 'rejected' | 'flagged';
 
 interface Supplier {
   id: string;
@@ -12,9 +13,11 @@ interface Supplier {
   name: string;
   cpfCnpj: string;
   contact: string;
-  category: string; // ex: Locação Veículo, Impressão, Assessoria, etc.
+  category: string;
   contractValue: number;
   notes: string;
+  legalStatus: LegalStatus;
+  legalNotes?: string;
   createdAt?: { seconds: number };
 }
 
@@ -31,6 +34,13 @@ const TYPE_ICONS: Record<SupplierType, React.FC<{size?: number, className?: stri
   'Veículo': Car,
   'Material': Package,
   'Outro': Package,
+};
+
+const STATUS_CONFIG: Record<LegalStatus, { label: string, color: string, icon: any }> = {
+  pending: { label: 'Aguardando Jurídico', color: 'text-amber-400 bg-amber-500/10 border-amber-500/20', icon: Clock },
+  approved: { label: 'Aprovado / Validado', color: 'text-emerald-400 bg-emerald-500/10 border-emerald-500/20', icon: ShieldCheck },
+  rejected: { label: 'Contrato Irregular', color: 'text-rose-400 bg-rose-500/10 border-rose-500/20', icon: ShieldAlert },
+  flagged: { label: 'Em Revisão', color: 'text-indigo-400 bg-indigo-500/10 border-indigo-500/20', icon: ShieldQuestion },
 };
 
 const TYPE_COLORS: Record<SupplierType, string> = {
@@ -50,7 +60,8 @@ export function SuppliersPage() {
   const [filterType, setFilterType] = useState<SupplierType | 'Todos'>('Todos');
   const [form, setForm] = useState<Omit<Supplier, 'id'>>({
     type: 'Pessoa Jurídica', name: '', cpfCnpj: '', contact: '',
-    category: 'Locação de Veículo', contractValue: 0, notes: ''
+    category: 'Locação de Veículo', contractValue: 0, notes: '',
+    legalStatus: 'pending'
   });
 
   const path = useCallback(() =>
@@ -71,15 +82,29 @@ export function SuppliersPage() {
     const p = path();
     if (!p || !form.name.trim()) return;
     setAdding(true);
-    try { await addDoc(collection(db, p), { ...form, createdAt: serverTimestamp() }); }
+    try { 
+      await addDoc(collection(db, p), { 
+        ...form, 
+        legalStatus: 'pending', // Sempre inicia como pendente conforme pedido do usuário
+        createdAt: serverTimestamp() 
+      }); 
+    }
     finally { setAdding(false); }
-    setForm({ type: 'Pessoa Jurídica', name: '', cpfCnpj: '', contact: '', category: 'Locação de Veículo', contractValue: 0, notes: '' });
+    setForm({ type: 'Pessoa Jurídica', name: '', cpfCnpj: '', contact: '', category: 'Locação de Veículo', contractValue: 0, notes: '', legalStatus: 'pending' });
+  };
+
+  const handleUpdateStatus = async (id: string, status: LegalStatus) => {
+    const p = path();
+    if (!p) return;
+    await updateDoc(doc(db, p, id), { legalStatus: status });
   };
 
   const handleDelete = async (id: string) => {
     const p = path();
     if (!p) return;
-    await deleteDoc(doc(db, p, id));
+    if (confirm('Deseja excluir este fornecedor?')) {
+      await deleteDoc(doc(db, p, id));
+    }
   };
 
   const totalContracted = suppliers.reduce((acc, s) => acc + (s.contractValue ?? 0), 0);
@@ -95,9 +120,9 @@ export function SuppliersPage() {
           <Building2 size={28} />
         </div>
         <div>
-          <h2 className="text-xl font-bold text-slate-100 m-0">Fornecedores & Contratos</h2>
+          <h2 className="text-xl font-bold text-slate-100 m-0">Governança: Fornecedores & Contratos</h2>
           <p className="text-sm text-slate-400 m-0 mt-0.5">
-            Pré-cadastre pessoas, CNPJs, veículos e materiais. No lançamento do Livro Caixa, selecione o fornecedor.
+            Cadastre contratos para validação jurídica. Somente contratos **Aprovados** permitem saída no Livro Caixa.
           </p>
         </div>
       </div>
@@ -106,27 +131,29 @@ export function SuppliersPage() {
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
         {[
           { label: 'Total', count: suppliers.length, color: 'slate' },
-          { label: 'Pessoas Físicas', count: suppliers.filter(s => s.type === 'Pessoa Física').length, color: 'blue' },
-          { label: 'PJ / CNPJs', count: suppliers.filter(s => s.type === 'Pessoa Jurídica').length, color: 'indigo' },
-          { label: 'Valor Contratado', count: null, value: fmt(totalContracted), color: 'emerald' },
+          { label: 'Aguardando Jurídico', count: suppliers.filter(s => s.legalStatus === 'pending').length, color: 'amber' },
+          { label: 'Contratos Válidos', count: suppliers.filter(s => s.legalStatus === 'approved').length, color: 'emerald' },
+          { label: 'Valor Total Contratado', count: null, value: fmt(totalContracted), color: 'indigo' },
         ].map(k => (
           <div key={k.label} className={`glass-card p-4 border border-${k.color}-500/15`}>
-            <p className={`text-[10px] font-black uppercase tracking-widest text-${k.color}-400/70`}>{k.label}</p>
-            <p className={`text-2xl font-black text-${k.color}-400 mt-1`}>{k.value ?? k.count}</p>
+            <p className={`text-[9px] font-black uppercase tracking-widest text-${k.color}-400/70`}>{k.label}</p>
+            <p className={`text-xl font-black text-${k.color}-400 mt-1`}>{k.value ?? k.count}</p>
           </div>
         ))}
       </div>
 
-      {/* Add form */}
-      <div className="glass-card border border-emerald-500/15 p-4">
-        <p className="text-xs font-black text-slate-400 uppercase tracking-widest mb-3">Adicionar Fornecedor / Contrato</p>
+      {/* Form */}
+      <div className="glass-card border border-emerald-500/15 p-4 bg-emerald-500/5">
+        <p className="text-[10px] font-black text-emerald-500 uppercase tracking-widest mb-3 flex items-center gap-2">
+          <Plus size={14} /> Novo Contrato para Validação
+        </p>
         <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-6 gap-2">
           <select value={form.type} onChange={e => setForm(f => ({ ...f, type: e.target.value as SupplierType }))} className={inp}>
             {['Pessoa Física', 'Pessoa Jurídica', 'Veículo', 'Material', 'Outro'].map(t => <option key={t}>{t}</option>)}
           </select>
-          <input placeholder="Nome *" value={form.name} onChange={e => setForm(f => ({ ...f, name: e.target.value }))} className={`${inp} sm:col-span-2`} />
+          <input placeholder="Nome / Razão Social *" value={form.name} onChange={e => setForm(f => ({ ...f, name: e.target.value }))} className={`${inp} sm:col-span-2`} />
           <input placeholder="CPF / CNPJ" value={form.cpfCnpj} onChange={e => setForm(f => ({ ...f, cpfCnpj: e.target.value }))} className={inp} />
-          <input placeholder="Contato (tel/email)" value={form.contact} onChange={e => setForm(f => ({ ...f, contact: e.target.value }))} className={inp} />
+          <input placeholder="Contato" value={form.contact} onChange={e => setForm(f => ({ ...f, contact: e.target.value }))} className={inp} />
           <select value={form.category} onChange={e => setForm(f => ({ ...f, category: e.target.value }))} className={inp}>
             {CATEGORIES.map(c => <option key={c}>{c}</option>)}
           </select>
@@ -136,83 +163,93 @@ export function SuppliersPage() {
               onChange={e => setForm(f => ({ ...f, contractValue: Number(e.target.value) }))}
               className={`${inp} pl-8`} />
           </div>
-          <input placeholder="Observações" value={form.notes} onChange={e => setForm(f => ({ ...f, notes: e.target.value }))} className={`${inp} sm:col-span-2`} />
+          <input placeholder="Breve objeto do contrato (ex: Aluguel de van p/ 30 dias)" value={form.notes} onChange={e => setForm(f => ({ ...f, notes: e.target.value }))} className={`${inp} sm:col-span-2 lg:col-span-3`} />
           <button onClick={handleAdd} disabled={adding || !form.name.trim()}
-            className="bg-emerald-600 hover:bg-emerald-500 disabled:opacity-40 text-white px-4 rounded-lg font-bold flex items-center justify-center gap-1 text-xs transition-colors">
-            <Plus size={14} /> Adicionar
+            className="bg-emerald-600 hover:bg-emerald-500 disabled:opacity-40 text-white px-4 rounded-lg font-black uppercase text-[10px] tracking-widest transition-all">
+            Submeter ao Jurídico
           </button>
         </div>
       </div>
 
-      {/* Filter + Table */}
+      {/* Table */}
       <div className="glass-card border border-slate-700/30 overflow-hidden">
-        <div className="p-4 border-b border-white/5 flex items-center gap-2 flex-wrap">
+        <div className="p-4 border-b border-white/5 flex items-center gap-2 flex-wrap bg-slate-900/40">
           {(['Todos', 'Pessoa Física', 'Pessoa Jurídica', 'Veículo', 'Material'] as const).map(t => (
             <button key={t} onClick={() => setFilterType(t)}
-              className={`px-3 py-1 rounded-lg text-xs font-bold border transition-all ${filterType === t ? 'bg-emerald-500/20 text-emerald-400 border-emerald-500/30' : 'bg-slate-900 text-slate-500 border-slate-700 hover:text-slate-300'}`}>
+              className={`px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-tight border transition-all ${filterType === t ? 'bg-emerald-500/20 text-emerald-400 border-emerald-500/30 shadow-[0_0_10px_rgba(16,185,129,0.1)]' : 'bg-slate-900 text-slate-500 border-slate-700 hover:text-slate-300'}`}>
               {t}
             </button>
           ))}
-          <span className="ml-auto text-[11px] text-slate-500">{filtered.length} fornecedor(es)</span>
         </div>
-        {filtered.length === 0 ? (
-          <div className="py-12 text-center flex flex-col items-center gap-2">
-            <Building2 size={24} className="text-slate-700" />
-            <p className="text-slate-500 font-bold text-sm">Nenhum fornecedor cadastrado</p>
-            <p className="text-slate-600 text-xs">Use o formulário acima. Depois que salvo, aparece no seletor do Livro Caixa.</p>
-          </div>
-        ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full text-left border-collapse text-xs">
-              <thead>
-                <tr className="bg-slate-950/50 text-slate-400 border-b border-white/5 uppercase tracking-wider">
-                  <th className="p-3 font-semibold">Tipo</th>
-                  <th className="p-3 font-semibold">Nome / CPF-CNPJ</th>
-                  <th className="p-3 font-semibold">Categoria</th>
-                  <th className="p-3 font-semibold text-right">Valor</th>
-                  <th className="p-3 font-semibold">Contato</th>
-                  <th className="p-3 font-semibold">Obs</th>
-                  <th className="p-3 w-10"></th>
-                </tr>
-              </thead>
-              <tbody>
-                {filtered.map(s => {
-                  const Icon = TYPE_ICONS[s.type] ?? Package;
-                  return (
-                    <tr key={s.id} className="border-b border-white/5 hover:bg-white/2 transition-colors">
-                      <td className="p-3">
-                        <span className={`flex items-center gap-1.5 px-2 py-1 rounded border text-[10px] font-bold w-max ${TYPE_COLORS[s.type]}`}>
-                          <Icon size={10} />{s.type}
+
+        <div className="overflow-x-auto">
+          <table className="w-full text-left border-collapse text-xs">
+            <thead>
+              <tr className="bg-slate-950/80 text-slate-500 border-b border-white/5 uppercase tracking-widest font-black text-[9px]">
+                <th className="p-4">Tipo</th>
+                <th className="p-4">Fornecedor</th>
+                <th className="p-4">Categoria / Objeto</th>
+                <th className="p-4 text-right">Valor</th>
+                <th className="p-4 text-center">Status Jurídico</th>
+                <th className="p-4 w-10"></th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-white/5">
+              {filtered.map(s => {
+                const Icon = TYPE_ICONS[s.type] ?? Package;
+                const status = STATUS_CONFIG[s.legalStatus] || STATUS_CONFIG.pending;
+                const StatusIcon = status.icon;
+
+                return (
+                  <tr key={s.id} className="hover:bg-white/2 transition-colors">
+                    <td className="p-4">
+                      <span className={`flex items-center gap-1.5 px-2 py-1 rounded border text-[10px] font-bold w-max uppercase ${TYPE_COLORS[s.type]}`}>
+                        <Icon size={10} />{s.type}
+                      </span>
+                    </td>
+                    <td className="p-4">
+                      <p className="font-bold text-slate-200">{s.name}</p>
+                      {s.cpfCnpj && <p className="font-mono text-[10px] text-slate-500 mt-1">{s.cpfCnpj}</p>}
+                    </td>
+                    <td className="p-4">
+                      <p className="text-slate-300 font-medium">{s.category}</p>
+                      <p className="text-[10px] text-slate-500 mt-1 italic">{s.notes}</p>
+                    </td>
+                    <td className="p-4 text-right font-black text-slate-200">{fmt(s.contractValue)}</td>
+                    <td className="p-4">
+                      <div className="flex flex-col items-center gap-2">
+                        <span className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full border text-[10px] font-black uppercase ${status.color}`}>
+                          <StatusIcon size={12} /> {status.label}
                         </span>
-                      </td>
-                      <td className="p-3">
-                        <p className="font-bold text-slate-200">{s.name}</p>
-                        {s.cpfCnpj && <p className="font-mono text-[10px] text-slate-500 mt-0.5">{s.cpfCnpj}</p>}
-                      </td>
-                      <td className="p-3 text-slate-400">{s.category}</td>
-                      <td className="p-3 text-right font-bold text-emerald-400">{s.contractValue > 0 ? fmt(s.contractValue) : '—'}</td>
-                      <td className="p-3 text-slate-400">{s.contact || '—'}</td>
-                      <td className="p-3 text-slate-500 max-w-[180px] truncate">{s.notes || '—'}</td>
-                      <td className="p-3">
-                        <button onClick={() => handleDelete(s.id)}
-                          className="p-1 text-slate-600 hover:text-red-400 transition-colors rounded"><Trash2 size={13} /></button>
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
-        )}
+                        {/* Actions for testing/demo - In real app this would be in Legal tab only */}
+                        <div className="flex gap-1">
+                           <button onClick={(e) => { e.stopPropagation(); handleUpdateStatus(s.id, 'approved'); }} className="p-1 text-emerald-500 hover:bg-emerald-500/10 rounded" title="Aprovar"><ShieldCheck size={14}/></button>
+                           <button onClick={(e) => { e.stopPropagation(); handleUpdateStatus(s.id, 'rejected'); }} className="p-1 text-rose-500 hover:bg-rose-500/10 rounded" title="Rejeitar"><ShieldAlert size={14}/></button>
+                        </div>
+                      </div>
+                    </td>
+                    <td className="p-4">
+                      <button onClick={() => handleDelete(s.id)}
+                        className="p-2 text-slate-600 hover:text-red-400 hover:bg-red-500/10 transition-all rounded-lg"><Trash2 size={14} /></button>
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
       </div>
 
-      {/* Info */}
-      <div className="flex items-start gap-3 p-4 rounded-xl bg-slate-900/50 border border-slate-700/30 text-xs text-slate-500">
-        <Info size={14} className="text-blue-400 shrink-0 mt-0.5" />
-        <span>
-          Todos os contratos pré-cadastrados aqui aparecem como opção de seleção ao lançar despesas no Livro Caixa (SPCE).
-          Isso garante rastreabilidade de fornecedor por lançamento e facilita a prestação de contas ao TSE.
-        </span>
+      {/* Compliance Info */}
+      <div className="p-4 rounded-xl bg-indigo-500/5 border border-indigo-500/20 flex gap-4">
+        <ShieldCheck className="text-indigo-400 shrink-0" size={24} />
+        <div className="space-y-1">
+          <p className="text-xs font-bold text-slate-300 uppercase tracking-tight">Compliance de Contratação</p>
+          <p className="text-[11px] text-slate-500 leading-relaxed">
+            Conforme normas do TSE, toda despesa deve estar lastreada em contrato válido e nota fiscal. 
+            Este módulo trava o pagamento no **Livro Caixa** se o fornecedor não tiver o selo de validação jurídica.
+          </p>
+        </div>
       </div>
     </div>
   );

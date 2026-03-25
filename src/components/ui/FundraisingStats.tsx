@@ -1,9 +1,26 @@
 import { useState, useEffect } from 'react';
-import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid, Cell } from 'recharts';
+import { PieChart as LucidePieChart } from 'lucide-react';
+import { BarChart as RechartsBarChart, Bar as RechartsBar, XAxis as RechartsXAxis, YAxis as RechartsYAxis, Tooltip as RechartsTooltip, ResponsiveContainer as RechartsResponsiveContainer, CartesianGrid as RechartsCartesianGrid, Cell as RechartsCell } from 'recharts';
 import { motion, AnimatePresence } from 'framer-motion';
-import { QrCode, TrendingUp, HandCoins, X, Download, Target } from 'lucide-react';
+import { QrCode, HandCoins, X, Download, Target } from 'lucide-react';
 import { fetchFinanceStats, type FinanceStats } from '../../services/multipliersService';
 import { useCampaign } from '../../context/CampaignContext';
+
+const CATEGORY_LABELS: Record<string, string> = {
+  fundoPartidario: 'Fundo Partidário',
+  doacaoFisica: 'Doação PF',
+  vaquinha: 'Vaquinha',
+  eventos: 'Eventos',
+  outros: 'Outros'
+};
+
+const CATEGORY_COLORS: Record<string, string> = {
+  fundoPartidario: '#8b5cf6', // violet
+  doacaoFisica: '#10b981',    // emerald
+  vaquinha: '#f43f5e',       // rose
+  eventos: '#f59e0b',        // amber
+  outros: '#64748b'          // slate
+};
 
 export function FundraisingStats() {
   const { campaignId, activeCampaign } = useCampaign();
@@ -12,7 +29,6 @@ export function FundraisingStats() {
 
   useEffect(() => {
     fetchFinanceStats(campaignId).then((data) => {
-      // Override the fake mock goal with the real user-configured goal!
       const userGoal = activeCampaign?.financeConfig?.monthlyGoal;
       if (userGoal && userGoal > 0) {
          setStats({ ...data, monthlyGoal: userGoal });
@@ -24,100 +40,141 @@ export function FundraisingStats() {
 
   if (!stats) {
     return (
-      <div className="glass-card p-6 min-h-[300px] flex items-center justify-center">
-         <div className="animate-pulse flex items-center gap-2 text-emerald-400">
+      <div className="glass-card p-6 min-h-[400px] flex items-center justify-center">
+         <div className="animate-pulse flex items-center gap-2 text-emerald-400 font-bold">
            Carregando Dashboard Financeiro...
          </div>
       </div>
     );
   }
 
-  const deficit = stats.monthlyGoal - stats.raised;
-  const progressPercent = Math.min((stats.raised / stats.monthlyGoal) * 100, 100);
+  const progressPercent = stats.monthlyGoal > 0 ? Math.min((stats.raised / stats.monthlyGoal) * 100, 100) : 0;
 
-  const chartData = [
-    { name: 'Arrecadado', valor: stats.raised, color: '#10b981' },
-    { name: 'Déficit (Meta)', valor: deficit > 0 ? deficit : 0, color: '#f43f5e' }
-  ];
+  const chartData = Object.entries(stats.breakdown)
+    .filter(([_, val]) => val > 0)
+    .map(([key, val]) => ({
+      name: CATEGORY_LABELS[key] || key,
+      valor: val,
+      color: CATEGORY_COLORS[key] || '#cccccc'
+    }))
+    .sort((a, b) => b.valor - a.valor);
+
+  const displayData = chartData.length > 0 ? chartData : [{ name: 'Aguardando Doações', valor: 0.01, color: '#1e293b' }];
 
   const formatCurrency = (val: number) => new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(val);
 
   return (
-    <div className="glass-card flex flex-col h-full border border-emerald-500/10">
-      <div className="p-5 border-b border-emerald-500/10 bg-emerald-950/20">
-        {/* Header Section com Alerta Fake */}
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-2">
+    <div className="glass-card flex flex-col h-full border border-emerald-500/10 animate-in fade-in transition-all">
+      <div className="p-5 border-b border-white/5 bg-emerald-950/10">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           <div>
-            <h2 className="text-lg font-bold text-emerald-400 flex items-center gap-2 m-0 mt-1">
-              <TrendingUp size={22} /> Motor Financeiro (Arrecadação)
+            <h2 className="text-lg font-bold text-emerald-400 flex items-center gap-2 m-0 leading-tight">
+              <LucidePieChart size={20} /> Mix de Arrecadação Real
             </h2>
-            <p className="text-xs text-slate-400 m-0">Consolidado em tempo real da campanha Multi-Tenant.</p>
+            <p className="text-[10px] text-slate-500 uppercase tracking-widest font-bold m-0 mt-1">Status consolidado por via de entrada</p>
           </div>
-
+          
           <button
             onClick={() => setShowPix(true)}
-            className="flex items-center gap-2 px-4 py-2 bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-sm rounded-lg transition-all shadow-[0_0_15px_rgba(16,185,129,0.3)]"
+            className="flex items-center gap-2 px-4 py-2 bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs rounded-lg transition-all shadow-[0_0_15px_rgba(16,185,129,0.3)]"
           >
-            <QrCode size={16} /> Gerar Link Pix
+            <QrCode size={14} /> Minha Chave PIX
           </button>
         </div>
       </div>
 
-      <div className="flex flex-col lg:flex-row gap-6 p-6">
-        {/* Painel Esquerdo: KPI */}
-        <div className="flex flex-col flex-1 gap-4 justify-center">
-          <div className="p-4 rounded-xl bg-black/20 border border-white/5 flex items-center justify-between">
-            <div className="flex flex-col">
-              <span className="text-xs uppercase font-bold text-slate-500 mb-1 flex items-center gap-1"><Target size={14}/> Meta Mensal</span>
-              <span className="text-2xl font-black text-slate-200">{formatCurrency(stats.monthlyGoal)}</span>
+      <div className="grid grid-cols-1 xl:grid-cols-2 gap-8 p-6">
+        {/* Painel Esquerdo */}
+        <div className="flex flex-col gap-5">
+          <div className="grid grid-cols-2 gap-3">
+             <div className="p-4 rounded-xl bg-black/40 border border-white/5">
+                <p className="text-[9px] font-black text-slate-500 uppercase flex items-center gap-1.5 mb-1"><Target size={12}/> Meta Global</p>
+                <p className="text-xl font-black text-slate-200">{formatCurrency(stats.monthlyGoal)}</p>
+             </div>
+             <div className="p-4 rounded-xl bg-emerald-500/5 border border-emerald-500/20">
+                <p className="text-[9px] font-black text-emerald-500 uppercase flex items-center gap-1.5 mb-1"><HandCoins size={12}/> Total Arrecadado</p>
+                <p className="text-xl font-black text-emerald-400">{formatCurrency(stats.raised)}</p>
+             </div>
+          </div>
+
+          <div className="space-y-2">
+            <div className="flex justify-between text-[10px] font-black uppercase tracking-widest">
+              <span className="text-slate-500">Progresso da Campanha</span>
+              <span className="text-emerald-400">{progressPercent.toFixed(1)}% atingido</span>
             </div>
-            <div className="w-12 h-12 rounded-full bg-slate-800 flex items-center justify-center text-slate-400">
-               <TrendingUp size={24} />
+            <div className="w-full bg-slate-800/50 rounded-full h-3 overflow-hidden p-0.5 border border-white/5">
+              <motion.div 
+                initial={{ width: 0 }}
+                animate={{ width: `${progressPercent}%` }}
+                className="bg-gradient-to-r from-emerald-600 to-emerald-400 h-full rounded-full shadow-[0_0_15px_rgba(16,185,129,0.4)]" 
+              />
             </div>
           </div>
 
-          <div className="p-4 rounded-xl border border-emerald-500/20 bg-emerald-950/10 shadow-[inset_0_0_20px_rgba(16,185,129,0.03)] flex items-center justify-between">
-            <div className="flex flex-col">
-              <span className="text-xs uppercase font-bold text-emerald-500 mb-1 flex items-center gap-1"><HandCoins size={14} /> Total Arrecadado</span>
-              <span className="text-3xl font-black text-emerald-400">{formatCurrency(stats.raised)}</span>
-            </div>
-          </div>
-
-          <div className="flex flex-col gap-1 w-full">
-            <div className="flex justify-between text-xs font-bold text-slate-400">
-              <span>Progresso Real</span>
-              <span className="text-emerald-400">{progressPercent.toFixed(1)}%</span>
-            </div>
-            <div className="w-full bg-slate-800 rounded-full h-3 overflow-hidden shadow-inner flex">
-              <div className="bg-emerald-500 h-full shadow-[0_0_10px_rgba(16,185,129,0.8)]" style={{ width: `${progressPercent}%` }}></div>
-            </div>
+          {/* Breakdown */}
+          <div className="mt-2 space-y-2">
+            <p className="text-[9px] font-black text-slate-500 uppercase tracking-widest pl-1">Detalhamento por Origem</p>
+            {Object.entries(stats.breakdown).map(([key, val]) => {
+              const perc = stats.raised > 0 ? (val / stats.raised) * 100 : 0;
+              const isSourceActive = activeCampaign?.financeConfig?.sources[key as keyof typeof activeCampaign.financeConfig.sources] ?? true;
+              if (val === 0 && !isSourceActive) return null;
+              
+              return (
+                <div key={key} className="flex items-center justify-between p-2 rounded-lg bg-black/20 border border-white/5 group hover:border-white/10 transition-colors">
+                  <div className="flex items-center gap-2">
+                    <div className="w-2 h-2 rounded-full" style={{ backgroundColor: CATEGORY_COLORS[key] || '#666' }} />
+                    <span className="text-[11px] font-bold text-slate-300">{CATEGORY_LABELS[key] || key}</span>
+                  </div>
+                  <div className="text-right">
+                    <p className="text-xs font-black text-slate-100 m-0">{formatCurrency(val)}</p>
+                    <p className="text-[9px] font-bold text-slate-600 m-0">{perc.toFixed(1)}% do mix</p>
+                  </div>
+                </div>
+              );
+            })}
           </div>
         </div>
 
-        {/* Parede Direito: Gráfico de Barras */}
-        <div className="flex-1 h-[220px]">
-          <ResponsiveContainer width="100%" height="100%">
-            <BarChart data={chartData} margin={{ top: 20, right: 0, left: 10, bottom: 0 }}>
-              <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="rgba(255,255,255,0.05)" />
-              <XAxis dataKey="name" stroke="#94a3b8" fontSize={12} tickLine={false} axisLine={false} />
-              <YAxis stroke="#94a3b8" fontSize={12} tickLine={false} axisLine={false} tickFormatter={(v) => `R$${v/1000}k`} />
-              <Tooltip 
+        {/* Painel Direito (Gráfico) */}
+        <div className="flex flex-col h-full min-h-[250px] items-center justify-center p-4 rounded-2xl bg-black/20 border border-white/5">
+          <RechartsResponsiveContainer width="100%" height="100%">
+            <RechartsBarChart layout="vertical" data={displayData} margin={{ top: 5, right: 30, left: 40, bottom: 5 }}>
+              <RechartsCartesianGrid strokeDasharray="3 3" horizontal={false} stroke="rgba(255,255,255,0.05)" />
+              <RechartsXAxis type="number" hide />
+              <RechartsYAxis 
+                type="category" 
+                dataKey="name" 
+                stroke="#94a3b8" 
+                fontSize={10} 
+                tickLine={false} 
+                axisLine={false}
+                width={80}
+              />
+              <RechartsTooltip 
                 cursor={{ fill: 'rgba(255,255,255,0.03)' }}
                 contentStyle={{ backgroundColor: 'rgba(15,23,42,0.95)', border: '1px solid rgba(16,185,129,0.2)', borderRadius: '8px' }}
-                // @ts-expect-error recharts formatter typing
-              formatter={(val: number) => formatCurrency(val)}
+                // @ts-expect-error recharts type
+                formatter={(val: number) => [formatCurrency(val), 'Arrecadado']}
               />
-              <Bar dataKey="valor" radius={[4, 4, 0, 0]} maxBarSize={60}>
-                {chartData.map((entry, index) => (
-                  <Cell key={`cell-${index}`} fill={entry.color} />
+              <RechartsBar dataKey="valor" radius={[0, 4, 4, 0]} barSize={24}>
+                {displayData.map((entry, index) => (
+                  <RechartsCell key={`cell-${index}`} fill={entry.color} />
                 ))}
-              </Bar>
-            </BarChart>
-          </ResponsiveContainer>
+              </RechartsBar>
+            </RechartsBarChart>
+          </RechartsResponsiveContainer>
+          <div className="mt-4 flex flex-wrap justify-center gap-x-4 gap-y-2">
+             {chartData.map(c => (
+               <div key={c.name} className="flex items-center gap-1.5">
+                 <div className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: c.color }} />
+                 <span className="text-[9px] font-bold text-slate-500">{c.name}</span>
+               </div>
+             ))}
+          </div>
         </div>
       </div>
 
-      {/* Modal PIX Copia e Cola Dinâmico */}
+      {/* Modal PIX */}
       <AnimatePresence>
         {showPix && (
           <motion.div 
@@ -133,7 +190,7 @@ export function FundraisingStats() {
               className="bg-slate-900 border border-emerald-500/30 shadow-[0_0_50px_rgba(16,185,129,0.1)] rounded-2xl w-full max-w-sm overflow-hidden"
             >
               <div className="bg-emerald-600 p-4 flex items-center justify-between text-white">
-                <h3 className="font-bold flex items-center gap-2 m-0"><QrCode size={18} /> Chave PIX da Campanha</h3>
+                <h3 className="font-bold flex items-center gap-2 m-0 leading-none"><QrCode size={18} /> Chave PIX da Campanha</h3>
                 <button onClick={() => setShowPix(false)} className="hover:bg-emerald-700 p-1 rounded transition-colors"><X size={18} /></button>
               </div>
               <div className="p-6 flex flex-col items-center gap-4">
@@ -150,7 +207,8 @@ export function FundraisingStats() {
                     </div>
                     <button
                       onClick={async () => {
-                        await navigator.clipboard.writeText(activeCampaign.legalConfig?.pix || '');
+                        await navigator.clipboard.writeText(activeCampaign.legalConfig?.pix as string || '');
+                        alert('Chave PIX copiada!');
                       }}
                       className="w-full flex items-center justify-center gap-2 py-3 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-sm transition-colors">
                       <Download size={16} /> Copiar Chave PIX
@@ -161,9 +219,9 @@ export function FundraisingStats() {
                   </>
                 ) : (
                   <div className="text-center py-4">
-                    <p className="text-slate-400 text-sm font-bold">Chave PIX não configurada</p>
-                    <p className="text-slate-600 text-xs mt-1">
-                      Acesse Setup Financeiro → Deferimento Eleitoral e preencha a chave PIX eleitoral.
+                    <p className="text-slate-400 text-sm font-bold m-0">Chave PIX não configurada</p>
+                    <p className="text-slate-600 text-[10px] mt-1 m-0">
+                      Acesse Jurídico → Deferimento Eleitoral e preencha a chave PIX eleitoral.
                     </p>
                   </div>
                 )}
@@ -175,5 +233,3 @@ export function FundraisingStats() {
     </div>
   );
 }
-
-

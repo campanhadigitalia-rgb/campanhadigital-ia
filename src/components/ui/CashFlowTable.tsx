@@ -2,53 +2,76 @@ import { useState, useEffect, useCallback } from 'react';
 import { useCampaign } from '../../context/CampaignContext';
 import { useAuth } from '../../context/AuthContext';
 import { db } from '../../services/firebase';
-import { collection, query, where, getDocs, addDoc, serverTimestamp } from 'firebase/firestore';
+import { collection, query, where, addDoc, serverTimestamp, onSnapshot, doc, updateDoc } from 'firebase/firestore';
 import type { CashTransaction } from '../../types';
-import { Plus, Download, ArrowUpRight, ArrowDownRight, Clock, CheckCircle2 } from 'lucide-react';
+import { Plus, Download, ArrowUpRight, ArrowDownRight, Clock, CheckCircle2, AlertCircle, FileText, User, Building2, X } from 'lucide-react';
+
+const fmt = (v: number) => new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(v);
 
 const formatCurrency = (val: number) => new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(val);
+
+const CATEGORY_LABELS: Record<string, string> = {
+  fundoPartidario: 'Fundo Partidário',
+  doacaoFisica: 'Doação PF',
+  vaquinha: 'Vaquinha',
+  eventos: 'Eventos',
+  pessoal: 'Equipe / Pessoal',
+  grafica: 'Gráfica / Impressos',
+  marketing: 'Tráfego / Marketing',
+  outros: 'Outros / Diversos'
+};
 
 export function CashFlowTable() {
   const { campaignId } = useCampaign();
   const { profile } = useAuth();
   const [transactions, setTransactions] = useState<CashTransaction[]>([]);
+  const [suppliers, setSuppliers] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [isModalOpen, setIsModalOpen] = useState(false);
 
   // Form State
   const [desc, setDesc] = useState('');
   const [amount, setAmount] = useState('');
-  const [type, setType] = useState<'income'|'expense'>('income');
-  const [category, setCategory] = useState<CashTransaction['category']>('doacao');
+  const [type, setType] = useState<'income' | 'expense'>('income');
+  const [category, setCategory] = useState<any>('doacaoFisica');
+  const [paidStatus, setPaidStatus] = useState<'provisioned' | 'paid'>('paid');
+  const [supplierId, setSupplierId] = useState('');
+  const [attachmentUrl, setAttachmentUrl] = useState('');
 
-  const fetchTransactions = useCallback(async () => {
+  const fetchSuppliers = useCallback(() => {
     if (!campaignId) return;
-    setLoading(true);
-    try {
-      const q = query(
-        collection(db, 'finance_transactions'),
-        where('campaign_id', '==', campaignId)
-      );
-      const snapshot = await getDocs(q);
-      const data = snapshot.docs.map(d => ({ id: d.id, ...d.data() } as CashTransaction));
-      data.sort((a,b) => new Date(b.date).getTime() - new Date(a.date).getTime());
-      setTransactions(data);
-    } catch (e) {
-      console.error(e);
-    } finally {
-      setLoading(false);
-    }
+    const p = `campaigns/${campaignId}/suppliers`;
+    return onSnapshot(collection(db, p), snap => {
+      setSuppliers(snap.docs.map(d => ({ id: d.id, ...d.data() })));
+    });
   }, [campaignId]);
 
   useEffect(() => {
-    fetchTransactions();
-  }, [fetchTransactions]);
+    if (!campaignId) return;
+    const q = query(collection(db, 'finance_transactions'), where('campaign_id', '==', campaignId));
+    const unsub = onSnapshot(q, (snap) => {
+      const data = snap.docs.map(d => ({ id: d.id, ...d.data() } as CashTransaction));
+      data.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+      setTransactions(data);
+      setLoading(false);
+    });
+    const unsubSuppliers = fetchSuppliers();
+    return () => { unsub(); unsubSuppliers?.(); };
+  }, [campaignId, fetchSuppliers]);
 
   const handleCreate = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!campaignId || !profile) return;
     const value = parseFloat(amount);
     if (isNaN(value) || value <= 0) return alert('Valor inválido');
+
+    // Validação Jurídica Check for expenses
+    if (type === 'expense' && supplierId) {
+       const supplier = suppliers.find(s => s.id === supplierId);
+       if (supplier && supplier.legalStatus !== 'approved') {
+          if (!confirm('Este fornecedor AINDA NÃO foi aprovado pelo Jurídico. Deseja provisionar este gasto mesmo assim?')) return;
+       }
+    }
 
     try {
       const docData = {
@@ -58,16 +81,26 @@ export function CashFlowTable() {
         createdBy: profile.uid,
         description: desc,
         amount: value,
-        type, category, status: 'completed',
+        type, 
+        category, 
+        status: 'completed',
+        paidStatus,
+        supplierId: type === 'expense' ? supplierId : '',
+        attachmentUrl,
         date: new Date().toISOString()
       };
       await addDoc(collection(db, 'finance_transactions'), docData);
-      setDesc(''); setAmount(''); setIsModalOpen(false);
-      fetchTransactions();
+      setDesc(''); setAmount(''); setSupplierId(''); setAttachmentUrl(''); setIsModalOpen(false);
     } catch (e) {
       console.error(e);
       alert('Erro ao salvar transação.');
     }
+  };
+
+  const handleTogglePaid = async (t: CashTransaction) => {
+    if (!t.id) return;
+    const newStatus = t.paidStatus === 'paid' ? 'provisioned' : 'paid';
+    await updateDoc(doc(db, 'finance_transactions', t.id), { paidStatus: newStatus });
   };
 
   const cIncome = transactions.filter(t => t.type === 'income').reduce((acc, t) => acc + t.amount, 0);
@@ -75,39 +108,42 @@ export function CashFlowTable() {
   const balance = cIncome - cExpense;
 
   return (
-    <div className="w-full flex flex-col gap-6">
-      {/* Top Cards */}
+    <div className="w-full flex flex-col gap-6 animate-in fade-in duration-500">
+      {/* Cards de Resumo */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        <div className="glass-card p-4 flex flex-col justify-between border border-emerald-500/20">
+        <div className="glass-card p-4 flex flex-col justify-between border border-emerald-500/20 bg-emerald-500/5">
           <div className="flex items-center gap-2 text-emerald-400">
-            <ArrowUpRight size={18} /> <span className="text-sm font-bold uppercase">Entradas</span>
+            <ArrowUpRight size={18} /> <span className="text-[10px] font-black uppercase tracking-widest">Total Entradas</span>
           </div>
-          <span className="text-2xl font-black text-white mt-2">{formatCurrency(cIncome)}</span>
+          <span className="text-2xl font-black text-white mt-1">{formatCurrency(cIncome)}</span>
         </div>
-        <div className="glass-card p-4 flex flex-col justify-between border border-rose-500/20">
+        <div className="glass-card p-4 flex flex-col justify-between border border-rose-500/20 bg-rose-500/5">
           <div className="flex items-center gap-2 text-rose-400">
-            <ArrowDownRight size={18} /> <span className="text-sm font-bold uppercase">Saídas (Despesas)</span>
+            <ArrowDownRight size={18} /> <span className="text-[10px] font-black uppercase tracking-widest">Total Saídas</span>
           </div>
-          <span className="text-2xl font-black text-white mt-2">{formatCurrency(cExpense)}</span>
+          <span className="text-2xl font-black text-white mt-1">{formatCurrency(cExpense)}</span>
         </div>
-        <div className="glass-card p-4 flex flex-col justify-between border border-indigo-500/20">
+        <div className="glass-card p-4 flex flex-col justify-between border border-indigo-500/20 bg-indigo-500/5">
           <div className="flex items-center gap-2 text-indigo-400">
-            <span className="text-sm font-bold uppercase">Saldo em Conta</span>
+            <span className="text-[10px] font-black uppercase tracking-widest">Saldo em Conta</span>
           </div>
-          <span className={`text-2xl font-black mt-2 ${balance >= 0 ? 'text-emerald-400' : 'text-rose-400'}`}>
+          <span className={`text-2xl font-black mt-1 ${balance >= 0 ? 'text-emerald-400' : 'text-rose-400'}`}>
             {formatCurrency(balance)}
           </span>
         </div>
       </div>
 
       <div className="glass-card flex-1 border border-white/10 flex flex-col overflow-hidden">
-        <div className="p-4 border-b border-white/10 flex flex-wrap items-center justify-between gap-4 bg-slate-900">
-          <h3 className="text-lg font-bold text-slate-200">Livro Caixa SPCE</h3>
+        <div className="p-4 border-b border-white/5 flex flex-wrap items-center justify-between gap-4 bg-slate-900/80 backdrop-blur-md">
+          <div className="flex items-center gap-3">
+             <div className="p-2 bg-indigo-500/20 text-indigo-400 rounded-lg"><FileText size={20}/></div>
+             <h3 className="text-sm font-bold text-slate-200">Livro Caixa SPCE (Realimentado)</h3>
+          </div>
           <div className="flex gap-2">
-            <button className="flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm font-bold bg-white/5 hover:bg-white/10 text-white transition-colors">
-              <Download size={16} /> Exportar
+            <button className="flex items-center gap-2 px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-widest bg-white/5 hover:bg-white/10 text-white transition-colors">
+              <Download size={14} /> Exportar Arquivo
             </button>
-            <button onClick={() => setIsModalOpen(true)} className="flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm font-bold bg-emerald-600 hover:bg-emerald-500 text-white shadow-[0_0_10px_rgba(16,185,129,0.2)] transition-colors">
+            <button onClick={() => setIsModalOpen(true)} className="flex items-center gap-2 px-4 py-2 rounded-lg text-[10px] font-black uppercase tracking-widest bg-emerald-600 hover:bg-emerald-500 text-white shadow-[0_0_20px_rgba(16,185,129,0.3)] transition-all">
               <Plus size={16} /> Novo Lançamento
             </button>
           </div>
@@ -117,94 +153,160 @@ export function CashFlowTable() {
           <table className="w-full text-left border-collapse">
             <thead>
               <tr className="bg-black/40 border-b border-white/5">
-                <th className="p-4 text-xs font-black tracking-widest text-slate-500 uppercase">Data</th>
-                <th className="p-4 text-xs font-black tracking-widest text-slate-500 uppercase">Descrição/Origem</th>
-                <th className="p-4 text-xs font-black tracking-widest text-slate-500 uppercase">Categoria</th>
-                <th className="p-4 text-xs font-black tracking-widest text-slate-500 uppercase text-right">Valor</th>
-                <th className="p-4 text-xs font-black tracking-widest text-slate-500 uppercase text-center">Status</th>
+                <th className="p-4 text-[9px] font-black tracking-widest text-slate-500 uppercase">Data</th>
+                <th className="p-4 text-[9px] font-black tracking-widest text-slate-500 uppercase">Origem / Fornecedor</th>
+                <th className="p-4 text-[9px] font-black tracking-widest text-slate-500 uppercase">Categoria</th>
+                <th className="p-4 text-[9px] font-black tracking-widest text-slate-500 uppercase text-right">Valor</th>
+                <th className="p-4 text-[9px] font-black tracking-widest text-slate-500 uppercase text-center">Jurídico</th>
+                <th className="p-4 text-[9px] font-black tracking-widest text-slate-500 uppercase text-center">Status</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-white/5">
               {loading ? (
-                <tr><td colSpan={5} className="p-8 text-center text-slate-500">Carregando transações...</td></tr>
+                <tr><td colSpan={6} className="p-8 text-center text-slate-500">Processando registros...</td></tr>
               ) : transactions.length === 0 ? (
-                <tr><td colSpan={5} className="p-8 text-center text-slate-500">Nenhum lançamento no Livro Caixa.</td></tr>
-              ) : transactions.map(t => (
-                <tr key={t.id} className="hover:bg-white/5 transition-colors">
-                  <td className="p-4 text-sm text-slate-400 whitespace-nowrap">
-                    {new Date(t.date).toLocaleDateString('pt-BR')}
-                  </td>
-                  <td className="p-4">
-                    <p className="text-sm font-bold text-slate-200">{t.description}</p>
-                  </td>
-                  <td className="p-4">
-                    <span className="px-2 py-1 text-[10px] uppercase font-bold text-slate-300 bg-slate-800 rounded">
-                      {t.category}
-                    </span>
-                  </td>
-                  <td className="p-4 text-right whitespace-nowrap">
-                    <span className={`text-sm font-black ${t.type === 'income' ? 'text-emerald-400' : 'text-rose-400'}`}>
-                      {t.type === 'income' ? '+' : '-'}{formatCurrency(t.amount)}
-                    </span>
-                  </td>
-                  <td className="p-4 text-center">
-                    {t.status === 'completed' 
-                      ? <CheckCircle2 size={16} className="text-emerald-500 mx-auto" /> 
-                      : <Clock size={16} className="text-amber-500 mx-auto" />}
-                  </td>
-                </tr>
-              ))}
+                <tr><td colSpan={6} className="p-8 text-center text-slate-500">Sem movimentações no período.</td></tr>
+              ) : transactions.map(t => {
+                const supplier = t.supplierId ? suppliers.find(s => s.id === t.supplierId) : null;
+                const isApproved = supplier ? supplier.legalStatus === 'approved' : t.type === 'income';
+
+                return (
+                  <tr key={t.id} className="hover:bg-white/2 transition-colors">
+                    <td className="p-4 text-[11px] font-bold text-slate-500 whitespace-nowrap">
+                      {new Date(t.date).toLocaleDateString('pt-BR')}
+                    </td>
+                    <td className="p-4">
+                      <div className="flex items-center gap-2">
+                        {t.type === 'income' ? <User size={12} className="text-emerald-500/50" /> : <Building2 size={12} className="text-indigo-500/50" />}
+                        <div>
+                          <p className="text-xs font-bold text-slate-200">{t.description}</p>
+                          {supplier && <p className="text-[9px] text-slate-500 font-medium">Contrato: {supplier.name}</p>}
+                        </div>
+                      </div>
+                    </td>
+                    <td className="p-4">
+                      <span className="px-2 py-0.5 text-[9px] uppercase font-black text-slate-400 bg-slate-800 border border-white/5 rounded">
+                        {CATEGORY_LABELS[t.category] || t.category}
+                      </span>
+                    </td>
+                    <td className="p-4 text-right whitespace-nowrap">
+                      <span className={`text-xs font-black ${t.type === 'income' ? 'text-emerald-400' : 'text-rose-400'}`}>
+                        {t.type === 'income' ? '+' : '-'}{formatCurrency(t.amount)}
+                      </span>
+                    </td>
+                    <td className="p-4 text-center">
+                      {isApproved ? (
+                        <CheckCircle2 size={16} className="text-emerald-500 mx-auto" />
+                      ) : (
+                        <AlertCircle size={16} className="text-amber-500 mx-auto" />
+                      )}
+                    </td>
+                    <td className="p-4 text-center">
+                      <button 
+                        onClick={() => handleTogglePaid(t)}
+                        className={`inline-flex items-center gap-1.5 px-2 py-1 rounded-full text-[9px] font-black uppercase transition-all ${t.paidStatus === 'paid' ? 'bg-emerald-500/20 text-emerald-400' : 'bg-slate-800 text-slate-500'}`}
+                      >
+                        {t.paidStatus === 'paid' ? <CheckCircle2 size={10}/> : <Clock size={10}/>}
+                        {t.paidStatus === 'paid' ? 'Pago' : 'Previsto'}
+                      </button>
+                    </td>
+                  </tr>
+                );
+              })}
             </tbody>
           </table>
         </div>
       </div>
 
+      {/* Modal de Lançamento */}
       {isModalOpen && (
-        <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="bg-slate-900 border border-emerald-500/20 rounded-2xl w-full max-w-md overflow-hidden shadow-2xl">
-            <div className="p-6 border-b border-white/5 flex justify-between items-center">
-              <h3 className="text-lg font-bold text-white uppercase tracking-tight">Novo Lançamento</h3>
-              <button onClick={() => setIsModalOpen(false)} className="text-slate-400 hover:text-white"><Plus size={20} className="rotate-45" /></button>
+        <div className="fixed inset-0 z-[100] bg-black/80 backdrop-blur-md flex items-center justify-center p-4">
+          <div className="bg-slate-900 border border-indigo-500/20 rounded-2xl w-full max-w-lg overflow-hidden shadow-2xl animate-in zoom-in-95 duration-200">
+            <div className="p-5 border-b border-white/5 flex justify-between items-center bg-slate-800/50">
+              <h3 className="text-sm font-black text-white uppercase tracking-widest">Novo Lançamento SPCE</h3>
+              <button onClick={() => setIsModalOpen(false)} className="text-slate-400 hover:text-white p-1"><X size={20} className="rotate-45" /></button>
             </div>
-            <form onSubmit={handleCreate} className="p-6 flex flex-col gap-4">
-              <div className="flex gap-4">
-                <label className="flex-1 flex items-center gap-2 cursor-pointer">
-                  <input type="radio" checked={type === 'income'} onChange={() => setType('income')} name="type" className="accent-emerald-500" />
-                  <span className="text-sm font-bold text-emerald-400">Entrada (Receita)</span>
-                </label>
-                <label className="flex-1 flex items-center gap-2 cursor-pointer">
-                  <input type="radio" checked={type === 'expense'} onChange={() => setType('expense')} name="type" className="accent-rose-500" />
-                  <span className="text-sm font-bold text-rose-400">Saída (Despesa)</span>
-                </label>
-              </div>
-
-              <div>
-                <label className="text-xs font-bold text-slate-400 uppercase">Descrição do Recibo/NF</label>
-                <input required value={desc} onChange={e => setDesc(e.target.value)} className="w-full mt-1 bg-black/50 border border-slate-700 rounded-lg p-3 text-white focus:outline-none focus:border-emerald-500/50" placeholder="Ex: Doação Eleitor X, Gráfica Y" />
+            
+            <form onSubmit={handleCreate} className="p-6 flex flex-col gap-5">
+              <div className="flex bg-black/40 p-1 rounded-xl">
+                <button type="button" onClick={() => setType('income')} className={`flex-1 py-2 text-[10px] font-black uppercase tracking-widest rounded-lg transition-all ${type === 'income' ? 'bg-emerald-600 text-white' : 'text-slate-500 hover:text-slate-300'}`}>Receita / Entrada</button>
+                <button type="button" onClick={() => setType('expense')} className={`flex-1 py-2 text-[10px] font-black uppercase tracking-widest rounded-lg transition-all ${type === 'expense' ? 'bg-rose-600 text-white' : 'text-slate-500 hover:text-slate-300'}`}>Despesa / Saída</button>
               </div>
 
               <div className="grid grid-cols-2 gap-4">
-                 <div>
-                  <label className="text-xs font-bold text-slate-400 uppercase">Valor (R$)</label>
-                  <input required type="number" step="0.01" value={amount} onChange={e => setAmount(e.target.value)} className="w-full mt-1 bg-black/50 border border-slate-700 rounded-lg p-3 text-white focus:outline-none focus:border-emerald-500/50" placeholder="0.00" />
+                <div className="space-y-1">
+                  <label className="text-[10px] font-bold text-slate-500 uppercase ml-1">Valor (R$)</label>
+                  <div className="relative">
+                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-600 font-bold text-xs uppercase">R$</span>
+                    <input required type="number" step="0.01" value={amount} onChange={e => setAmount(e.target.value)} className="w-full bg-black/50 border border-slate-700 rounded-lg pl-9 p-2.5 text-white font-bold outline-none focus:border-indigo-500/50" placeholder="0.00" />
+                  </div>
+                </div>
+                <div className="space-y-1">
+                  <label className="text-[10px] font-bold text-slate-500 uppercase ml-1">Data Efetiva</label>
+                  <input type="date" defaultValue={new Date().toISOString().split('T')[0]} className="w-full bg-black/50 border border-slate-700 rounded-lg p-2.5 text-white text-xs outline-none focus:border-indigo-500/50" />
+                </div>
+              </div>
+
+              <div className="space-y-1">
+                <label className="text-[10px] font-bold text-slate-500 uppercase ml-1">Descrição do Lançamento</label>
+                <input required value={desc} onChange={e => setDesc(e.target.value)} className="w-full bg-black/50 border border-slate-700 rounded-lg p-2.5 text-white text-xs outline-none focus:border-indigo-500/50" placeholder="Ex: Doação Eleitor José, Impressão Santinhos..." />
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                 <div className="space-y-1">
+                  <label className="text-[10px] font-bold text-slate-500 uppercase ml-1">Categoria de Entrada/Saída</label>
+                  <select value={category} onChange={e => setCategory(e.target.value)} className="w-full bg-black/50 border border-slate-700 rounded-lg p-2.5 text-white text-xs outline-none focus:border-indigo-500/50 [&>option]:bg-slate-900">
+                    <optgroup label="Entradas">
+                      <option value="fundoPartidario">Fundo Partidário (FEFC)</option>
+                      <option value="doacaoFisica">Doação Pessoa Física</option>
+                      <option value="vaquinha">Crowdfunding / Vaquinha</option>
+                      <option value="eventos">Eventos Arrecadação</option>
+                    </optgroup>
+                    <optgroup label="Saídas">
+                      <option value="pessoal">Equipe / Cabos Eleitorais</option>
+                      <option value="grafica">Materiais Gráficos</option>
+                      <option value="marketing">Impulsionamento / Digital</option>
+                    </optgroup>
+                    <option value="outros">Outros / Diversos</option>
+                  </select>
                  </div>
-                 <div>
-                  <label className="text-xs font-bold text-slate-400 uppercase">Categoria</label>
-                  <select value={category} onChange={e => setCategory(e.target.value as CashTransaction['category'])} className="w-full mt-1 bg-black/50 border border-slate-700 rounded-lg p-3 text-white focus:outline-none focus:border-emerald-500/50 text-sm [&>option]:bg-slate-900">
-                    <option value="fundo">FP / FEFC</option>
-                    <option value="doacao">Doação PF</option>
-                    <option value="evento">Evento Arrecadação</option>
-                    <option value="pessoal">Equipe Pessoal</option>
-                    <option value="grafica">Gráfica / Impressos</option>
-                    <option value="impulsionamento">Tráfego / Meta Ads</option>
-                    <option value="outros">Despesas Diversas</option>
+                 <div className="space-y-1">
+                  <label className="text-[10px] font-bold text-slate-500 uppercase ml-1">Status de Pagamento</label>
+                  <select value={paidStatus} onChange={e => setPaidStatus(e.target.value as any)} className="w-full bg-black/50 border border-slate-700 rounded-lg p-2.5 text-white text-xs outline-none focus:border-indigo-500/50 [&>option]:bg-slate-900">
+                    <option value="paid">Efetivado (Pago)</option>
+                    <option value="provisioned">Provisionado (A Pagar)</option>
                   </select>
                  </div>
               </div>
 
-              <div className="mt-4 flex justify-end gap-3">
-                <button type="button" onClick={() => setIsModalOpen(false)} className="px-5 py-2.5 rounded-lg text-sm font-bold text-slate-400 hover:text-white transition-colors">Cancelar</button>
-                <button type="submit" className="px-5 py-2.5 rounded-lg text-sm font-bold bg-emerald-600 hover:bg-emerald-500 text-white shadow-[0_0_15px_rgba(16,185,129,0.3)] transition-colors">Salvar Registro</button>
+              {type === 'expense' && (
+                <div className="space-y-1 animate-in slide-in-from-top-2 duration-300">
+                  <label className="text-[10px] font-bold text-indigo-400 uppercase ml-1">Vincular Fornecedor / Contrato</label>
+                  <select required={type === 'expense'} value={supplierId} onChange={e => setSupplierId(e.target.value)} className="w-full bg-black/50 border border-indigo-500/30 rounded-lg p-3 text-white text-xs outline-none focus:border-indigo-500 shadow-[inset_0_0_10px_rgba(79,70,229,0.1)] [&>option]:bg-slate-900">
+                    <option value="">Selecione um fornecedor validado...</option>
+                    {suppliers.filter(s => s.type !== 'Doador').map(s => (
+                      <option key={s.id} value={s.id}>
+                        {s.legalStatus === 'approved' ? '✅' : '⚠️'} {s.name} - {s.category} ({fmt(s.contractValue)})
+                      </option>
+                    ))}
+                  </select>
+                  <p className="text-[9px] text-slate-500 italic mt-1">
+                    ⚠️ Somente fornecedores com o selo ✅ estão 100% regulares no Jurídico.
+                  </p>
+                </div>
+              )}
+
+              <div className="space-y-1">
+                <label className="text-[10px] font-bold text-slate-500 uppercase ml-1">Nº Nota Fiscal / Link Comprovante</label>
+                <input value={attachmentUrl} onChange={e => setAttachmentUrl(e.target.value)} className="w-full bg-black/50 border border-slate-700 rounded-lg p-2.5 text-white text-[10px] outline-none focus:border-indigo-500/50" placeholder="Link do Drive ou Número da NF-e" />
+              </div>
+
+              <div className="mt-4 flex justify-between gap-3">
+                <p className="text-[9px] text-slate-500 flex items-center gap-1"><AlertCircle size={12}/> Dados auditáveis pelo SPCE</p>
+                <div className="flex gap-2">
+                  <button type="button" onClick={() => setIsModalOpen(false)} className="px-5 py-2.5 rounded-lg text-xs font-black uppercase text-slate-400 hover:text-white transition-colors">Abortar</button>
+                  <button type="submit" className="px-6 py-2.5 rounded-lg text-xs font-black uppercase bg-indigo-600 hover:bg-indigo-500 text-white shadow-[0_0_20px_rgba(79,70,229,0.3)] transition-all">Consolidar Fluxo</button>
+                </div>
               </div>
             </form>
           </div>

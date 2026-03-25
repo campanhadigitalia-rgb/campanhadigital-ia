@@ -59,7 +59,15 @@ export interface Campaign {
   admin_email: string;
   financeConfig?: {
     monthlyGoal: number;
-    spendingLimit: number;
+    spendingLimit: number; // Teto definido pelo usuário
+    tseSpendingLimit?: number; // Teto oficial do TSE para referência
+    categoryGoals: {
+      fundoPartidario: number;
+      doacaoFisica: number;
+      vaquinha: number;
+      eventos: number;
+      outros: number;
+    };
     sources: {
       fundoPartidario: boolean;
       doacaoFisica: boolean;
@@ -143,10 +151,13 @@ export interface Interaction extends BaseDocument {
 export interface CashTransaction extends BaseDocument {
   description: string;
   type: 'income' | 'expense';
-  category: 'fundo' | 'doacao' | 'evento' | 'pessoal' | 'grafica' | 'impulsionamento' | 'outros';
+  category: 'fundoPartidario' | 'doacaoFisica' | 'vaquinha' | 'eventos' | 'pessoal' | 'grafica' | 'marketing' | 'outros';
   amount: number;
   date: string;
   status: 'pending' | 'completed';
+  paidStatus?: 'provisioned' | 'paid'; // Controle de efetivação de caixa
+  supplierId?: string; // Link com fornecedor/contrato validado
+  attachmentUrl?: string; // Link para NF ou Comprovante
 }
 
 /** Logística Administrativa */

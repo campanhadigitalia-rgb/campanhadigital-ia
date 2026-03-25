@@ -1,4 +1,4 @@
-import { collection, query, where, getDocs, getAggregateFromServer, sum } from 'firebase/firestore';
+import { collection, query, where, getDocs } from 'firebase/firestore';
 import { db } from './firebase';
 
 export interface Leader {
@@ -17,6 +17,13 @@ export interface FinanceStats {
   month: string;
   monthlyGoal: number;
   raised: number;
+  breakdown: {
+    fundoPartidario: number;
+    doacaoFisica: number;
+    vaquinha: number;
+    eventos: number;
+    outros: number;
+  };
 }
 
 export async function fetchMultipliers(campaignId: string): Promise<Leader[]> {
@@ -32,18 +39,44 @@ export async function fetchMultipliers(campaignId: string): Promise<Leader[]> {
 }
 
 export async function fetchFinanceStats(campaignId: string): Promise<FinanceStats> {
+  const emptyStats: FinanceStats = {
+    campaign_id: campaignId,
+    month: 'Atual',
+    monthlyGoal: 0,
+    raised: 0,
+    breakdown: {
+      fundoPartidario: 0,
+      doacaoFisica: 0,
+      vaquinha: 0,
+      eventos: 0,
+      outros: 0
+    }
+  };
+
   try {
-     const q = query(collection(db, 'finances'), where('campaign_id', '==', campaignId));
-     const snap = await getAggregateFromServer(q, {
-       raised: sum('amount')
+     const q = query(collection(db, 'finance_transactions'), where('campaign_id', '==', campaignId));
+     const snap = await getDocs(q);
+     
+     if (snap.empty) return emptyStats;
+
+     const stats = { ...emptyStats };
+     
+     snap.docs.forEach(d => {
+       const data = d.data();
+       if (data.type === 'income') {
+         stats.raised += data.amount || 0;
+         const cat = data.category as keyof typeof stats.breakdown;
+         if (stats.breakdown[cat] !== undefined) {
+           stats.breakdown[cat] += data.amount || 0;
+         } else {
+           stats.breakdown.outros += data.amount || 0;
+         }
+       }
      });
-     return {
-       campaign_id: campaignId,
-       month: 'Atual',
-       monthlyGoal: 500000,
-       raised: snap.data().raised || 0
-     };
-  } catch (e) {
-     return { campaign_id: campaignId, month: 'Atual', monthlyGoal: 500000, raised: 0 };
+
+     return stats;
+  } catch (error) {
+     console.error("Erro fetchFinanceStats:", error);
+     return emptyStats;
   }
 }
