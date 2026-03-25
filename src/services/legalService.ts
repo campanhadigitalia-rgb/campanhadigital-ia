@@ -1,4 +1,6 @@
 import { GoogleGenerativeAI } from '@google/generative-ai';
+import { collection, addDoc, serverTimestamp } from 'firebase/firestore';
+import { db } from './firebase';
 
 const API_KEY = import.meta.env.VITE_GEMINI_API_KEY || '';
 const genAI = new GoogleGenerativeAI(API_KEY);
@@ -18,12 +20,31 @@ export interface Jurisprudence {
 export interface CampaignLawsuit {
   id: string;
   cnjNumber: string;
-  status: 'Ativo' | 'Prazo Aberto' | 'Julgado';
+  status: 'Ativo' | 'Prazo Aberto' | 'Julgado' | 'Arquivado';
   court: string;
   type: string;
   lastUpdate: string;
   description: string;
-  isDemo?: boolean;
+}
+
+export interface CnpjStatus {
+  razaoSocial: string;
+  situacao: string;
+  dataAbertura: string;
+  natureza: string;
+  atividade: string;
+  endereco: string;
+  telefone?: string;
+  email?: string;
+  isActive: boolean;
+}
+
+export interface DefenseRecord {
+  id?: string;
+  processInfo: string;
+  thesis: string;
+  createdAt?: unknown;
+  campaignId: string;
 }
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
@@ -32,33 +53,108 @@ function isRateLimit(e: unknown): boolean {
   return String(e).includes('429') || String(e).toLowerCase().includes('quota') || String(e).toLowerCase().includes('rate');
 }
 
-// ─── Jurisprudência (Gemini-powered, com fallback mock) ───────────────────────
+// ─── CNPJ Verification (Receita Federal via cnpj.ws) ─────────────────────────
 
-const MOCK_JURISPRUDENCE: Jurisprudence[] = [
-  { id: 'tse-124', tribunal: 'TSE', theme: 'Propaganda Antecipada', decision: 'Uso de outdoor subliminar configurou multa de R$ 25.000,00. Candidato não comprovou ausência de pedido de voto.', date: '2025-11-10', year: 2025, link: 'https://jurisprudencia.tse.jus.br/#/' },
-  { id: 'tre-rs-55', tribunal: 'TRE-RS', theme: 'Fake News / Desinformação', decision: 'Suspensão imediata de perfil no X/Twitter por difamação. Direito de resposta deferido no prazo de 24h.', date: '2026-01-22', year: 2026, link: 'https://jurisprudencia.tse.jus.br/#/' },
-  { id: 'tse-88', tribunal: 'TSE', theme: 'Arrecadação e PIX', decision: 'Vedado uso de CNPJ corporativo cruzado para PIX de campanha. Conta bancária deve ser exclusivamente eleitoral.', date: '2026-02-14', year: 2026, link: 'https://jurisprudencia.tse.jus.br/#/' },
-  { id: 'tre-rs-10', tribunal: 'TRE-RS', theme: 'Propaganda Irregular', decision: 'Material impresso sem número de registro TSE em local de fácil leitura enseja multa e recolhimento imediato.', date: '2024-09-05', year: 2024, link: 'https://jurisprudencia.tse.jus.br/#/' },
-  { id: 'tse-200', tribunal: 'TSE', theme: 'Disparo em Massa (WhatsApp)', decision: 'Disparo eleitoral em listas de transmissão compradas é prática vedada — Res. TSE nº 23.610/2019.', date: '2024-10-18', year: 2024, link: 'https://jurisprudencia.tse.jus.br/#/' },
-  { id: 'tre-rs-22', tribunal: 'TRE-RS', theme: 'Abuso de Poder Econômico', decision: 'Doação acima do limite legal (10% rendimentos brutos declarados ao IR) enseja cassação do registro.', date: '2022-09-01', year: 2022, link: 'https://jurisprudencia.tse.jus.br/#/' },
-  { id: 'tse-22a', tribunal: 'TSE', theme: 'Pesquisa Eleitoral', decision: 'Pesquisa de intenção de voto não registrada no TSE é propaganda eleitoral irregular. Multa de R$ 53.205,00.', date: '2022-08-22', year: 2022, link: 'https://jurisprudencia.tse.jus.br/#/' }
-];
+export async function verifyCnpjStatus(cnpj: string): Promise<CnpjStatus | null> {
+  const digits = cnpj.replace(/\D/g, '');
+  if (digits.length !== 14) return null;
+  try {
+    const res = await fetch(`https://publica.cnpj.ws/cnpj/${digits}`, {
+      headers: { 'Accept': 'application/json' }
+    });
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    const data = await res.json();
+    const est = data.estabelecimento ?? {};
+    const principal = est.atividade_principal ?? {};
+    const cidade = est.cidade?.nome ?? '';
+    const estado = est.estado?.sigla ?? '';
+    const rua = [est.tipo_logradouro, est.logradouro, est.numero].filter(Boolean).join(' ');
+    return {
+      razaoSocial: data.razao_social ?? '',
+      situacao: est.situacao_cadastral ?? 'Desconhecida',
+      dataAbertura: est.data_inicio_atividade ?? '',
+      natureza: data.natureza_juridica?.descricao ?? '',
+      atividade: principal.descricao ?? '',
+      endereco: `${rua} — ${est.bairro ?? ''}, ${cidade}/${estado} · CEP ${est.cep ?? ''}`,
+      telefone: est.ddd1 && est.telefone1 ? `(${est.ddd1}) ${est.telefone1}` : undefined,
+      email: est.email && est.email !== 'nan' ? est.email : undefined,
+      isActive: (est.situacao_cadastral ?? '').toLowerCase() === 'ativa',
+    };
+  } catch (e) {
+    console.warn('CNPJ lookup failed:', e);
+    return null;
+  }
+}
+
+// ─── TSE Candidacy via CORS Proxy ─────────────────────────────────────────────
+// Uses allorigins.win to bypass TSE CORS restriction
+
+export interface CandidacyInfo {
+  nomeUrna: string;
+  cargo: string;
+  partido: string;
+  situacao: string;
+  numero: string;
+  uf: string;
+  ano: number;
+  link: string;
+}
+
+export async function fetchCandidacyByCnpj(cnpj: string, year: number): Promise<CandidacyInfo | null> {
+  const digits = cnpj.replace(/\D/g, '');
+  if (digits.length !== 14) return null;
+  try {
+    const target = `https://divulgacandcontas.tse.jus.br/divulga/rest/v1/cnpj/${digits}`;
+    const proxy = `https://api.allorigins.win/get?url=${encodeURIComponent(target)}`;
+    const res = await fetch(proxy);
+    if (!res.ok) throw new Error('proxy error');
+    const wrapper = await res.json();
+    const data = JSON.parse(wrapper.contents ?? '{}');
+    const cand = data?.candidatura ?? data;
+    if (!cand?.nomeUrna && !cand?.nome) return null;
+    const seqCand = cand.sequencialCandidato ?? '';
+    const ufCand = cand.sgUE ?? cand.sgUf ?? '';
+    const anoCand = cand.anoEleicao ?? year;
+    return {
+      nomeUrna: cand.nomeUrna ?? cand.nome ?? '',
+      cargo: cand.descricaoCargo ?? '',
+      partido: cand.siglaPartido ?? cand.nomePartido ?? '',
+      situacao: cand.descricaoSituacaoTotalizacao ?? cand.descricaoSituacao ?? '',
+      numero: String(cand.numeroEleitoral ?? cand.numero ?? ''),
+      uf: ufCand,
+      ano: anoCand,
+      link: seqCand
+        ? `https://divulgacandcontas.tse.jus.br/divulga/#/candidato/${anoCand}/${ufCand}/${seqCand}`
+        : `https://divulgacandcontas.tse.jus.br/divulga/#/`,
+    };
+  } catch (e) {
+    console.warn('TSE candidacy lookup failed:', e);
+    return null;
+  }
+}
+
+// ─── Jurisprudência (Gemini — dados reais, sem mock) ──────────────────────────
 
 export type JuriResult = { data: Jurisprudence[]; isAI: boolean; isRateLimited: boolean };
 
 export async function fetchJurisprudenceDB(year?: number): Promise<JuriResult> {
-  const fallback = year ? MOCK_JURISPRUDENCE.filter(j => j.year === year) : MOCK_JURISPRUDENCE;
-
-  if (!API_KEY) return { data: fallback, isAI: false, isRateLimited: false };
+  if (!API_KEY) return { data: [], isAI: false, isRateLimited: false };
 
   try {
     const model = genAI.getGenerativeModel({ model: 'gemini-2.0-flash' });
-    const yearStr = year ? `do ano ${year}` : 'recentes (2022-2026)';
+    const yearStr = year
+      ? `da eleição de ${year} (ano eleitoral ${year})`
+      : 'dos anos eleitorais 2022 e 2024';
+
     const prompt = `Você é um advogado eleitoral especialista em direito eleitoral brasileiro.
-Liste 5 decisões/súmulas/resoluções REAIS do TSE ou TRE-RS mais relevantes para campanhas eleitorais ${yearStr}.
-Responda APENAS com JSON válido, sem comentários, no formato:
-[{"id":"unico","tribunal":"TSE","theme":"Tema curto","decision":"Resumo em 2 frases da decisão real","date":"YYYY-MM-DD","year":${year || 2026},"link":"https://jurisprudencia.tse.jus.br/#/"}]
-Regras: use APENAS decisões reais. Não invente números de processo. Tribunal deve ser "TSE" ou "TRE-RS".`;
+Liste 6 decisões/resoluções REAIS e verificáveis do TSE ou TRE-RS mais importantes ${yearStr}.
+Use SOMENTE decisões que existem de verdade — cite o número exato da resolução TSE ou número do acórdão.
+Responda APENAS com JSON válido, sem comentários ou markdown, no formato:
+[{"id":"tse-XYZW","tribunal":"TSE","theme":"Tema conciso","decision":"Resumo fiel em 2-3 frases da decisão real, citando o número do acórdão/resolução","date":"YYYY-MM-DD","year":${year ?? 2022},"link":"https://jurisprudencia.tse.jus.br/#/"}]
+Regras estritas:
+- tribunal: apenas "TSE" ou "TRE-RS"
+- Não invente. Se não lembrar o número exato, omita o número mas descreva a decisão fielmente
+- link: sempre "https://jurisprudencia.tse.jus.br/#/" (portal público real)`;
 
     const result = await model.generateContent(prompt);
     let text = result.response.text().trim();
@@ -69,37 +165,74 @@ Regras: use APENAS decisões reais. Não invente números de processo. Tribunal 
     return { data: parsed, isAI: true, isRateLimited: false };
   } catch (e) {
     const rateLimited = isRateLimit(e);
-    console.warn(rateLimited ? 'Gemini rate limited, using mock jurisprudence' : 'Jurisprudence AI failed, using mock:', e);
-    return { data: fallback.length > 0 ? fallback : MOCK_JURISPRUDENCE, isAI: false, isRateLimited: rateLimited };
+    console.warn(rateLimited ? 'Gemini rate limited' : 'Jurisprudence AI failed:', e);
+    return { data: [], isAI: false, isRateLimited: rateLimited };
   }
 }
 
-// ─── Campaign Lawsuits (PJe) ──────────────────────────────────────────────────
-// NOTA: integração real com PJe requer proxy backend (CORS). Por ora retorna dados demo.
+// ─── Processos (user-driven via Firestore, sem mock) ──────────────────────────
+// Processos são inseridos pelo advogado manualmente. Não existe API pública do PJe.
+// Esta função retorna lista vazia — os dados vêm do Firestore em tempo real no componente.
 
 export async function fetchCampaignLawsuits(): Promise<CampaignLawsuit[]> {
-  return [
-    {
-      id: 'demo-1',
-      cnjNumber: '0600123-45.2026.6.21.0000',
-      status: 'Prazo Aberto',
-      court: 'TRE-RS',
-      type: 'Representação Eleitoral',
-      lastUpdate: 'Demo',
-      description: 'EXEMPLO: Oposição acusa evento de caracterizar propaganda eleitoral antecipada.',
-      isDemo: true
-    },
-    {
-      id: 'demo-2',
-      cnjNumber: '0600888-99.2026.6.21.0000',
-      status: 'Julgado',
-      court: 'TSE',
-      type: 'Direito de Resposta',
-      lastUpdate: 'Demo',
-      description: 'EXEMPLO: Contestação de vídeo nas redes sociais. Liminar deferida parcialmente.',
-      isDemo: true
-    }
-  ];
+  return [];
+}
+
+// ─── Salvar Defesa no Firestore ───────────────────────────────────────────────
+
+export async function saveDefenseToFirestore(
+  campaignId: string,
+  processInfo: string,
+  thesis: string
+): Promise<string> {
+  const colRef = collection(db, `campaigns/${campaignId}/defenses`);
+  const docRef = await addDoc(colRef, {
+    processInfo,
+    thesis,
+    createdAt: serverTimestamp(),
+  });
+  return docRef.id;
+}
+
+// ─── Exportar Defesa como Word (.doc) ────────────────────────────────────────
+
+export function exportDefenseAsWord(processInfo: string, thesis: string) {
+  const now = new Date().toLocaleString('pt-BR');
+  const html = `
+    <html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:w="urn:schemas-microsoft-com:office:word">
+    <head>
+      <meta charset="UTF-8"/>
+      <title>Tese Defensiva</title>
+      <style>
+        body { font-family: 'Times New Roman', serif; font-size: 12pt; margin: 3cm; color: #000; }
+        h1 { font-size: 14pt; text-align: center; font-weight: bold; text-transform: uppercase; }
+        h2 { font-size: 12pt; font-weight: bold; border-bottom: 1px solid #000; padding-bottom: 4pt; margin-top: 24pt; }
+        p { text-align: justify; line-height: 1.5; }
+        .meta { color: #555; font-size: 10pt; text-align: right; }
+        .footer { margin-top: 48pt; border-top: 1px solid #000; padding-top: 8pt; font-size: 9pt; color: #888; }
+      </style>
+    </head>
+    <body>
+      <h1>TESE DEFENSIVA — CAMPANHA ELEITORAL</h1>
+      <p class="meta">Gerado por CampanhaDigital IA em ${now}</p>
+      <h2>OBJETO DA ACUSAÇÃO / INTIMAÇÃO</h2>
+      <p>${processInfo.replace(/\n/g, '<br/>')}</p>
+      <h2>TESE DE DEFESA GERADA (RAG — IA Jurídica)</h2>
+      <p>${thesis.replace(/\n/g, '<br/>')}</p>
+      <div class="footer">
+        Documento gerado automaticamente. Revisar com advogado responsável antes de protocolar.<br/>
+        CampanhaDigital IA — Sistema de Gestão Eleitoral
+      </div>
+    </body>
+    </html>`;
+
+  const blob = new Blob([html], { type: 'application/msword' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `tese_defensiva_${new Date().toISOString().slice(0, 10)}.doc`;
+  a.click();
+  URL.revokeObjectURL(url);
 }
 
 // ─── Content Compliance ───────────────────────────────────────────────────────
@@ -127,9 +260,9 @@ export async function validateContentCompliance(text: string): Promise<{ status:
 
 export async function generateDefenseThesis(threatDescription: string): Promise<string> {
   if (!API_KEY) {
-    return `📝 **TESES DE DEFESA PRELIMINAR (BASE MANUAL)**\n\nAtenção: API Gemini não configurada. Baseado em: ${threatDescription.substring(0, 80)}...\n\n- Fundamento Legal: Art. 36-A da Lei das Eleições (Lei nº 9.504/1997).\n- Argumento Base: A postagem contestada não contém pedido explícito de voto, caracterizando-se como exaltação de qualidades pessoais.\n- Ação Recomendada: Petição imediata de defesa e envio preventivo ao Tribunal Pleno.`;
+    return `📝 **TESES DE DEFESA PRELIMINAR (SEM IA)**\n\nAPI Gemini não configurada.\n\n- Fundamento Legal: Art. 36-A da Lei das Eleições (Lei nº 9.504/1997).\n- Argumento Base: A postagem contestada não contém pedido explícito de voto, caracterizando-se como exaltação de qualidades pessoais.\n- Ação Recomendada: Petição imediata de defesa e envio preventivo ao Tribunal Pleno.`;
   }
-  
+
   try {
     const model = genAI.getGenerativeModel({ model: 'gemini-2.0-flash' });
     const prompt = `Você é um advogado especialista em Direito Eleitoral Brasileiro.
@@ -143,7 +276,7 @@ export async function generateDefenseThesis(threatDescription: string): Promise<
     return result.response.text();
   } catch (error) {
     if (isRateLimit(error)) {
-      return `⚠️ **API Temporariamente Limitada (Rate Limit)**\n\nA chave Gemini atingiu o limite de requests por minuto. Aguarde 1 minuto e tente novamente.\n\n**Base Manual enquanto isso:**\n- Fundamento: Art. 36-A da Lei 9.504/1997\n- Objeto: ${threatDescription.substring(0, 150)}\n- Ação imediata: Protocolar petição de defesa no prazo legal e comunicar a equipe jurídica.`;
+      return `⚠️ **API Temporariamente Limitada (Rate Limit)**\n\nAguarde 1 minuto e tente novamente.\n\n**Base Manual:**\n- Fundamento: Art. 36-A da Lei 9.504/1997\n- Objeto: ${threatDescription.substring(0, 150)}\n- Ação imediata: Protocolar petição de defesa no prazo legal.`;
     }
     console.error('Legal Defense RAG Error:', error);
     return `❌ Erro ao gerar tese.\n\nCausa: ${String(error).substring(0, 200)}\n\nBase Manual:\n- Art. 36-A Lei 9.504/1997\n- Objeto: ${threatDescription.substring(0, 100)}`;

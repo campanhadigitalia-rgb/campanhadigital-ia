@@ -1,8 +1,9 @@
 import { useState, useEffect, useRef } from 'react';
-import { ShieldCheck, FileCheck, Landmark, CheckCircle2, Save, ExternalLink, Upload, AlertTriangle, QrCode, Paperclip, X, FileDown } from 'lucide-react';
+import { ShieldCheck, FileCheck, Landmark, CheckCircle2, Save, ExternalLink, Upload, AlertTriangle, QrCode, Paperclip, X, FileDown, Search, Building2, AlertCircle } from 'lucide-react';
 import { doc, updateDoc } from 'firebase/firestore';
 import { db, COLLECTIONS } from '../../services/firebase';
 import { useCampaign } from '../../context/CampaignContext';
+import { verifyCnpjStatus, fetchCandidacyByCnpj, type CnpjStatus, type CandidacyInfo } from '../../services/legalService';
 import jsPDF from 'jspdf';
 
 interface AttachedFile {
@@ -13,6 +14,10 @@ interface AttachedFile {
 export function LegalOnboarding() {
   const { activeCampaign } = useCampaign();
   const [loading, setLoading] = useState(false);
+  const [cnpjStatus, setCnpjStatus] = useState<CnpjStatus | null>(null);
+  const [candidacy, setCandidacy] = useState<CandidacyInfo | null>(null);
+  const [cnpjLoading, setCnpjLoading] = useState(false);
+  const [cnpjError, setCnpjError] = useState('');
   const [attachments, setAttachments] = useState<Record<string, AttachedFile | null>>({
     cnpj: null, bankAccount: null, pix: null,
     fidelidade: null, docs: null, tre: null, cnpj_emitted: null, spce_setup: null
@@ -64,6 +69,24 @@ export function LegalOnboarding() {
       alert('Erro ao salvar configurações.');
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleVerifyCnpj = async () => {
+    setCnpjStatus(null); setCandidacy(null); setCnpjError('');
+    if (!legal.cnpj.trim()) { setCnpjError('Digite um CNPJ antes de verificar.'); return; }
+    setCnpjLoading(true);
+    try {
+      const [status, cand] = await Promise.all([
+        verifyCnpjStatus(legal.cnpj),
+        fetchCandidacyByCnpj(legal.cnpj, activeCampaign?.year ? Number(activeCampaign.year) : 2022),
+      ]);
+      if (!status) { setCnpjError('CNPJ não encontrado na Receita Federal. Verifique o número.'); }
+      else { setCnpjStatus(status); setCandidacy(cand); }
+    } catch {
+      setCnpjError('Erro ao consultar CNPJ. Verifique a conexão e tente novamente.');
+    } finally {
+      setCnpjLoading(false);
     }
   };
 
@@ -270,12 +293,78 @@ export function LegalOnboarding() {
               <label className="text-[10px] font-bold text-slate-400 flex items-center gap-1"><FileCheck size={10} /> CNPJ da Campanha</label>
               <AttachButton field="cnpj" />
             </div>
-            <input
-              value={legal.cnpj}
-              onChange={e => setLegal({ ...legal, cnpj: e.target.value })}
-              placeholder="00.000.000/0001-00"
-              className="w-full bg-slate-950 border border-slate-700 rounded px-3 py-2 text-white outline-none focus:border-indigo-500/50 font-mono tracking-wider text-xs"
-            />
+            <div className="flex gap-2">
+              <input
+                value={legal.cnpj}
+                onChange={e => { setLegal({ ...legal, cnpj: e.target.value }); setCnpjStatus(null); setCnpjError(''); }}
+                placeholder="00.000.000/0001-00"
+                className="flex-1 bg-slate-950 border border-slate-700 rounded px-3 py-2 text-white outline-none focus:border-indigo-500/50 font-mono tracking-wider text-xs"
+              />
+              <button
+                type="button"
+                onClick={handleVerifyCnpj}
+                disabled={cnpjLoading}
+                className="flex items-center gap-1 bg-indigo-500/10 hover:bg-indigo-500/20 text-indigo-400 border border-indigo-500/30 px-3 py-1.5 rounded text-[10px] font-bold transition-colors disabled:opacity-50 shrink-0"
+              >
+                {cnpjLoading ? <AlertCircle size={11} className="animate-spin" /> : <Search size={11} />}
+                {cnpjLoading ? '...' : 'Verificar'}
+              </button>
+            </div>
+            {/* CNPJ result card */}
+            {cnpjError && (
+              <div className="flex items-center gap-2 p-2 rounded bg-red-500/10 border border-red-500/20 text-red-400 text-[10px]">
+                <AlertCircle size={11} /> {cnpjError}
+              </div>
+            )}
+            {cnpjStatus && (
+              <div className="rounded-lg border border-slate-700/50 bg-slate-950/60 p-3 space-y-2 mt-1">
+                <div className="flex items-start justify-between gap-2">
+                  <div className="flex items-center gap-2">
+                    <Building2 size={13} className="text-indigo-400 shrink-0" />
+                    <p className="text-[11px] font-bold text-slate-200 leading-tight">{cnpjStatus.razaoSocial}</p>
+                  </div>
+                  <span className={`shrink-0 px-2 py-0.5 rounded text-[9px] font-black border uppercase tracking-wider ${
+                    cnpjStatus.isActive
+                      ? 'bg-emerald-500/15 text-emerald-400 border-emerald-500/30'
+                      : 'bg-red-500/15 text-red-400 border-red-500/30'
+                  }`}>
+                    {cnpjStatus.situacao}
+                  </span>
+                </div>
+                <div className="grid grid-cols-2 gap-x-3 gap-y-1">
+                  {[['Natureza', cnpjStatus.natureza], ['Atividade', cnpjStatus.atividade], ['Abertura', cnpjStatus.dataAbertura], ['Endereço', cnpjStatus.endereco]].map(([k, v]) => v ? (
+                    <div key={k} className="col-span-2">
+                      <span className="text-[9px] font-black text-slate-600 uppercase tracking-widest">{k}: </span>
+                      <span className="text-[10px] text-slate-400">{v}</span>
+                    </div>
+                  ) : null)}
+                  {cnpjStatus.email && (
+                    <div className="col-span-2"><span className="text-[9px] font-black text-slate-600 uppercase tracking-widest">Email: </span><span className="text-[10px] text-indigo-400">{cnpjStatus.email}</span></div>
+                  )}
+                </div>
+                {candidacy && (
+                  <div className="pt-2 border-t border-slate-800 space-y-1">
+                    <p className="text-[9px] font-black text-amber-500 uppercase tracking-widest">✅ Candidatura vinculada no TSE</p>
+                    <div className="grid grid-cols-2 gap-1">
+                      {[['Candidato', candidacy.nomeUrna], ['Cargo', candidacy.cargo], ['Partido', candidacy.partido], ['Nº', candidacy.numero], ['UF', candidacy.uf], ['Situação', candidacy.situacao]].map(([k, v]) => v ? (
+                        <div key={k}>
+                          <span className="text-[9px] font-black text-slate-600 uppercase">{k}: </span>
+                          <span className="text-[10px] text-amber-300">{v}</span>
+                        </div>
+                      ) : null)}
+                    </div>
+                    <a href={candidacy.link} target="_blank" rel="noreferrer" className="flex items-center gap-1 text-[10px] text-indigo-400 hover:text-indigo-300 transition-colors">
+                      <ExternalLink size={10} /> Ver no Portal TSE
+                    </a>
+                  </div>
+                )}
+                {!candidacy && cnpjStatus && (
+                  <p className="text-[10px] text-slate-500 pt-1 border-t border-slate-800">
+                    Candidatura não encontrada no TSE para este CNPJ/ano. Verifique se o CNPJ é eleitoral.
+                  </p>
+                )}
+              </div>
+            )}
           </div>
 
           {/* Conta bancária */}

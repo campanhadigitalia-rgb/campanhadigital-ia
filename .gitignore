@@ -29,3 +29,15 @@ tmp_seed.js
 *.njsproj
 *.sln
 *.sw?
+
+# Python / uv environment (backend agent — não vai ao repositório)
+.venv/
+__pycache__/
+*.pyc
+uv.lock
+uv_local.ps1
+configure_proxy.ps1
+pyproject.toml
+main.py
+firebase-key.json
+src/agents/

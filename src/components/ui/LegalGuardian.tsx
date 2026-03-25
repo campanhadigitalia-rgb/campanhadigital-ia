@@ -2,21 +2,22 @@ import { useState, useEffect, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   Scale, ShieldAlert, BookOpen, AlertCircle, FileText, Search,
-  Clock, FileWarning, PlayCircle, Shield, ArrowRight, AlertTriangle,
-  ExternalLink, Sparkles, RefreshCw, FileDown, Plus, Trash2, Download
+  Clock, FileWarning, PlayCircle, Shield, ArrowRight,
+  ExternalLink, Sparkles, RefreshCw, FileDown, Plus, Trash2,
+  Download, Save, Copy, CheckCircle2, FolderOpen
 } from 'lucide-react';
 import {
-  fetchJurisprudenceDB, fetchCampaignLawsuits, generateDefenseThesis,
-  type Jurisprudence, type CampaignLawsuit
+  fetchJurisprudenceDB, generateDefenseThesis, saveDefenseToFirestore, exportDefenseAsWord,
+  type Jurisprudence
 } from '../../services/legalService';
 import { useCampaign } from '../../context/CampaignContext';
 import {
-  collection, addDoc, deleteDoc, doc, onSnapshot, serverTimestamp, updateDoc
+  collection, addDoc, deleteDoc, doc, onSnapshot, serverTimestamp, updateDoc, query, orderBy
 } from 'firebase/firestore';
 import { db } from '../../services/firebase';
 import jsPDF from 'jspdf';
 
-// ── Tipos ─────────────────────────────────────────────────────────────────────
+// ── Types ─────────────────────────────────────────────────────────────────────
 type NoteType = 'Prazo' | 'Diligência' | 'Observação' | 'Alerta';
 type NoteStatus = 'Aberto' | 'Em andamento' | 'Concluído';
 
@@ -29,79 +30,45 @@ interface LegalNote {
   status: NoteStatus;
 }
 
-// ── Helpers PDF ───────────────────────────────────────────────────────────────
+interface ProcessEntry {
+  id: string;
+  cnjNumber: string;
+  type: string;
+  court: string;
+  status: 'Ativo' | 'Prazo Aberto' | 'Julgado' | 'Arquivado';
+  description: string;
+  createdAt?: unknown;
+}
+
+interface DefenseRecord {
+  id: string;
+  processInfo: string;
+  thesis: string;
+  createdAt?: { seconds: number };
+}
+
+// ── PDF Helper ────────────────────────────────────────────────────────────────
 function exportJuriCardPdf(j: Jurisprudence) {
   const pdf = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
   const W = pdf.internal.pageSize.getWidth();
-
   pdf.setFillColor(120, 88, 0);
   pdf.rect(0, 0, W, 32, 'F');
   pdf.setFont('helvetica', 'bold'); pdf.setFontSize(16); pdf.setTextColor(255, 233, 153);
   pdf.text('JURISPRUDÊNCIA TSE/TRE', W / 2, 14, { align: 'center' });
   pdf.setFont('helvetica', 'normal'); pdf.setFontSize(9); pdf.setTextColor(253, 224, 71);
   pdf.text(`${j.tribunal} · ${j.date}`, W / 2, 24, { align: 'center' });
-
   let y = 44;
   pdf.setFont('helvetica', 'bold'); pdf.setFontSize(12); pdf.setTextColor(30, 27, 75);
   const themeLines = pdf.splitTextToSize(j.theme.toUpperCase(), W - 28);
   pdf.text(themeLines, 14, y); y += themeLines.length * 6 + 6;
-
   pdf.setDrawColor(217, 119, 6); pdf.setLineWidth(0.5); pdf.line(14, y, W - 14, y); y += 6;
-
   pdf.setFont('helvetica', 'normal'); pdf.setFontSize(10); pdf.setTextColor(30, 41, 59);
   const decLines = pdf.splitTextToSize(j.decision, W - 28);
   pdf.text(decLines, 14, y); y += decLines.length * 5 + 10;
-
-  if (j.link) {
-    pdf.setFont('helvetica', 'italic'); pdf.setFontSize(8); pdf.setTextColor(99, 102, 241);
-    pdf.text(`Portal TSE: ${j.link}`, 14, y);
-  }
-
+  if (j.link) { pdf.setFont('helvetica', 'italic'); pdf.setFontSize(8); pdf.setTextColor(99, 102, 241); pdf.text(`Portal TSE: ${j.link}`, 14, y); }
   pdf.setFont('helvetica', 'italic'); pdf.setFontSize(7.5); pdf.setTextColor(148, 163, 184);
   pdf.text('Gerado por CampanhaDigital IA — Apenas para referência interna.', W / 2, 290, { align: 'center' });
   pdf.save(`jurisprudencia_${j.id}_${new Date().toISOString().slice(0, 10)}.pdf`);
-}
-
-function exportThesisPdf(thesis: string, panicInput: string) {
-  const pdf = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
-  const W = pdf.internal.pageSize.getWidth();
-  const now = new Date().toLocaleString('pt-BR');
-
-  pdf.setFillColor(127, 29, 29);
-  pdf.rect(0, 0, W, 36, 'F');
-  pdf.setFont('helvetica', 'bold'); pdf.setFontSize(17); pdf.setTextColor(254, 202, 202);
-  pdf.text('TESE DEFENSIVA — BOTÃO DO PÂNICO', W / 2, 15, { align: 'center' });
-  pdf.setFont('helvetica', 'normal'); pdf.setFontSize(9); pdf.setTextColor(252, 165, 165);
-  pdf.text(`Gerado por CampanhaDigital IA em ${now}`, W / 2, 26, { align: 'center' });
-
-  let y = 48;
-  pdf.setFillColor(254, 242, 242);
-  pdf.roundedRect(10, y, W - 20, 8, 2, 2, 'F');
-  pdf.setFont('helvetica', 'bold'); pdf.setFontSize(9); pdf.setTextColor(185, 28, 28);
-  pdf.text('OBJETO DA ACUSAÇÃO / INTIMAÇÃO', 14, y + 5.5); y += 14;
-
-  pdf.setFont('helvetica', 'normal'); pdf.setFontSize(9); pdf.setTextColor(30, 41, 59);
-  const inputLines = pdf.splitTextToSize(panicInput, W - 28);
-  pdf.text(inputLines, 14, y); y += inputLines.length * 5 + 10;
-
-  pdf.setFillColor(254, 242, 242);
-  pdf.roundedRect(10, y, W - 20, 8, 2, 2, 'F');
-  pdf.setFont('helvetica', 'bold'); pdf.setFontSize(9); pdf.setTextColor(185, 28, 28);
-  pdf.text('TESE DEFENSIVA GERADA (RAG)', 14, y + 5.5); y += 14;
-
-  pdf.setFont('helvetica', 'normal'); pdf.setFontSize(9.5); pdf.setTextColor(15, 23, 42);
-  const thesisLines = pdf.splitTextToSize(thesis, W - 28);
-
-  // Handle page overflow for long theses
-  thesisLines.forEach((line: string) => {
-    if (y > 270) { pdf.addPage(); y = 20; }
-    pdf.text(line, 14, y);
-    y += 5;
-  });
-
-  pdf.setFont('helvetica', 'italic'); pdf.setFontSize(7.5); pdf.setTextColor(148, 163, 184);
-  pdf.text('Documento interno — CampanhaDigital IA. Revisar com advogado antes de protocolar.', W / 2, 290, { align: 'center' });
-  pdf.save(`tese_defensiva_${new Date().toISOString().slice(0, 10)}.pdf`);
 }
 
 function exportNotesCsv(notes: LegalNote[]) {
@@ -115,7 +82,7 @@ function exportNotesCsv(notes: LegalNote[]) {
   a.click(); URL.revokeObjectURL(url);
 }
 
-// ── Componente Principal ──────────────────────────────────────────────────────
+// ── Component ─────────────────────────────────────────────────────────────────
 export function LegalGuardian() {
   const { activeCampaign } = useCampaign();
   const campaignCnpj = activeCampaign?.legalConfig?.cnpj?.trim() || '';
@@ -128,23 +95,31 @@ export function LegalGuardian() {
   const [juriLoading, setJuriLoading] = useState(false);
   const [juriSearch, setJuriSearch] = useState('');
 
-  // Processos
-  const [lawsuits, setLawsuits] = useState<CampaignLawsuit[]>([]);
+  // Processos (user-driven)
+  const [processes, setProcesses] = useState<ProcessEntry[]>([]);
+  const [newProcess, setNewProcess] = useState<Omit<ProcessEntry, 'id'>>({
+    cnjNumber: '', type: '', court: 'TRE-RS', status: 'Ativo', description: ''
+  });
+  const [addingProcess, setAddingProcess] = useState(false);
 
   // Botão do Pânico
   const [panicLoading, setPanicLoading] = useState(false);
   const [panicInputText, setPanicInputText] = useState('');
   const [panicThesis, setPanicThesis] = useState<string | null>(null);
+  const [copiedThesis, setCopiedThesis] = useState(false);
+  const [savingDefense, setSavingDefense] = useState(false);
+  const [savedDefenseId, setSavedDefenseId] = useState<string | null>(null);
+
+  // Defesas salvas
+  const [defenses, setDefenses] = useState<DefenseRecord[]>([]);
+  const [defensesOpen, setDefensesOpen] = useState(false);
 
   // Caderno do Advogado
   const [notes, setNotes] = useState<LegalNote[]>([]);
   const [savingNote, setSavingNote] = useState(false);
   const [newNote, setNewNote] = useState<Omit<LegalNote, 'id'>>({
     date: new Date().toISOString().slice(0, 10),
-    type: 'Prazo',
-    description: '',
-    responsible: '',
-    status: 'Aberto',
+    type: 'Prazo', description: '', responsible: '', status: 'Aberto',
   });
 
   const loadJuri = async () => {
@@ -156,72 +131,104 @@ export function LegalGuardian() {
     setJuriLoading(false);
   };
 
-  useEffect(() => { loadJuri(); }, [campaignYear]); // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => { loadJuri(); }, [campaignYear]); // eslint-disable-line
 
-  useEffect(() => {
-    let active = true;
-    if (campaignCnpj) {
-      fetchCampaignLawsuits().then(data => { if (active) setLawsuits(data); });
-    } else {
-      setLawsuits([]);
-    }
-    return () => { active = false; };
-  }, [campaignCnpj]);
-
-  // Caderno do Advogado — Firestore listener
-  const notesCollectionPath = useCallback(() =>
-    activeCampaign ? `campaigns/${activeCampaign.id}/legalNotes` : null,
+  const pathFor = useCallback((sub: string) =>
+    activeCampaign ? `campaigns/${activeCampaign.id}/${sub}` : null,
     [activeCampaign]);
 
+  // Processos listener
   useEffect(() => {
-    const path = notesCollectionPath();
+    const path = pathFor('processes');
+    if (!path) { setProcesses([]); return; }
+    const q = query(collection(db, path), orderBy('createdAt', 'desc'));
+    return onSnapshot(q, snap =>
+      setProcesses(snap.docs.map(d => ({ id: d.id, ...d.data() } as ProcessEntry)))
+    );
+  }, [pathFor]);
+
+  // Defesas listener
+  useEffect(() => {
+    const path = pathFor('defenses');
+    if (!path) { setDefenses([]); return; }
+    const q = query(collection(db, path), orderBy('createdAt', 'desc'));
+    return onSnapshot(q, snap =>
+      setDefenses(snap.docs.map(d => ({ id: d.id, ...d.data() } as DefenseRecord)))
+    );
+  }, [pathFor]);
+
+  // Caderno listener
+  useEffect(() => {
+    const path = pathFor('legalNotes');
     if (!path) { setNotes([]); return; }
-    const col = collection(db, path);
-    const unsub = onSnapshot(col, snap => {
+    return onSnapshot(collection(db, path), snap => {
       const data = snap.docs.map(d => ({ id: d.id, ...d.data() } as LegalNote));
-      data.sort((a, b) => a.date > b.date ? -1 : 1);
+      data.sort((a, b) => (a.date > b.date ? -1 : 1));
       setNotes(data);
     });
-    return unsub;
-  }, [notesCollectionPath]);
+  }, [pathFor]);
 
-  const handleAddNote = async () => {
-    const path = notesCollectionPath();
-    if (!path || !newNote.description.trim()) return;
-    setSavingNote(true);
+  const handleAddProcess = async () => {
+    const path = pathFor('processes');
+    if (!path || !newProcess.cnjNumber.trim()) return;
+    setAddingProcess(true);
     try {
-      await addDoc(collection(db, path), { ...newNote, createdAt: serverTimestamp() });
-      setNewNote({ date: new Date().toISOString().slice(0, 10), type: 'Prazo', description: '', responsible: '', status: 'Aberto' });
-    } finally {
-      setSavingNote(false);
-    }
+      await addDoc(collection(db, path), { ...newProcess, createdAt: serverTimestamp() });
+      setNewProcess({ cnjNumber: '', type: '', court: 'TRE-RS', status: 'Ativo', description: '' });
+    } finally { setAddingProcess(false); }
   };
 
-  const handleDeleteNote = async (noteId: string) => {
-    const path = notesCollectionPath();
+  const handleDeleteProcess = async (pid: string) => {
+    const path = pathFor('processes');
     if (!path) return;
-    await deleteDoc(doc(db, path, noteId));
-  };
-
-  const handleUpdateNoteStatus = async (noteId: string, status: NoteStatus) => {
-    const path = notesCollectionPath();
-    if (!path) return;
-    await updateDoc(doc(db, path, noteId), { status });
+    await deleteDoc(doc(db, path, pid));
   };
 
   const handlePanicButton = async () => {
     if (!panicInputText.trim()) return;
-    setPanicLoading(true);
-    setPanicThesis(null);
+    setPanicLoading(true); setPanicThesis(null); setSavedDefenseId(null);
     const thesis = await generateDefenseThesis(panicInputText);
     setPanicThesis(thesis);
     setPanicLoading(false);
   };
 
-  const handleSelectLawsuit = (lawsuit: CampaignLawsuit) => {
-    const text = `PROCESSO CNJ: ${lawsuit.cnjNumber}\nTIPO: ${lawsuit.type}\nLOCAL: ${lawsuit.court}\n\nSÍNTESE DA ACUSAÇÃO:\n${lawsuit.description}`;
-    setPanicInputText(text);
-    document.getElementById('panic-section')?.scrollIntoView({ behavior: 'smooth' });
+  const handleSaveDefense = async () => {
+    if (!panicThesis || !activeCampaign) return;
+    setSavingDefense(true);
+    try {
+      const id = await saveDefenseToFirestore(activeCampaign.id, panicInputText, panicThesis);
+      setSavedDefenseId(id);
+      setDefensesOpen(true);
+    } finally { setSavingDefense(false); }
+  };
+
+  const handleCopyThesis = async () => {
+    if (!panicThesis) return;
+    await navigator.clipboard.writeText(panicThesis);
+    setCopiedThesis(true);
+    setTimeout(() => setCopiedThesis(false), 2500);
+  };
+
+  const handleAddNote = async () => {
+    const path = pathFor('legalNotes');
+    if (!path || !newNote.description.trim()) return;
+    setSavingNote(true);
+    try {
+      await addDoc(collection(db, path), { ...newNote, createdAt: serverTimestamp() });
+      setNewNote({ date: new Date().toISOString().slice(0, 10), type: 'Prazo', description: '', responsible: '', status: 'Aberto' });
+    } finally { setSavingNote(false); }
+  };
+
+  const handleDeleteNote = async (nid: string) => {
+    const path = pathFor('legalNotes');
+    if (!path) return;
+    await deleteDoc(doc(db, path, nid));
+  };
+
+  const handleUpdateNoteStatus = async (nid: string, status: NoteStatus) => {
+    const path = pathFor('legalNotes');
+    if (!path) return;
+    await updateDoc(doc(db, path, nid), { status });
   };
 
   const filteredJuri = juriSearch.trim()
@@ -230,18 +237,19 @@ export function LegalGuardian() {
         j.decision.toLowerCase().includes(juriSearch.toLowerCase()))
     : jurisprudence;
 
-  const statusColor = (status: string) => {
-    if (status === 'Prazo Aberto') return 'bg-red-500/20 text-red-400 border border-red-500/20';
-    if (status === 'Julgado') return 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/20';
-    return 'bg-amber-500/20 text-amber-500 border border-amber-500/20';
+  const processBadge = (s: string) => {
+    if (s === 'Prazo Aberto') return 'bg-red-500/20 text-red-400 border-red-500/20';
+    if (s === 'Julgado') return 'bg-emerald-500/20 text-emerald-400 border-emerald-500/20';
+    if (s === 'Arquivado') return 'bg-slate-500/20 text-slate-400 border-slate-500/20';
+    return 'bg-blue-500/20 text-blue-400 border-blue-500/20';
   };
 
   const noteTypeBadge = (type: NoteType) => {
     const map: Record<NoteType, string> = {
-      'Prazo':      'bg-red-500/20 text-red-400 border-red-500/30',
+      'Prazo': 'bg-red-500/20 text-red-400 border-red-500/30',
       'Diligência': 'bg-blue-500/20 text-blue-400 border-blue-500/30',
       'Observação': 'bg-slate-500/20 text-slate-400 border-slate-500/30',
-      'Alerta':     'bg-amber-500/20 text-amber-400 border-amber-500/30',
+      'Alerta': 'bg-amber-500/20 text-amber-400 border-amber-500/30',
     };
     return map[type] ?? 'bg-slate-500/20 text-slate-400';
   };
@@ -264,12 +272,13 @@ export function LegalGuardian() {
           <h2 className="text-xl font-bold text-slate-100 m-0">Guardião Jurídico</h2>
           <p className="text-sm text-slate-400 m-0 mt-0.5">
             Monitoramento ativo TSE/TRE{campaignYear ? ` • Eleição ${campaignYear}` : ''}.
+            {campaignCnpj && <span className="ml-2 font-mono text-[11px] text-indigo-300">CNPJ: {campaignCnpj}</span>}
           </p>
         </div>
       </div>
 
-      {/* ── Bloco 1: Jurisprudência ── */}
-      <div className="glass-card border border-amber-500/20 shadow-[0_0_15px_rgba(180,130,0,0.05)]">
+      {/* ── Bloco 1: Jurisprudência via Gemini (dados reais) ── */}
+      <div className="glass-card border border-amber-500/20">
         <div className="p-4 border-b border-amber-500/15 bg-amber-950/20 flex items-center justify-between gap-3 flex-wrap">
           <div className="flex items-center gap-2 flex-wrap">
             <BookOpen size={16} className="text-amber-500 shrink-0" />
@@ -278,26 +287,24 @@ export function LegalGuardian() {
             </h3>
             {juriIsAI ? (
               <span className="flex items-center gap-1 bg-emerald-500/20 border border-emerald-500/30 rounded px-2 py-0.5 text-[10px] font-bold text-emerald-400 uppercase tracking-wider">
-                <Sparkles size={10} /> Gemini AI — Dados Reais
+                <Sparkles size={10} /> Gemini AI — Decisões Reais
               </span>
             ) : juriRateLimited ? (
-              <span className="flex items-center gap-1 bg-orange-500/20 border border-orange-500/30 rounded px-2 py-0.5 text-[10px] font-bold text-orange-400 uppercase tracking-wider">
-                ⏳ Limite API — Referência Offline
+              <span className="bg-orange-500/20 border border-orange-500/30 rounded px-2 py-0.5 text-[10px] font-bold text-orange-400 uppercase">
+                ⏳ Rate Limit — Aguarde
               </span>
             ) : (
-              <span className="flex items-center gap-1 bg-amber-500/20 border border-amber-500/30 rounded px-2 py-0.5 text-[10px] font-bold text-amber-400 uppercase tracking-wider">
-                Base de Referência
+              <span className="bg-slate-700/50 border border-slate-600/30 rounded px-2 py-0.5 text-[10px] font-bold text-slate-400 uppercase">
+                Configure Gemini API Key
               </span>
             )}
           </div>
           <div className="flex items-center gap-2">
             <div className="relative">
               <Search size={13} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-500" />
-              <input
-                type="text" placeholder="Filtrar..." value={juriSearch}
+              <input type="text" placeholder="Filtrar..." value={juriSearch}
                 onChange={e => setJuriSearch(e.target.value)}
-                className="bg-slate-900 border border-slate-700 text-slate-300 rounded pl-8 pr-3 py-1.5 text-xs focus:outline-none focus:border-amber-500 transition-colors w-28"
-              />
+                className="bg-slate-900 border border-slate-700 text-slate-300 rounded pl-8 pr-3 py-1.5 text-xs focus:outline-none focus:border-amber-500 w-28" />
             </div>
             <button onClick={loadJuri} disabled={juriLoading} title="Recarregar via Gemini"
               className="p-1.5 rounded bg-amber-500/10 hover:bg-amber-500/20 text-amber-400 border border-amber-500/20 transition-colors disabled:opacity-50">
@@ -310,22 +317,28 @@ export function LegalGuardian() {
           </div>
         </div>
 
-        {!juriIsAI && (
-          <div className={`px-4 py-2 text-[11px] border-b flex items-center gap-2 ${juriRateLimited ? 'text-orange-400/80 bg-orange-900/10 border-orange-500/10' : 'text-amber-700/80 bg-amber-900/10 border-amber-500/10'}`}>
-            {juriRateLimited
-              ? '⏳ Limite de requests da API Gemini atingido. Clique em recarregar após ~1 minuto.'
-              : `⚠️ Exibindo base de referência. Clique em recarregar para buscar decisões reais via Gemini.${campaignYear ? ` (Eleição ${campaignYear})` : ''}`}
-          </div>
-        )}
-
         <div className="p-4 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3">
           {juriLoading ? (
             Array.from({ length: 4 }).map((_, i) => (
               <div key={i} className="bg-slate-900/50 border border-amber-500/10 rounded-lg p-4 animate-pulse h-28" />
             ))
           ) : filteredJuri.length === 0 ? (
-            <div className="col-span-full text-center text-slate-500 text-sm py-6">
-              {campaignYear ? `Nenhuma decisão encontrada para Eleição ${campaignYear}. Tente recarregar.` : 'Nenhuma decisão encontrada.'}
+            <div className="col-span-full text-center py-10 flex flex-col items-center gap-3">
+              <RefreshCw size={20} className="text-slate-600" />
+              <div>
+                <p className="text-sm font-bold text-slate-500">
+                  {juriRateLimited ? 'Limite da API atingido' : 'Nenhuma decisão carregada'}
+                </p>
+                <p className="text-xs text-slate-600 mt-1">
+                  {juriRateLimited
+                    ? 'Aguarde ~1 minuto e clique em recarregar.'
+                    : 'Configure a VITE_GEMINI_API_KEY e clique em recarregar para buscar decisões reais.'}
+                </p>
+              </div>
+              <button onClick={loadJuri}
+                className="flex items-center gap-1.5 bg-amber-500/10 hover:bg-amber-500/20 text-amber-400 border border-amber-500/20 px-3 py-1.5 rounded-lg text-xs font-bold transition-colors">
+                <RefreshCw size={12} /> Recarregar Agora
+              </button>
             </div>
           ) : filteredJuri.map(j => (
             <div key={j.id} className="bg-slate-900/60 border border-amber-500/15 rounded-lg p-3 flex flex-col gap-1.5 hover:bg-slate-800 transition-colors group relative">
@@ -333,11 +346,8 @@ export function LegalGuardian() {
                 <span className="text-[10px] font-black text-amber-500 bg-amber-500/10 px-1.5 py-0.5 rounded">{j.tribunal}</span>
                 <div className="flex items-center gap-1">
                   <span className="text-[10px] text-slate-500">{j.date}</span>
-                  <button
-                    onClick={() => exportJuriCardPdf(j)}
-                    title="Exportar card em PDF"
-                    className="opacity-0 group-hover:opacity-100 p-1 bg-amber-500/10 hover:bg-amber-500/20 text-amber-400 rounded border border-amber-500/20 transition-all"
-                  >
+                  <button onClick={() => exportJuriCardPdf(j)} title="Exportar PDF"
+                    className="opacity-0 group-hover:opacity-100 p-1 bg-amber-500/10 hover:bg-amber-500/20 text-amber-400 rounded border border-amber-500/20 transition-all">
                     <FileDown size={11} />
                   </button>
                 </div>
@@ -355,93 +365,119 @@ export function LegalGuardian() {
         </div>
       </div>
 
-      {/* ── Bloco 2: Processos & Intimações ── */}
-      <div className="glass-card border border-indigo-500/20 shadow-[0_0_15px_rgba(99,102,241,0.05)]">
+      {/* ── Bloco 2: Processos Judiciais (user-driven, Firestore) ── */}
+      <div className="glass-card border border-indigo-500/20">
         <div className="p-4 border-b border-indigo-500/20 bg-indigo-950/20">
           <h3 className="font-bold text-indigo-300 flex items-center gap-2 m-0 text-sm">
             <Shield size={16} className="text-indigo-400 shrink-0" /> Processos & Intimações da Campanha
           </h3>
           <p className="text-xs text-indigo-200/40 mt-1 m-0">
-            {campaignCnpj
-              ? <>Monitorando CNPJ <span className="font-mono text-indigo-300">{campaignCnpj}</span> — PJe e Diários Oficiais.</>
-              : 'Aguardando cadastro do CNPJ no painel "Deferimento Eleitoral".'}
+            Registre os processos recebidos. O advogado insere o CNJ e o sistema organiza. &nbsp;
+            <a href="https://pje.tse.jus.br/consultapublica/ConsultaPublica/listView.seam"
+              target="_blank" rel="noreferrer"
+              className="text-indigo-400 hover:text-indigo-300 inline-flex items-center gap-0.5 transition-colors">
+              Consultar processos no PJe <ExternalLink size={10} />
+            </a>
           </p>
         </div>
+
+        {/* Linha de entrada */}
+        <div className="p-4 border-b border-white/5 bg-slate-950/20">
+          <div className="grid grid-cols-2 sm:grid-cols-6 gap-2">
+            <input placeholder="CNJ (ex: 0600123-45.2022.6.21.0000)" value={newProcess.cnjNumber}
+              onChange={e => setNewProcess(p => ({ ...p, cnjNumber: e.target.value }))}
+              className="sm:col-span-2 bg-slate-900 border border-slate-700 text-slate-300 rounded px-2 py-1.5 text-xs font-mono focus:outline-none focus:border-indigo-500" />
+            <input placeholder="Tipo (ex: Representação)" value={newProcess.type}
+              onChange={e => setNewProcess(p => ({ ...p, type: e.target.value }))}
+              className="bg-slate-900 border border-slate-700 text-slate-300 rounded px-2 py-1.5 text-xs focus:outline-none focus:border-indigo-500" />
+            <select value={newProcess.court}
+              onChange={e => setNewProcess(p => ({ ...p, court: e.target.value }))}
+              className="bg-slate-900 border border-slate-700 text-slate-300 rounded px-2 py-1.5 text-xs focus:outline-none focus:border-indigo-500">
+              {['TRE-RS', 'TSE', 'TRE-SP', 'TRE-RJ', 'Outro'].map(c => <option key={c}>{c}</option>)}
+            </select>
+            <select value={newProcess.status}
+              onChange={e => setNewProcess(p => ({ ...p, status: e.target.value as ProcessEntry['status'] }))}
+              className="bg-slate-900 border border-slate-700 text-slate-300 rounded px-2 py-1.5 text-xs focus:outline-none focus:border-indigo-500">
+              {['Ativo', 'Prazo Aberto', 'Julgado', 'Arquivado'].map(s => <option key={s}>{s}</option>)}
+            </select>
+            <button onClick={handleAddProcess} disabled={addingProcess || !newProcess.cnjNumber.trim()}
+              className="bg-indigo-600 hover:bg-indigo-500 disabled:opacity-40 text-white rounded-lg px-3 transition-colors flex items-center justify-center">
+              <Plus size={15} />
+            </button>
+          </div>
+          <input placeholder="Descrição / objeto do processo (opcional)"
+            value={newProcess.description}
+            onChange={e => setNewProcess(p => ({ ...p, description: e.target.value }))}
+            className="w-full mt-2 bg-slate-900 border border-slate-700 text-slate-300 rounded px-3 py-1.5 text-xs focus:outline-none focus:border-indigo-500" />
+        </div>
+
         <div className="overflow-x-auto">
-          <table className="w-full text-left border-collapse text-xs">
-            <thead>
-              <tr className="bg-indigo-950/40 text-indigo-200/70 uppercase tracking-wider border-b border-white/5">
-                <th className="p-3 font-semibold">TIPO & CNJ</th>
-                <th className="p-3 font-semibold">DESCRIÇÃO</th>
-                <th className="p-3 font-semibold w-24 text-center">TRIBUNAL</th>
-                <th className="p-3 font-semibold w-28 text-center">STATUS</th>
-                <th className="p-3 font-semibold text-right w-20">DEFESA</th>
-              </tr>
-            </thead>
-            <tbody>
-              {!campaignCnpj ? (
-                <tr>
-                  <td colSpan={5} className="py-12 text-center">
-                    <div className="flex flex-col items-center justify-center gap-3">
-                      <AlertTriangle size={22} className="text-amber-500" />
-                      <div>
-                        <p className="text-sm font-bold text-amber-400 m-0">CNPJ não cadastrado</p>
-                        <p className="text-xs text-slate-500 mt-1">Cadastre o CNPJ em "Deferimento Eleitoral" para ativar o monitoramento PJe.</p>
-                      </div>
-                    </div>
-                  </td>
+          {processes.length === 0 ? (
+            <div className="py-10 text-center flex flex-col items-center gap-2">
+              <Clock size={20} className="text-slate-700" />
+              <p className="text-slate-500 text-sm font-bold">Nenhum processo registrado</p>
+              <p className="text-slate-600 text-xs">Use o formulário acima para inserir números CNJ de processos recebidos.</p>
+            </div>
+          ) : (
+            <table className="w-full text-left border-collapse text-xs">
+              <thead>
+                <tr className="bg-indigo-950/40 text-indigo-200/60 uppercase tracking-wider border-b border-white/5">
+                  <th className="p-3 font-semibold">TIPO & CNJ</th>
+                  <th className="p-3 font-semibold">DESCRIÇÃO</th>
+                  <th className="p-3 font-semibold w-24 text-center">TRIBUNAL</th>
+                  <th className="p-3 font-semibold w-28 text-center">STATUS</th>
+                  <th className="p-3 font-semibold text-right w-20">AÇÃO</th>
                 </tr>
-              ) : lawsuits.length === 0 ? (
-                <tr>
-                  <td colSpan={5} className="py-12 text-center text-slate-500">
-                    <div className="flex flex-col items-center gap-2">
-                      <Clock size={20} className="text-slate-600 animate-pulse" />
-                      <span className="text-xs">Nenhuma movimentação processual detectada.</span>
-                    </div>
-                  </td>
-                </tr>
-              ) : (
-                lawsuits.map(lawsuit => (
-                  <tr key={lawsuit.id} className="border-b border-white/5 text-slate-300 hover:bg-white/5 transition-colors">
+              </thead>
+              <tbody>
+                {processes.map(p => (
+                  <tr key={p.id} className="border-b border-white/5 text-slate-300 hover:bg-white/2 transition-colors">
                     <td className="p-3">
-                      <div className="flex items-center gap-1.5">
-                        <span className="font-bold text-slate-200">{lawsuit.type}</span>
-                        {lawsuit.isDemo && (
-                          <span className="text-[9px] font-black text-slate-600 bg-slate-800 border border-slate-700 px-1 py-0.5 rounded uppercase tracking-wider">DEMO</span>
-                        )}
-                      </div>
-                      <div className="font-mono text-[10px] text-slate-500 mt-0.5">{lawsuit.cnjNumber}</div>
+                      <div className="font-bold text-slate-200">{p.type || '—'}</div>
+                      <div className="font-mono text-[10px] text-slate-500 mt-0.5">{p.cnjNumber}</div>
                     </td>
-                    <td className="p-3 text-xs text-slate-400 max-w-xs">{lawsuit.description}</td>
-                    <td className="p-3 text-center font-bold text-indigo-400/80">{lawsuit.court}</td>
+                    <td className="p-3 text-xs text-slate-400 max-w-xs">{p.description || '—'}</td>
+                    <td className="p-3 text-center font-bold text-indigo-400/80">{p.court}</td>
                     <td className="p-3 text-center">
-                      <span className={`px-2 py-1 rounded text-[10px] font-bold uppercase tracking-wide whitespace-nowrap ${statusColor(lawsuit.status)}`}>
-                        {lawsuit.status}
+                      <span className={`px-2 py-1 rounded text-[10px] font-bold uppercase border whitespace-nowrap ${processBadge(p.status)}`}>
+                        {p.status}
                       </span>
                     </td>
                     <td className="p-3 text-right">
-                      <button onClick={() => handleSelectLawsuit(lawsuit)}
-                        className="bg-indigo-600/20 hover:bg-indigo-600/40 text-indigo-300 border border-indigo-500/30 px-2 py-1.5 rounded transition-colors inline-flex items-center gap-1 text-[10px] font-bold"
-                        title="Usar no Botão do Pânico">
-                        <ArrowRight size={12} /> Pânico
-                      </button>
+                      <div className="flex items-center justify-end gap-1">
+                        <button
+                          onClick={() => {
+                            const text = `PROCESSO CNJ: ${p.cnjNumber}\nTIPO: ${p.type}\nLOCAL: ${p.court}\n\nSÍNTESE:\n${p.description}`;
+                            setPanicInputText(text);
+                            document.getElementById('panic-section')?.scrollIntoView({ behavior: 'smooth' });
+                          }}
+                          className="bg-indigo-600/20 hover:bg-indigo-600/40 text-indigo-300 border border-indigo-500/30 px-2 py-1.5 rounded transition-colors inline-flex items-center gap-1 text-[10px] font-bold"
+                          title="Usar no Gerador de Defesa">
+                          <ArrowRight size={12} /> Defender
+                        </button>
+                        <button onClick={() => handleDeleteProcess(p.id)}
+                          className="p-1.5 text-slate-600 hover:text-red-400 transition-colors rounded">
+                          <Trash2 size={12} />
+                        </button>
+                      </div>
                     </td>
                   </tr>
-                ))
-              )}
-            </tbody>
-          </table>
+                ))}
+              </tbody>
+            </table>
+          )}
         </div>
       </div>
 
-      {/* ── Bloco 3: Botão do Pânico ── */}
-      <div id="panic-section" className="glass-card border border-red-500/30" style={{ background: 'linear-gradient(to bottom, rgba(127,29,29,0.10), transparent)' }}>
+      {/* ── Bloco 3: Gerador de Defesa RAG ── */}
+      <div id="panic-section" className="glass-card border border-red-500/30"
+        style={{ background: 'linear-gradient(to bottom, rgba(127,29,29,0.10), transparent)' }}>
         <div className="p-4 border-b border-red-500/20 bg-red-500/5">
           <h3 className="font-bold text-red-500 flex items-center gap-2 m-0 text-base">
-            <ShieldAlert size={20} /> Botão do Pânico — Gerador de Defesa RAG
+            <ShieldAlert size={20} /> Gerador de Defesa RAG
           </h3>
           <p className="text-xs text-red-400/70 m-0 mt-1">
-            Clique em <strong>"→ Pânico"</strong> em um processo acima para auto-preencher, ou cole a intimação abaixo.
+            Use <strong>"→ Defender"</strong> em um processo acima para auto-preencher, ou cole a intimação abaixo.
           </p>
         </div>
 
@@ -451,17 +487,11 @@ export function LegalGuardian() {
               <span className="flex items-center gap-1.5"><FileWarning size={13} className="text-red-400" /> Objeto da Acusação / Intimação</span>
               <span className="text-slate-600 font-normal text-[10px]">(editável após auto-fill)</span>
             </label>
-            <textarea
-              value={panicInputText}
-              onChange={e => setPanicInputText(e.target.value)}
-              placeholder="Cole aqui o texto da intimação recebida, ou use '→ Pânico' em um processo acima..."
-              className="bg-slate-900/80 border border-slate-700/60 rounded-lg p-4 text-sm text-slate-200 resize-none h-44 focus:outline-none focus:border-red-500/50 focus:ring-1 focus:ring-red-500/50 transition-all placeholder:text-slate-600"
-            />
-            <button
-              onClick={handlePanicButton}
-              disabled={panicLoading || !panicInputText.trim()}
-              className="w-full bg-red-600 hover:bg-red-500 disabled:opacity-40 disabled:cursor-not-allowed text-white font-bold py-4 rounded-xl shadow-[0_4px_20px_rgba(220,38,38,0.35)] flex items-center justify-center gap-2 text-sm uppercase tracking-wider transition-all"
-            >
+            <textarea value={panicInputText} onChange={e => setPanicInputText(e.target.value)}
+              placeholder="Cole aqui o texto da intimação recebida, ou use '→ Defender' em um processo acima..."
+              className="bg-slate-900/80 border border-slate-700/60 rounded-lg p-4 text-sm text-slate-200 resize-none h-44 focus:outline-none focus:border-red-500/50 transition-all placeholder:text-slate-600" />
+            <button onClick={handlePanicButton} disabled={panicLoading || !panicInputText.trim()}
+              className="w-full bg-red-600 hover:bg-red-500 disabled:opacity-40 disabled:cursor-not-allowed text-white font-bold py-4 rounded-xl shadow-[0_4px_20px_rgba(220,38,38,0.35)] flex items-center justify-center gap-2 text-sm uppercase tracking-wider transition-all">
               {panicLoading ? <AlertCircle className="animate-spin" size={18} /> : <PlayCircle size={18} />}
               {panicLoading ? 'Gerando Tese...' : 'Gerar Tese Defensiva (RAG)'}
             </button>
@@ -473,14 +503,13 @@ export function LegalGuardian() {
                 <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }}
                   className="flex-1 flex items-center justify-center text-slate-500 gap-2 h-44">
                   <AlertCircle className="animate-spin text-red-500" size={20} />
-                  <span className="text-sm">Consultando base jurídica e gerando tese...</span>
+                  <span className="text-sm">Consultando base jurídica...</span>
                 </motion.div>
               )}
               {!panicLoading && !panicThesis && (
                 <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }}
                   className="flex-1 flex items-center justify-center text-slate-600 gap-2 h-44 border border-dashed border-slate-800 rounded-xl">
-                  <FileText size={18} />
-                  <span className="text-sm">A tese de defesa gerada aparecerá aqui.</span>
+                  <FileText size={18} /><span className="text-sm">A tese de defesa aparecerá aqui.</span>
                 </motion.div>
               )}
               {panicThesis && !panicLoading && (
@@ -490,22 +519,36 @@ export function LegalGuardian() {
                   <div className="flex items-center gap-2 mb-3 pl-1">
                     <FileText size={15} className="text-red-400" />
                     <span className="font-bold text-sm text-slate-200">Tese Gerada</span>
+                    {savedDefenseId && (
+                      <span className="flex items-center gap-1 bg-emerald-500/15 border border-emerald-500/30 text-emerald-400 text-[10px] font-bold px-2 py-0.5 rounded">
+                        <CheckCircle2 size={10} /> Salvo no sistema
+                      </span>
+                    )}
                   </div>
                   <div className="text-sm text-slate-300 leading-relaxed whitespace-pre-wrap overflow-y-auto flex-1 pl-1 max-h-72">
                     {panicThesis}
                   </div>
                   <div className="mt-4 pt-3 border-t border-white/5 flex gap-2 flex-wrap">
-                    <button
-                      onClick={() => exportThesisPdf(panicThesis, panicInputText)}
-                      className="flex-1 bg-red-900/20 hover:bg-red-900/40 text-red-400 border border-red-500/30 py-2.5 rounded-lg font-bold text-xs transition-colors flex items-center justify-center gap-1.5"
-                    >
-                      <FileDown size={13} /> Exportar Tese em PDF
+                    {/* Salvar no Sistema */}
+                    <button onClick={handleSaveDefense} disabled={savingDefense || !!savedDefenseId}
+                      className="flex-1 flex items-center justify-center gap-1.5 bg-indigo-600/20 hover:bg-indigo-600/40 disabled:opacity-50 text-indigo-400 border border-indigo-500/30 py-2.5 rounded-lg font-bold text-xs transition-colors">
+                      {savingDefense ? <AlertCircle size={12} className="animate-spin" /> : <Save size={12} />}
+                      {savedDefenseId ? 'Salvo' : 'Salvar no Sistema'}
                     </button>
-                    <button
-                      onClick={() => navigator.clipboard.writeText(panicThesis ?? '')}
-                      className="flex-1 bg-slate-800 hover:bg-slate-700 text-slate-400 py-2.5 rounded-lg font-bold text-xs transition-colors"
-                    >
-                      Copiar Draft
+                    {/* Exportar Word */}
+                    <button onClick={() => exportDefenseAsWord(panicInputText, panicThesis)}
+                      className="flex-1 flex items-center justify-center gap-1.5 bg-blue-600/20 hover:bg-blue-600/40 text-blue-400 border border-blue-500/30 py-2.5 rounded-lg font-bold text-xs transition-colors">
+                      <FileDown size={12} /> Exportar Word
+                    </button>
+                    {/* Copiar */}
+                    <button onClick={handleCopyThesis}
+                      className={`flex-1 flex items-center justify-center gap-1.5 py-2.5 rounded-lg font-bold text-xs transition-colors border ${
+                        copiedThesis
+                          ? 'bg-emerald-500/20 text-emerald-400 border-emerald-500/30'
+                          : 'bg-slate-800 hover:bg-slate-700 text-slate-400 border-slate-700'
+                      }`}>
+                      {copiedThesis ? <CheckCircle2 size={12} /> : <Copy size={12} />}
+                      {copiedThesis ? 'Copiado!' : 'Copiar'}
                     </button>
                   </div>
                 </motion.div>
@@ -515,70 +558,107 @@ export function LegalGuardian() {
         </div>
       </div>
 
-      {/* ── Bloco 4: Caderno do Advogado ── */}
+      {/* ── Bloco 4: Defesas Salvas ── */}
+      <div className="glass-card border border-indigo-500/15">
+        <button
+          onClick={() => setDefensesOpen(o => !o)}
+          className="w-full p-4 flex items-center justify-between text-left hover:bg-white/2 transition-colors rounded-xl">
+          <div className="flex items-center gap-2">
+            <FolderOpen size={16} className="text-indigo-400" />
+            <h3 className="font-bold text-indigo-300 text-sm m-0">Histórico de Defesas Geradas</h3>
+            {defenses.length > 0 && (
+              <span className="bg-indigo-500/20 text-indigo-400 border border-indigo-500/30 text-[9px] font-black px-1.5 py-0.5 rounded">
+                {defenses.length}
+              </span>
+            )}
+          </div>
+          <span className="text-slate-500 text-xs">{defensesOpen ? '▲' : '▼'}</span>
+        </button>
+        {defensesOpen && (
+          <div className="border-t border-white/5">
+            {defenses.length === 0 ? (
+              <div className="py-8 text-center text-slate-600 text-sm">
+                Nenhuma defesa salva ainda. Gere uma tese e clique em "Salvar no Sistema".
+              </div>
+            ) : (
+              <div className="divide-y divide-white/5">
+                {defenses.map(d => {
+                  const date = d.createdAt?.seconds
+                    ? new Date(d.createdAt.seconds * 1000).toLocaleString('pt-BR')
+                    : '—';
+                  return (
+                    <div key={d.id} className="p-4 hover:bg-white/2 transition-colors">
+                      <div className="flex items-start justify-between gap-3">
+                        <div className="flex-1 min-w-0">
+                          <p className="text-[10px] text-slate-500 mb-1">{date}</p>
+                          <p className="text-xs font-bold text-slate-400 truncate">{d.processInfo.slice(0, 100)}</p>
+                          <p className="text-[11px] text-slate-500 mt-1 line-clamp-2">{d.thesis.slice(0, 200)}...</p>
+                        </div>
+                        <div className="flex gap-1 shrink-0">
+                          <button onClick={() => exportDefenseAsWord(d.processInfo, d.thesis)}
+                            className="p-1.5 bg-blue-500/10 hover:bg-blue-500/20 text-blue-400 rounded border border-blue-500/20 transition-colors" title="Exportar Word">
+                            <FileDown size={12} />
+                          </button>
+                          <button onClick={() => navigator.clipboard.writeText(d.thesis)}
+                            className="p-1.5 bg-slate-700 hover:bg-slate-600 text-slate-400 rounded transition-colors" title="Copiar">
+                            <Copy size={12} />
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+        )}
+      </div>
+
+      {/* ── Bloco 5: Caderno do Advogado ── */}
       <div className="glass-card border border-violet-500/20">
         <div className="p-4 border-b border-violet-500/20 bg-violet-950/20 flex items-center justify-between flex-wrap gap-3">
           <div>
             <h3 className="font-bold text-violet-300 flex items-center gap-2 m-0 text-sm">
               <BookOpen size={16} className="text-violet-400" /> Caderno do Advogado
             </h3>
-            <p className="text-[11px] text-violet-200/40 mt-0.5 m-0">Anotações, prazos e diligências — editável e exportável.</p>
+            <p className="text-[11px] text-violet-200/40 mt-0.5 m-0">Prazos, diligências e anotações — persiste no Firestore.</p>
           </div>
-          <button
-            onClick={() => exportNotesCsv(notes)}
-            disabled={notes.length === 0}
-            className="flex items-center gap-1.5 bg-violet-500/10 hover:bg-violet-500/20 text-violet-400 border border-violet-500/30 px-3 py-1.5 rounded-lg text-xs font-bold transition-colors disabled:opacity-40"
-          >
+          <button onClick={() => exportNotesCsv(notes)} disabled={notes.length === 0}
+            className="flex items-center gap-1.5 bg-violet-500/10 hover:bg-violet-500/20 text-violet-400 border border-violet-500/30 px-3 py-1.5 rounded-lg text-xs font-bold transition-colors disabled:opacity-40">
             <Download size={13} /> Exportar CSV
           </button>
         </div>
 
-        {/* Linha de entrada */}
         <div className="p-4 border-b border-white/5 bg-slate-950/30">
           <div className="grid grid-cols-2 sm:grid-cols-5 gap-2">
-            <input
-              type="date"
-              value={newNote.date}
+            <input type="date" value={newNote.date}
               onChange={e => setNewNote(p => ({ ...p, date: e.target.value }))}
-              className="bg-slate-900 border border-slate-700 text-slate-300 rounded px-2 py-1.5 text-xs focus:outline-none focus:border-violet-500"
-            />
-            <select
-              value={newNote.type}
+              className="bg-slate-900 border border-slate-700 text-slate-300 rounded px-2 py-1.5 text-xs focus:outline-none focus:border-violet-500" />
+            <select value={newNote.type}
               onChange={e => setNewNote(p => ({ ...p, type: e.target.value as NoteType }))}
-              className="bg-slate-900 border border-slate-700 text-slate-300 rounded px-2 py-1.5 text-xs focus:outline-none focus:border-violet-500"
-            >
+              className="bg-slate-900 border border-slate-700 text-slate-300 rounded px-2 py-1.5 text-xs focus:outline-none focus:border-violet-500">
               {(['Prazo', 'Diligência', 'Observação', 'Alerta'] as NoteType[]).map(t => <option key={t}>{t}</option>)}
             </select>
-            <input
-              placeholder="Descrição *"
-              value={newNote.description}
+            <input placeholder="Descrição *" value={newNote.description}
               onChange={e => setNewNote(p => ({ ...p, description: e.target.value }))}
-              className="bg-slate-900 border border-slate-700 text-slate-300 rounded px-2 py-1.5 text-xs focus:outline-none focus:border-violet-500 sm:col-span-2"
-            />
+              className="bg-slate-900 border border-slate-700 text-slate-300 rounded px-2 py-1.5 text-xs focus:outline-none focus:border-violet-500 sm:col-span-2" />
             <div className="flex gap-2">
-              <input
-                placeholder="Responsável"
-                value={newNote.responsible}
+              <input placeholder="Responsável" value={newNote.responsible}
                 onChange={e => setNewNote(p => ({ ...p, responsible: e.target.value }))}
-                className="flex-1 bg-slate-900 border border-slate-700 text-slate-300 rounded px-2 py-1.5 text-xs focus:outline-none focus:border-violet-500"
-              />
-              <button
-                onClick={handleAddNote}
-                disabled={savingNote || !newNote.description.trim()}
-                className="bg-violet-600 hover:bg-violet-500 disabled:opacity-40 text-white px-3 rounded-lg transition-colors"
-              >
+                className="flex-1 bg-slate-900 border border-slate-700 text-slate-300 rounded px-2 py-1.5 text-xs focus:outline-none focus:border-violet-500" />
+              <button onClick={handleAddNote} disabled={savingNote || !newNote.description.trim()}
+                className="bg-violet-600 hover:bg-violet-500 disabled:opacity-40 text-white px-3 rounded-lg transition-colors">
                 <Plus size={15} />
               </button>
             </div>
           </div>
         </div>
 
-        {/* Tabela de notas */}
         <div className="overflow-x-auto">
           {notes.length === 0 ? (
             <div className="py-10 text-center text-slate-600 text-sm flex flex-col items-center gap-2">
               <BookOpen size={20} className="text-slate-700" />
-              Nenhuma anotação ainda. Adicione a primeira linha acima.
+              Nenhuma anotação. Adicione a primeira linha acima.
             </div>
           ) : (
             <table className="w-full text-left border-collapse text-xs">
@@ -589,38 +669,30 @@ export function LegalGuardian() {
                   <th className="p-3 font-semibold">Descrição</th>
                   <th className="p-3 font-semibold w-28">Responsável</th>
                   <th className="p-3 font-semibold w-32 text-center">Status</th>
-                  <th className="p-3 font-semibold w-10"></th>
+                  <th className="p-3 w-10"></th>
                 </tr>
               </thead>
               <tbody>
                 {notes.map(note => (
-                  <tr key={note.id} className="border-b border-white/5 hover:bg-white/[0.02] transition-colors">
+                  <tr key={note.id} className="border-b border-white/5 hover:bg-white/2 transition-colors">
                     <td className="p-3 font-mono text-slate-400 text-[11px]">{note.date}</td>
                     <td className="p-3">
-                      <span className={`px-2 py-0.5 rounded text-[10px] font-bold border ${noteTypeBadge(note.type)}`}>
-                        {note.type}
-                      </span>
+                      <span className={`px-2 py-0.5 rounded text-[10px] font-bold border ${noteTypeBadge(note.type)}`}>{note.type}</span>
                     </td>
                     <td className="p-3 text-slate-300">{note.description}</td>
                     <td className="p-3 text-slate-400">{note.responsible || '—'}</td>
                     <td className="p-3 text-center">
-                      <select
-                        value={note.status}
+                      <select value={note.status}
                         onChange={e => handleUpdateNoteStatus(note.id, e.target.value as NoteStatus)}
-                        className={`text-[10px] font-bold rounded px-2 py-1 border bg-transparent focus:outline-none cursor-pointer ${noteStatusBadge(note.status)}`}
-                      >
+                        className={`text-[10px] font-bold rounded px-2 py-1 border bg-transparent focus:outline-none cursor-pointer ${noteStatusBadge(note.status)}`}>
                         {(['Aberto', 'Em andamento', 'Concluído'] as NoteStatus[]).map(s => (
                           <option key={s} value={s} className="bg-slate-900 text-slate-300">{s}</option>
                         ))}
                       </select>
                     </td>
                     <td className="p-3">
-                      <button
-                        onClick={() => handleDeleteNote(note.id)}
-                        className="p-1 text-slate-600 hover:text-red-400 transition-colors rounded"
-                      >
-                        <Trash2 size={13} />
-                      </button>
+                      <button onClick={() => handleDeleteNote(note.id)}
+                        className="p-1 text-slate-600 hover:text-red-400 transition-colors rounded"><Trash2 size={13} /></button>
                     </td>
                   </tr>
                 ))}
