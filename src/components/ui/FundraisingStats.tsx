@@ -6,13 +6,21 @@ import { fetchFinanceStats, type FinanceStats } from '../../services/multipliers
 import { useCampaign } from '../../context/CampaignContext';
 
 export function FundraisingStats() {
-  const { campaignId } = useCampaign();
+  const { campaignId, activeCampaign } = useCampaign();
   const [stats, setStats] = useState<FinanceStats | null>(null);
   const [showPix, setShowPix] = useState(false);
 
   useEffect(() => {
-    fetchFinanceStats(campaignId).then(setStats);
-  }, [campaignId]);
+    fetchFinanceStats(campaignId).then((data) => {
+      // Override the fake mock goal with the real user-configured goal!
+      const userGoal = activeCampaign?.financeConfig?.monthlyGoal;
+      if (userGoal && userGoal > 0) {
+         setStats({ ...data, monthlyGoal: userGoal });
+      } else {
+         setStats(data);
+      }
+    });
+  }, [campaignId, activeCampaign]);
 
   if (!stats) {
     return (
@@ -99,6 +107,7 @@ export function FundraisingStats() {
               <Tooltip 
                 cursor={{ fill: 'rgba(255,255,255,0.03)' }}
                 contentStyle={{ backgroundColor: 'rgba(15,23,42,0.95)', border: '1px solid rgba(16,185,129,0.2)', borderRadius: '8px' }}
+                // @ts-ignore
                 formatter={(val: any) => formatCurrency(val)}
               />
               <Bar dataKey="valor" radius={[4, 4, 0, 0]} maxBarSize={60}>

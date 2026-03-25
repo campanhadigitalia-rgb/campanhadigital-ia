@@ -9,27 +9,45 @@ import {
   MessageSquare,
   Search,
   ExternalLink,
-  Loader2
+  Loader2,
+  Rss
 } from 'lucide-react';
 import type { TREResult } from '../../services/treService';
 import { checkCandidacyStatus } from '../../services/treService';
 import type { SocialAccount } from '../../services/socialAuthService';
 import { connectSocialAccount } from '../../services/socialAuthService';
+import { fetchNewsClipping } from '../../services/rssService';
+import type { NewsItem } from '../../services/rssService';
+import { useCampaign } from '../../context/CampaignContext';
 
 export default function IntegrationDashboard() {
   const [loading, setLoading] = useState(true);
   const [treData, setTreData] = useState<TREResult | null>(null);
   const [socialAccounts, setSocialAccounts] = useState<SocialAccount[]>([]);
+  const [newsCache, setNewsCache] = useState<NewsItem[]>([]);
+  const { activeCampaign } = useCampaign();
   
   useEffect(() => {
-    // Carregamento inicial simulado
+    // Carregamento inicial simultâneo das integrações
     const init = async () => {
-      const tre = await checkCandidacyStatus('Candidato Admin');
-      setTreData(tre);
+      if (!activeCampaign?.identity) {
+        setLoading(false);
+        return;
+      }
+      
+      const candidateName = activeCampaign.identity.name || 'Candidato Admin';
+      const homeRegion = activeCampaign.neighborhood?.[0] || 'Eleições';
+
+      const [_tre, _news] = await Promise.all([
+        checkCandidacyStatus(candidateName),
+        fetchNewsClipping(homeRegion, 1)
+      ]);
+      setTreData(_tre);
+      setNewsCache(_news);
       setLoading(false);
     };
     init();
-  }, []);
+  }, [activeCampaign?.identity, activeCampaign?.neighborhood]);
 
   const handleConnectSocial = async (platform: 'instagram' | 'facebook') => {
     const acc = await connectSocialAccount(platform);
@@ -68,6 +86,14 @@ export default function IntegrationDashboard() {
       icon: <Globe size={20} className="text-sky-400" />,
       description: 'Conexão direta para análise de sentimentos em comentários.',
       provider: 'Meta Developers'
+    },
+    { 
+      id: 'rss', 
+      name: 'Clipping de Notícias', 
+      status: newsCache.length > 0 ? 'ON' : 'OFF', 
+      icon: <Rss size={20} className="text-rose-400" />,
+      description: newsCache.length > 0 ? `Última: "${newsCache[0].title}"` : 'Monitoramento de portais via RSS nativo.',
+      provider: 'G1 / Senado'
     }
   ];
 
@@ -125,15 +151,15 @@ export default function IntegrationDashboard() {
                  <div className="flex gap-2 w-full">
                     <button 
                       onClick={() => handleConnectSocial('instagram')}
-                      className={`flex-1 flex items-center justify-center gap-2 py-2 rounded-lg text-[10px] font-bold uppercase border transition-all ${socialAccounts.some((a: any) => a.platform === 'instagram') ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-400' : 'bg-slate-800 border-white/5 text-slate-400 hover:bg-indigo-600 hover:text-white'}`}
+                      className={`flex-1 flex items-center justify-center gap-2 py-2 rounded-lg text-[10px] font-bold uppercase border transition-all ${socialAccounts.some(a => a.platform === 'instagram') ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-400' : 'bg-slate-800 border-white/5 text-slate-400 hover:bg-indigo-600 hover:text-white'}`}
                     >
-                      <Share2 size={14} /> {socialAccounts.some((a: any) => a.platform === 'instagram') ? 'Conectado' : 'Link Instagram'}
+                      <Share2 size={14} /> {socialAccounts.some(a => a.platform === 'instagram') ? 'Conectado' : 'Link Instagram'}
                     </button>
                     <button 
                       onClick={() => handleConnectSocial('facebook')}
-                      className={`flex-1 flex items-center justify-center gap-2 py-2 rounded-lg text-[10px] font-bold uppercase border transition-all ${socialAccounts.some((a: any) => a.platform === 'facebook') ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-400' : 'bg-slate-800 border-white/5 text-slate-400 hover:bg-indigo-600 hover:text-white'}`}
+                      className={`flex-1 flex items-center justify-center gap-2 py-2 rounded-lg text-[10px] font-bold uppercase border transition-all ${socialAccounts.some(a => a.platform === 'facebook') ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-400' : 'bg-slate-800 border-white/5 text-slate-400 hover:bg-indigo-600 hover:text-white'}`}
                     >
-                      <Globe size={14} /> {socialAccounts.some((a: any) => a.platform === 'facebook') ? 'Conectado' : 'Link Facebook'}
+                      <Globe size={14} /> {socialAccounts.some(a => a.platform === 'facebook') ? 'Conectado' : 'Link Facebook'}
                     </button>
                  </div>
                ) : (

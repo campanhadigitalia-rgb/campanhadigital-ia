@@ -1,9 +1,9 @@
-import { LegalGuardian } from '../../components/ui/LegalGuardian';
+import { LegalOnboarding } from '../../components/ui/LegalOnboarding';
 
 export default function LegalPage() {
   return (
-    <div className="flex flex-col gap-6 w-full h-full">
-      <LegalGuardian />
+    <div className="w-full max-w-2xl mx-auto">
+      <LegalOnboarding />
     </div>
   );
 }

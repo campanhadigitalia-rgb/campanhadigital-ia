@@ -5,8 +5,9 @@
 import { AnimatePresence, motion } from 'framer-motion';
 import { useState } from 'react';
 import {
-  Users, BarChart2, CalendarDays, Settings, LogOut,
-  Menu, X, Zap, Bot, PenTool, MessageCircle, Brain, Scale
+  Users, LogOut,
+  Menu, X, Zap, Bot, MessageCircle, Brain, Scale, DollarSign, ClipboardList,
+  ChevronDown, ChevronRight
 } from 'lucide-react';
 import { useAuth } from './context/AuthContext';
 import { useCampaign } from './context/CampaignContext';
@@ -23,6 +24,9 @@ import OraclePage from './pages/Oracle';
 import LegalPage from './pages/Legal';
 import SettingsPage from './pages/Settings';
 import MCPAgents from './pages/MCPAgents';
+import FinancePage from './pages/Finance';
+import AdminPage from './pages/Administrative';
+import LegalGuardianPage from './pages/LegalGuardian';
 
 // ── Tela de Login ──────────────────────────────────────────────
 function LoginScreen() {
@@ -139,28 +143,75 @@ function LoginScreen() {
   );
 }
 
+export type NavId = 'dashboard' | 'legal' | 'legal_guardian' | 'finance' | 'admin' | 'studio' | 'whatsapp' | 'oracle' | 'contacts' | 'mcp' | 'settings' | 'agenda' | 'owner';
+
 interface NavItem {
   id: string;
   label: string;
   Icon: any;
-  proprietorOnly?: boolean;
+  subItems: {
+    id: NavId;
+    label: string;
+    proprietorOnly?: boolean;
+    volunteerHidden?: boolean;
+  }[];
 }
 
-// ── Sidebar Nav ────────────────────────────────────────────────
 const NAV_ITEMS: NavItem[] = [
-  { id: 'dashboard',  label: 'Dashboard',  Icon: BarChart2  },
-  { id: 'agenda',     label: 'Agenda',     Icon: CalendarDays },
-  { id: 'contacts',   label: 'Operações',  Icon: Users      },
-  { id: 'studio',     label: 'Estúdio IA', Icon: PenTool    },
-  { id: 'whatsapp',   label: 'Mensageria', Icon: MessageCircle },
-  { id: 'oracle',     label: 'O Oráculo',  Icon: Brain      },
-  { id: 'legal',      label: 'Jurídico',   Icon: Scale      },
-  { id: 'mcp',        label: 'Agentes AI', Icon: Bot        },
-  { id: 'owner',      label: 'Master (Owner)', Icon: Zap, proprietorOnly: true },
-  { id: 'settings',   label: 'Config',     Icon: Settings   },
+  {
+    id: 'grp_gestao', label: '1. Gestão', Icon: Zap,
+    subItems: [
+      { id: 'owner', label: 'Master (Owner Portal)', proprietorOnly: true },
+      { id: 'agenda', label: 'Agenda Pessoal & Pública' }
+    ]
+  },
+  {
+    id: 'grp_estrategia', label: '2. Estratégia', Icon: Brain,
+    subItems: [
+      { id: 'dashboard', label: 'Doutrina (KPIs Globais)' },
+      { id: 'oracle', label: 'O Oráculo (Cérebro IA)', volunteerHidden: true }
+    ]
+  },
+  {
+    id: 'grp_juridico', label: '3. Jurídico', Icon: Scale,
+    subItems: [
+      { id: 'legal', label: 'Deferimento Eleitoral' },
+      { id: 'legal_guardian', label: 'Guardião Jurídico' }
+    ]
+  },
+  {
+    id: 'grp_financeiro', label: '4. Financeiro', Icon: DollarSign,
+    subItems: [
+      { id: 'finance', label: 'Arrecadação e Livro Caixa' }
+    ]
+  },
+  {
+    id: 'grp_admin', label: '5. Administrativo', Icon: ClipboardList,
+    subItems: [
+      { id: 'admin', label: 'Frota, Logística & Estoque' }
+    ]
+  },
+  {
+    id: 'grp_comunicacao', label: '6. Comunicação', Icon: MessageCircle,
+    subItems: [
+      { id: 'studio', label: 'Estúdio de Criação IA' },
+      { id: 'whatsapp', label: 'Monitoramento & Whats' }
+    ]
+  },
+  {
+    id: 'grp_rua', label: '7. Rua (Mobilização)', Icon: Users,
+    subItems: [
+      { id: 'contacts', label: 'Multiplicadores & CRM' }
+    ]
+  },
+  {
+    id: 'grp_tec', label: '8. Tecnologia', Icon: Bot,
+    subItems: [
+      { id: 'mcp', label: 'Painel de Agentes (MCP)' },
+      { id: 'settings', label: 'Chaves de API & Conexões', volunteerHidden: true }
+    ]
+  }
 ];
-
-type NavId = typeof NAV_ITEMS[number]['id'];
 
 // ── App Principal ──────────────────────────────────────────────
 export default function App() {
@@ -168,6 +219,13 @@ export default function App() {
   const { activeCampaign, viewMode }       = useCampaign();
   const [page, setPage]     = useState<NavId>('dashboard');
   const [sidebarOpen, setSidebarOpen] = useState(true);
+  const [expandedGroups, setExpandedGroups] = useState<string[]>(['grp_gestao', 'grp_estrategia']);
+
+  const toggleGroup = (groupId: string) => {
+    setExpandedGroups(prev => 
+      prev.includes(groupId) ? prev.filter(id => id !== groupId) : [...prev, groupId]
+    );
+  };
 
   if (loading) {
     return (
@@ -187,14 +245,18 @@ export default function App() {
 
   const PAGE_MAP: Record<NavId, React.ReactNode> = {
     dashboard: <Dashboard />,
-    agenda:    <CampaignCalendar />,
-    contacts:  <Contacts />,
+    legal:          <LegalPage />,
+    legal_guardian: <LegalGuardianPage />,
+    finance:   <FinancePage />,
+    admin:     <AdminPage />,
     studio:    <Studio />,
     whatsapp:  <Messaging />,
     oracle:    <OraclePage />,
-    legal:     <LegalPage />,
+    contacts:  <Contacts />,
     mcp:       <MCPAgents />,
     settings:  <SettingsPage />,
+    agenda:    <CampaignCalendar />,
+    owner:     <div className="p-6 text-white">Owner Portal under construction.</div> // assuming OwnerPortal was handled elsewhere or inline
   };
 
   return (
@@ -238,37 +300,69 @@ export default function App() {
             </div>
 
             {/* Nav */}
-            <nav style={{ flex: 1, padding: '12px 8px' }}>
-              {NAV_ITEMS.filter(item => {
-                if (item.proprietorOnly && profile?.role !== 'Proprietor') return false;
-                if (profile?.role === 'Volunteer' && ['oracle', 'settings'].includes(item.id)) return false;
-                return true;
-              }).map(({ id, label, Icon }) => (
-                <button
-                  key={id}
-                  id={`nav-${id}`}
-                  onClick={() => setPage(id)}
-                  style={{
-                    width: '100%', display: 'flex', alignItems: 'center', gap: 10,
-                    padding: '10px 12px', borderRadius: 8, border: 'none',
-                    marginBottom: 2, cursor: 'pointer', fontSize: 14, fontWeight: 500,
-                    background: page === id ? 'rgba(99,102,241,0.18)' : 'transparent',
-                    color: page === id ? '#818cf8' : '#94a3b8',
-                    transition: 'all 0.15s',
-                  }}
-                  onMouseEnter={e => { if (page !== id) e.currentTarget.style.background = 'rgba(255,255,255,0.06)'; }}
-                  onMouseLeave={e => { if (page !== id) e.currentTarget.style.background = 'transparent'; }}
-                >
-                  <Icon size={16} />
-                  {label}
-                  {page === id && (
-                    <div style={{
-                      marginLeft: 'auto', width: 3, height: 16,
-                      borderRadius: 2, background: '#6366f1',
-                    }} />
-                  )}
-                </button>
-              ))}
+            <nav style={{ flex: 1, padding: '12px 8px', overflowY: 'auto' }}>
+              {NAV_ITEMS.map((group) => {
+                const visibleSubItems = group.subItems.filter(sub => {
+                  if (sub.proprietorOnly && profile?.role !== 'Proprietor') return false;
+                  if (sub.volunteerHidden && profile?.role === 'Volunteer') return false;
+                  return true;
+                });
+
+                if (visibleSubItems.length === 0) return null;
+
+                const isExpanded = expandedGroups.includes(group.id);
+                const hasActiveChild = visibleSubItems.some(sub => sub.id === page);
+
+                return (
+                  <div key={group.id} className="mb-2">
+                    <button
+                      onClick={() => toggleGroup(group.id)}
+                      className="w-full flex items-center justify-between px-3 py-2 rounded-lg border-none cursor-pointer transition-colors"
+                      style={{
+                        background: hasActiveChild && !isExpanded ? 'rgba(99,102,241,0.1)' : 'transparent',
+                        color: hasActiveChild ? '#818cf8' : '#e2e8f0',
+                      }}
+                      onMouseEnter={e => { e.currentTarget.style.background = 'rgba(255,255,255,0.06)'; }}
+                      onMouseLeave={e => { e.currentTarget.style.background = hasActiveChild && !isExpanded ? 'rgba(99,102,241,0.1)' : 'transparent'; }}
+                    >
+                      <div className="flex items-center gap-3">
+                        <group.Icon size={18} className={hasActiveChild ? 'text-indigo-400' : 'text-slate-400'} />
+                        <span className="text-sm font-bold">{group.label}</span>
+                      </div>
+                      {isExpanded ? <ChevronDown size={14} className="text-slate-500" /> : <ChevronRight size={14} className="text-slate-500" />}
+                    </button>
+                    
+                    <AnimatePresence>
+                      {isExpanded && (
+                        <motion.div
+                          initial={{ height: 0, opacity: 0 }}
+                          animate={{ height: 'auto', opacity: 1 }}
+                          exit={{ height: 0, opacity: 0 }}
+                          className="overflow-hidden flex flex-col gap-1 mt-1 pl-9 pr-2"
+                        >
+                          {visibleSubItems.map(sub => (
+                            <button
+                              key={sub.id}
+                              onClick={() => setPage(sub.id)}
+                              className="w-full flex items-center px-3 py-2 rounded-md border-none cursor-pointer transition-colors text-left"
+                              style={{
+                                background: page === sub.id ? 'rgba(99,102,241,0.18)' : 'transparent',
+                                color: page === sub.id ? '#818cf8' : '#94a3b8',
+                                fontSize: '13px',
+                                fontWeight: page === sub.id ? 600 : 500,
+                              }}
+                              onMouseEnter={e => { if (page !== sub.id) e.currentTarget.style.background = 'rgba(255,255,255,0.04)'; }}
+                              onMouseLeave={e => { if (page !== sub.id) e.currentTarget.style.background = 'transparent'; }}
+                            >
+                              {sub.label}
+                            </button>
+                          ))}
+                        </motion.div>
+                      )}
+                    </AnimatePresence>
+                  </div>
+                );
+              })}
             </nav>
 
             {/* User */}
@@ -326,7 +420,7 @@ export default function App() {
 
           {/* Breadcrumb */}
           <span style={{ fontSize: 15, fontWeight: 600, color: '#f1f5f9' }}>
-            {NAV_ITEMS.find(n => n.id === page)?.label}
+            {NAV_ITEMS.flatMap(g => g.subItems).find(sub => sub.id === page)?.label}
           </span>
 
           {/* Campaign indicator */}

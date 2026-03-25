@@ -3,11 +3,17 @@ import { Users, TrendingUp, Trophy, Search, Star, Shield, ShieldAlert, Award } f
 import { motion } from 'framer-motion';
 import { type Leader } from '../../services/multipliersService';
 import { useCampaignQuery } from '../../hooks/useCampaignQuery';
-import { col, COLLECTIONS } from '../../services/firebase';
+import { col, COLLECTIONS, db } from '../../services/firebase';
+import { addDoc, collection, serverTimestamp } from 'firebase/firestore';
+import { useCampaign } from '../../context/CampaignContext';
 
 export function Leaderboard() {
+  const { activeCampaign } = useCampaign();
   const { data: leadersData, loading } = useCampaignQuery<Leader>(col(COLLECTIONS.CONTACTS), 'digitalEngagement');
   const [searchTerm, setSearchTerm] = useState('');
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [newLeader, setNewLeader] = useState({ name: '', role: '', city: '', votes: 0 });
 
   // useCampaignQuery already sorts desc, we just map it.
   const leaders = leadersData || [];
@@ -26,6 +32,31 @@ export function Leaderboard() {
     }
   };
 
+  const handleAddLeader = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!activeCampaign) return alert('Selecione uma campanha primeiro.');
+    setIsSubmitting(true);
+    try {
+      await addDoc(collection(db, COLLECTIONS.CONTACTS), {
+        campaign_id: activeCampaign.id,
+        name: newLeader.name,
+        role: newLeader.role,
+        city: newLeader.city,
+        estimatedVotes: newLeader.votes,
+        loyalty: 'Fiel',
+        digitalEngagement: 0,
+        createdAt: serverTimestamp()
+      });
+      setIsModalOpen(false);
+      setNewLeader({ name: '', role: '', city: '', votes: 0 });
+    } catch (error) {
+      console.error('Erro ao adicionar líder', error);
+      alert('Erro ao salvar multiplicador.');
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
   return (
     <div className="flex flex-col xl:flex-row gap-6 h-full">
       {/* Esquerda: CRM Tabela de Lideranças */}
@@ -38,16 +69,23 @@ export function Leaderboard() {
             </h2>
             <p className="text-xs text-slate-400 m-0">Cadastro do CRM Político com proteção Multi-Tenant</p>
           </div>
-          
-          <div className="relative w-full sm:w-64">
-            <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500" />
-            <input 
-              type="text" 
-              placeholder="Buscar líder ou cidade..." 
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              className="w-full bg-slate-900 border border-slate-700 text-sm text-white px-9 py-2 rounded-lg focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 transition-all"
-            />
+          <div className="flex flex-col sm:flex-row items-center gap-4 w-full sm:w-auto">
+            <div className="relative w-full sm:w-64">
+              <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500" />
+              <input 
+                type="text" 
+                placeholder="Buscar líder..." 
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="w-full bg-slate-900 border border-slate-700 text-sm text-white px-9 py-2 rounded-lg outline-none focus:border-indigo-500 transition-all"
+              />
+            </div>
+            <button 
+              onClick={() => setIsModalOpen(true)}
+              className="bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold uppercase py-2 px-4 rounded-lg transition-all shadow-lg w-full sm:w-auto"
+            >
+              + Multiplicador
+            </button>
           </div>
         </div>
 
@@ -150,11 +188,48 @@ export function Leaderboard() {
           </button>
         </div>
       </div>
+
+      {/* Modal Adicionar Liderança */}
+      {isModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4">
+          <div className="bg-slate-900 border border-white/10 p-6 rounded-2xl w-full max-w-md shadow-2xl animate-in zoom-in-95">
+            <h3 className="text-xl font-bold text-slate-100 mb-4 uppercase tracking-tight">Novo Multiplicador</h3>
+            <form onSubmit={handleAddLeader} className="flex flex-col gap-4">
+              <div>
+                <label className="text-[10px] font-black text-slate-500 uppercase">Nome Completo</label>
+                <input required value={newLeader.name} onChange={e => setNewLeader({...newLeader, name: e.target.value})} className="w-full bg-slate-950 border border-slate-700 rounded-lg p-2.5 text-white text-sm outline-none focus:border-indigo-500" placeholder="Ex: Maria Antonieta" />
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="text-[10px] font-black text-slate-500 uppercase">Base/Cidade</label>
+                  <input required value={newLeader.city} onChange={e => setNewLeader({...newLeader, city: e.target.value})} className="w-full bg-slate-950 border border-slate-700 rounded-lg p-2.5 text-white text-sm outline-none focus:border-indigo-500" placeholder="Ex: Centro" />
+                </div>
+                <div>
+                  <label className="text-[10px] font-black text-slate-500 uppercase">Cargo/Papel</label>
+                  <input required value={newLeader.role} onChange={e => setNewLeader({...newLeader, role: e.target.value})} className="w-full bg-slate-950 border border-slate-700 rounded-lg p-2.5 text-white text-sm outline-none focus:border-indigo-500" placeholder="Ex: Coordenadora" />
+                </div>
+              </div>
+              <div>
+                <label className="text-[10px] font-black text-slate-500 uppercase">Estimativa de Votos (Influência)</label>
+                <input type="number" required min="0" value={newLeader.votes} onChange={e => setNewLeader({...newLeader, votes: parseInt(e.target.value) || 0})} className="w-full bg-slate-950 border border-slate-700 rounded-lg p-2.5 text-white text-sm outline-none focus:border-indigo-500" />
+              </div>
+
+              <div className="flex gap-3 mt-4">
+                <button type="button" onClick={() => setIsModalOpen(false)} className="flex-1 py-2.5 rounded-lg border border-slate-700 text-slate-400 text-sm font-bold hover:bg-slate-800 transition-all">Cancelar</button>
+                <button type="submit" disabled={isSubmitting} className="flex-1 py-2.5 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white text-sm font-bold uppercase transition-all disabled:opacity-50">
+                  {isSubmitting ? 'Salvando...' : 'Salvar Líder'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
 
 // Helper stub para icone XIcon
-function XIcon(props: any) {
-  return <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" {...props}><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>;
+import type { SVGProps } from 'react';
+function XIcon({ size, ...props }: { size?: number } & SVGProps<SVGSVGElement>) {
+  return <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" {...props}><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>;
 }

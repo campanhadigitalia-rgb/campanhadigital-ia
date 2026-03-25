@@ -57,6 +57,27 @@ export interface Campaign {
   // Herança e Dados Históricos
   legacy_campaign_id?: string;
   admin_email: string;
+  financeConfig?: {
+    monthlyGoal: number;
+    spendingLimit: number;
+    sources: {
+      fundoPartidario: boolean;
+      doacaoFisica: boolean;
+      vaquinha: boolean;
+      eventos: boolean;
+    };
+  };
+  legalConfig?: {
+    cnpj: string;
+    bankAccount: string;
+    checklist: {
+      docs: boolean;
+      tre: boolean;
+      fidelidade: boolean;
+      cnpj_emitted: boolean;
+      spce_setup: boolean;
+    };
+  };
   historical_results?: {
     city: string;
     real_votes: number;
@@ -113,6 +134,34 @@ export interface Interaction extends BaseDocument {
   description?: string;
   date: Date;
   outcome?: string;
+}
+
+/** Transação Financeira */
+export interface CashTransaction extends BaseDocument {
+  description: string;
+  type: 'income' | 'expense';
+  category: 'fundo' | 'doacao' | 'evento' | 'pessoal' | 'grafica' | 'impulsionamento' | 'outros';
+  amount: number;
+  date: string;
+  status: 'pending' | 'completed';
+}
+
+/** Logística Administrativa */
+export interface Vehicle extends BaseDocument {
+  plate: string;
+  model: string;
+  driver: string;
+  contract_type: 'alugado' | 'cedido' | 'proprio';
+  fuel_quota: number;
+  status: 'active' | 'maintenance' | 'inactive';
+}
+
+export interface MaterialItem extends BaseDocument {
+  name: string;
+  type: 'santinho' | 'adesivo' | 'praguinha' | 'bandeira' | 'cartaz' | 'outros';
+  quantity_in_stock: number;
+  unit_cost: number;
+  supplier?: string;
 }
 
 /** Tarefa / atividade */
