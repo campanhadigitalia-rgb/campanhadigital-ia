@@ -70,6 +70,8 @@ export interface Campaign {
   legalConfig?: {
     cnpj: string;
     bankAccount: string;
+    pix?: string;
+    bankDetails?: string;
     checklist: {
       docs: boolean;
       tre: boolean;
@@ -77,6 +79,7 @@ export interface Campaign {
       cnpj_emitted: boolean;
       spce_setup: boolean;
     };
+    [key: string]: unknown;
   };
   historical_results?: {
     city: string;

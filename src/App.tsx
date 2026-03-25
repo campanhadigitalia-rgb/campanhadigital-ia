@@ -26,7 +26,7 @@ import SettingsPage from './pages/Settings';
 import MCPAgents from './pages/MCPAgents';
 import FinancePage from './pages/Finance';
 import AdminPage from './pages/Administrative';
-import LegalGuardianPage from './pages/LegalGuardian';
+// LegalGuardian agora está embutido na LegalPage com tabs internas
 
 // ── Tela de Login ──────────────────────────────────────────────
 function LoginScreen() {
@@ -143,7 +143,7 @@ function LoginScreen() {
   );
 }
 
-export type NavId = 'dashboard' | 'legal' | 'legal_guardian' | 'finance' | 'admin' | 'studio' | 'whatsapp' | 'oracle' | 'contacts' | 'mcp' | 'settings' | 'agenda' | 'owner';
+export type NavId = 'dashboard' | 'legal' | 'finance_dashboard' | 'finance_caixa' | 'finance_suppliers' | 'finance_vaquinha' | 'admin' | 'studio' | 'whatsapp' | 'oracle' | 'contacts' | 'mcp' | 'settings' | 'agenda' | 'owner';
 
 interface NavItem {
   id: string;
@@ -159,30 +159,32 @@ interface NavItem {
 
 const NAV_ITEMS: NavItem[] = [
   {
-    id: 'grp_gestao', label: '1. Gestão', Icon: Zap,
+    id: 'grp_juridico', label: '1. Jurídico', Icon: Scale,
+    subItems: [
+      { id: 'legal', label: 'Compliance Jurídico' }
+    ]
+  },
+  {
+    id: 'grp_gestao', label: '2. Gestão', Icon: Zap,
     subItems: [
       { id: 'owner', label: 'Master (Owner Portal)', proprietorOnly: true },
       { id: 'agenda', label: 'Agenda Pessoal & Pública' }
     ]
   },
   {
-    id: 'grp_estrategia', label: '2. Estratégia', Icon: Brain,
+    id: 'grp_estrategia', label: '3. Estratégia', Icon: Brain,
     subItems: [
       { id: 'dashboard', label: 'Doutrina (KPIs Globais)' },
       { id: 'oracle', label: 'O Oráculo (Cérebro IA)', volunteerHidden: true }
     ]
   },
   {
-    id: 'grp_juridico', label: '3. Jurídico', Icon: Scale,
-    subItems: [
-      { id: 'legal', label: 'Deferimento Eleitoral' },
-      { id: 'legal_guardian', label: 'Guardião Jurídico' }
-    ]
-  },
-  {
     id: 'grp_financeiro', label: '4. Financeiro', Icon: DollarSign,
     subItems: [
-      { id: 'finance', label: 'Arrecadação e Livro Caixa' }
+      { id: 'finance_dashboard', label: 'Dashboard Financeiro' },
+      { id: 'finance_caixa', label: 'Livro Caixa (SPCE)' },
+      { id: 'finance_suppliers', label: 'Fornecedores & Contratos' },
+      { id: 'finance_vaquinha', label: 'Vaquinha & Eventos' },
     ]
   },
   {
@@ -244,19 +246,21 @@ export default function App() {
   if (!user) return <LoginScreen />;
 
   const PAGE_MAP: Record<NavId, React.ReactNode> = {
-    dashboard: <Dashboard />,
-    legal:          <LegalPage />,
-    legal_guardian: <LegalGuardianPage />,
-    finance:   <FinancePage />,
-    admin:     <AdminPage />,
-    studio:    <Studio />,
-    whatsapp:  <Messaging />,
-    oracle:    <OraclePage />,
-    contacts:  <Contacts />,
-    mcp:       <MCPAgents />,
-    settings:  <SettingsPage />,
-    agenda:    <CampaignCalendar />,
-    owner:     <div className="p-6 text-white">Owner Portal under construction.</div> // assuming OwnerPortal was handled elsewhere or inline
+    dashboard:          <Dashboard />,
+    legal:              <LegalPage />,
+    finance_dashboard:  <FinancePage activeTab="dashboard" />,
+    finance_caixa:      <FinancePage activeTab="caixa" />,
+    finance_suppliers:  <FinancePage activeTab="suppliers" />,
+    finance_vaquinha:   <FinancePage activeTab="vaquinha" />,
+    admin:              <AdminPage />,
+    studio:             <Studio />,
+    whatsapp:           <Messaging />,
+    oracle:             <OraclePage />,
+    contacts:           <Contacts />,
+    mcp:                <MCPAgents />,
+    settings:           <SettingsPage />,
+    agenda:             <CampaignCalendar />,
+    owner:              <div className="p-6 text-white">Owner Portal under construction.</div>
   };
 
   return (

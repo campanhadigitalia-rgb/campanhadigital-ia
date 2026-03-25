@@ -12,7 +12,7 @@ import {
 } from '../../services/legalService';
 import { useCampaign } from '../../context/CampaignContext';
 import {
-  collection, addDoc, deleteDoc, doc, onSnapshot, serverTimestamp, updateDoc, query, orderBy
+  collection, addDoc, deleteDoc, doc, onSnapshot, serverTimestamp, updateDoc
 } from 'firebase/firestore';
 import { db } from '../../services/firebase';
 import jsPDF from 'jspdf';
@@ -137,24 +137,30 @@ export function LegalGuardian() {
     activeCampaign ? `campaigns/${activeCampaign.id}/${sub}` : null,
     [activeCampaign]);
 
-  // Processos listener
+  // Processos listener — sem orderBy para evitar necessidade de índice Firestore
   useEffect(() => {
     const path = pathFor('processes');
     if (!path) { setProcesses([]); return; }
-    const q = query(collection(db, path), orderBy('createdAt', 'desc'));
-    return onSnapshot(q, snap =>
-      setProcesses(snap.docs.map(d => ({ id: d.id, ...d.data() } as ProcessEntry)))
-    );
+    return onSnapshot(collection(db, path), snap => {
+      const data = snap.docs.map(d => ({ id: d.id, ...d.data() } as ProcessEntry));
+      data.sort((a, b) => {
+        const aT = (a as {createdAt?: {seconds: number}}).createdAt?.seconds ?? 0;
+        const bT = (b as {createdAt?: {seconds: number}}).createdAt?.seconds ?? 0;
+        return bT - aT;
+      });
+      setProcesses(data);
+    });
   }, [pathFor]);
 
-  // Defesas listener
+  // Defesas listener — sem orderBy para evitar necessidade de índice Firestore
   useEffect(() => {
     const path = pathFor('defenses');
     if (!path) { setDefenses([]); return; }
-    const q = query(collection(db, path), orderBy('createdAt', 'desc'));
-    return onSnapshot(q, snap =>
-      setDefenses(snap.docs.map(d => ({ id: d.id, ...d.data() } as DefenseRecord)))
-    );
+    return onSnapshot(collection(db, path), snap => {
+      const data = snap.docs.map(d => ({ id: d.id, ...d.data() } as DefenseRecord));
+      data.sort((a, b) => (b.createdAt?.seconds ?? 0) - (a.createdAt?.seconds ?? 0));
+      setDefenses(data);
+    });
   }, [pathFor]);
 
   // Caderno listener
