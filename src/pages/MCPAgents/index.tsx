@@ -8,9 +8,9 @@ const AGENTS = [
   {
     id: 'responder',
     name: 'Agente de Resposta Rápida',
-    description: 'Monitora menções e Whatsapp, sugerindo respostas automáticas e mantendo a voz do candidato alinhada com as diretrizes da campanha.',
+    description: 'Gera rascunhos oficiais de resposta a comentários e situações de campanha, utilizando a voz e diretrizes configuradas do candidato (Gemini 1.5 Pro).',
     icon: MessageCircleIcon,
-    status: 'Ativo (Simulação)',
+    status: 'Operacional',
     color: 'text-indigo-400',
     bg: 'bg-indigo-500/10',
     border: 'border-indigo-500/50'
@@ -18,9 +18,9 @@ const AGENTS = [
   {
     id: 'data',
     name: 'Agente de Análise de Dados',
-    description: 'Cruza dados do CRM, enquetes e demografia do Oráculo para identificar tendências, sugerir rotas e otimizar investimentos da campanha.',
+    description: 'Cruzará dados do CRM, enquetes e demografia do Oráculo para identificar tendências, sugerir rotas e otimizar investimentos da campanha.',
     icon: LineChart,
-    status: 'Planejado',
+    status: 'Em Desenvolvimento',
     color: 'text-emerald-400',
     bg: 'bg-emerald-500/10',
     border: 'border-emerald-500/20'
@@ -28,14 +28,15 @@ const AGENTS = [
   {
     id: 'legal',
     name: 'Agente Jurídico',
-    description: 'Audita a geração de conteúdo, valida regras do TSE em tempo real e emite alertas sobre prazos eleitorais e conformidade de propagandas.',
+    description: 'Auditará a geração de conteúdo, validará regras do TSE em tempo real e emitirá alertas sobre prazos eleitorais e conformidade de propagandas.',
     icon: Scale,
-    status: 'Esqueleto',
+    status: 'Aguardando Integração',
     color: 'text-amber-400',
     bg: 'bg-amber-500/10',
     border: 'border-amber-500/20'
   }
 ];
+
 
 function MessageCircleIcon({ size, className }: { size: number, className?: string }) {
   return (

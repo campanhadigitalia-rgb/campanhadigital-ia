@@ -1,4 +1,4 @@
-import { GoogleGenerativeAI } from '@google/generative-ai';
+import { GoogleGenerativeAI, type Part } from '@google/generative-ai';
 import type { Mention, AIReply, CampaignIdentity, Competitor, Sentiment } from '../types';
 import { sanitizeForPrompt } from '../utils/inputSanitizer';
 import { trackApiCall } from '../utils/billingMonitor';
@@ -205,13 +205,12 @@ Responda diretamente em formato de memorando jurídico profissional, sem markdow
 
 export async function analyzeCompliance(mediaBase64: string, mimeType: string): Promise<{status: string, report: string}> {
   if (!API_KEY || API_KEY === 'YOUR_API_KEY_HERE') {
-     // Mock fallback if something fails with key
-     return { status: "Aprovado", report: "Verificação Offline: Parece em conformidade." };
+    throw new Error('Chave de API do Gemini não configurada. Acesse as Configurações do sistema para inserir sua chave.');
   }
 
   try {
     // Media handling for Gemini
-    const parts: any[] = [];
+    const parts: Part[] = [];
     parts.push({text: `Você é um Auditor Rigoroso do TSE. Analise esta peça publicitária da campanha.
 Verifique 3 coisas essenciais de compliance eleitoral:
 1. Proporção do vice (A resolução exige que o nome do vice tenha no mínimo 30% do tamanho do nome do titular, se visível nesta peça).

@@ -267,7 +267,7 @@ export default function App() {
 
   const PAGE_MAP: Record<NavId, React.ReactNode> = {
     dashboard:            <Dashboard />,
-    legal_dashboard:      <LegalDashboardPage onNavigate={setPage} />,
+    legal_dashboard:      <LegalDashboardPage onNavigate={(p) => setPage(p as NavId)} />,
     legal_compliance:     <LegalCompliancePage />,
     legal_monitor:        <LegalMonitorPage />,
     legal_financeiro:     <LegalFinanceiroPage onNavigate={setPage} />,

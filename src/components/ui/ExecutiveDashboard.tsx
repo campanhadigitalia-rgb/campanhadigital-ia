@@ -150,17 +150,15 @@ export function ExecutiveDashboard() {
          <span className="text-[10px] font-black uppercase text-red-500 tracking-widest bg-red-500/10 px-2 py-1 rounded ml-2 flex items-center gap-1.5 whitespace-nowrap">
            <AlertTriangle size={12}/> Prioridades Máximas
          </span>
-         <div className="flex items-center gap-4 text-sm font-medium animate-marquee sm:animate-none flex-1 overflow-hidden">
-           {crisisData.regions.length > 0 ? (
-             <span className="text-rose-400 truncate animate-pulse font-bold">
-               🔥 ALERTA CRÍTICO: {(crisisData.topics[0] || 'Instabilidade')} detectada em {crisisData.regions.join(', ')}. Acionar Agente AI!
-             </span>
-           ) : (
-             <span className="text-amber-400 truncate cursor-pointer hover:underline">⚠️ Queda súbita de sentimento positivo detectada pelo Sentinela.</span>
-           )}
-           <span className="text-red-400 truncate cursor-pointer hover:underline">⚖️ Nova Representação Jurídica detectada contra CNPJ de Impulsionamento.</span>
-           <span className="text-emerald-400 truncate cursor-pointer hover:underline">✅ O Oráculo projeta vitória técnica em distritos estratégicos.</span>
-         </div>
+          <div className="flex items-center gap-4 text-sm font-medium animate-marquee sm:animate-none flex-1 overflow-hidden">
+            {crisisData.regions.length > 0 ? (
+              <span className="text-rose-400 truncate animate-pulse font-bold">
+                🔥 ALERTA CRÍTICO: {(crisisData.topics[0] || 'Instabilidade')} detectada em {crisisData.regions.join(', ')}. Acionar Agente AI!
+              </span>
+            ) : (
+              <span className="text-slate-500 truncate font-bold">✅ Nenhum alerta crítico no momento. Sentinela monitorando.</span>
+            )}
+          </div>
       </div>
 
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">

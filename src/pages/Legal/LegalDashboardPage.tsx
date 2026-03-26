@@ -276,12 +276,12 @@ export default function LegalDashboardPage({ onNavigate }: { onNavigate?: (p: st
                     ))
                  )}
               </div>
-              <div className="p-4 pt-0">
-                  <div className="p-3 bg-black/40 rounded-lg border border-white/5 flex items-center gap-3">
-                     <Activity size={16} className="text-emerald-500 animate-pulse" />
-                     <p className="text-[9px] text-slate-500 uppercase font-black tracking-tighter">Sentinela IA vasculhando Diário da Justiça (DJE) em tempo real...</p>
-                  </div>
-              </div>
+               <div className="p-4 pt-0">
+                   <div className="p-3 bg-black/40 rounded-lg border border-white/5 flex items-center gap-3">
+                      <Activity size={16} className="text-slate-600" />
+                      <p className="text-[9px] text-slate-600 uppercase font-black tracking-tighter">Adicione notícias via "+ Adicionar" para monitorar atividade jurídica.</p>
+                   </div>
+               </div>
            </div>
         </div>
       </div>
@@ -305,22 +305,25 @@ export default function LegalDashboardPage({ onNavigate }: { onNavigate?: (p: st
          </div>
 
          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-            <div className="p-4 bg-black/20 rounded-xl border border-rose-500/10">
-               <p className="text-[10px] font-black text-rose-400 uppercase tracking-widest mb-3">Radar de Crise (IA)</p>
-               <div className="space-y-3">
-                  <div className="p-2 border-l-2 border-rose-500 bg-rose-500/5">
-                     <p className="text-xs font-bold text-slate-200">Menção Negativa Detectada</p>
-                     <p className="text-[10px] text-slate-500">Twitter: "@candidato não explicou..."</p>
-                  </div>
-                  <button className="text-[9px] font-black text-indigo-400 uppercase tracking-tighter hover:underline">Gerar Defesa RAG Agora</button>
-               </div>
-            </div>
+             <div className="p-4 bg-black/20 rounded-xl border border-rose-500/10">
+                <p className="text-[10px] font-black text-rose-400 uppercase tracking-widest mb-3">Últimas Ocorrências Registradas</p>
+                <div className="space-y-3">
+                  {alerts.slice(0, 2).length === 0 ? (
+                    <p className="text-[10px] text-slate-600 font-bold uppercase">Nenhuma ocorrência registrada.</p>
+                  ) : alerts.slice(0, 2).map(alert => (
+                    <div key={alert.id} className="p-2 border-l-2 border-rose-500 bg-rose-500/5">
+                      <p className="text-xs font-bold text-slate-200">{alert.title}</p>
+                      <p className="text-[10px] text-slate-500">{alert.desc || 'Sem descrição.'}</p>
+                    </div>
+                  ))}
+                  <button onClick={() => onNavigate?.('legal_monitor')} className="text-[9px] font-black text-indigo-400 uppercase tracking-tighter hover:underline">Ver todas no Monitor →</button>
+                </div>
+             </div>
              <div className="p-4 bg-black/20 rounded-xl border border-emerald-500/10">
                 <p className="text-[10px] font-black text-emerald-400 uppercase tracking-widest mb-3">Compliance de Peças</p>
                 <div className="flex items-center gap-4">
                    <div className="flex-1 text-center border-r border-white/5">
                      <p className="text-xl font-black text-slate-100">{complianceStats.approved}</p>
-                     <p className="text-[9px] text-slate-500 uppercase">Aprovadas</p>
                    </div>
                    <div className="flex-1 text-center">
                      <p className="text-xl font-black text-rose-500">{complianceStats.rejected}</p>
@@ -332,9 +335,9 @@ export default function LegalDashboardPage({ onNavigate }: { onNavigate?: (p: st
                <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Prestação de Contas</p>
                <div className="flex items-center justify-center gap-2 text-emerald-400">
                   <Shield size={20} />
-                  <span className="text-sm font-black uppercase">100% Ok</span>
+                  <span className="text-sm font-black uppercase">{complianceStats.approved > 0 || complianceStats.rejected > 0 ? `${Math.round((complianceStats.approved / (complianceStats.approved + complianceStats.rejected)) * 100)}% Aprovadas` : 'Sem dados'}</span>
                </div>
-               <p className="text-[10px] text-slate-500 leading-tight">Sincronizada com o SPCE e o fluxo financeiro.</p>
+               <p className="text-[10px] text-slate-500 leading-tight">Proporção de peças aprovadas pelo Sentinel IA.</p>
             </div>
          </div>
       </section>
