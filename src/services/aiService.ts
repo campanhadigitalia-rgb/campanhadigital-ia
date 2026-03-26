@@ -165,20 +165,32 @@ Alerte sobre armadilhas recorrentes (blind spot) e identifique um capital eleito
   }
 }
 
-export async function generateLegalDefense(requestText: string): Promise<string> {
+export async function generateLegalDefense(requestText: string, identity?: CampaignIdentity): Promise<string> {
   if (!API_KEY || API_KEY === 'YOUR_API_KEY_HERE') return "Serviço RAG Offline (Chave não configurada).";
 
   try {
+    const context = identity ? `
+Contexto do Candidato:
+Nome: ${identity.name} (${identity.urnName})
+Cargo: ${identity.position} em ${identity.location}
+Partido/Coligação: ${identity.party} / ${identity.coalition}
+Histórico/Perfil: ${identity.history}
+` : '';
+
     const model = genAI.getGenerativeModel({ model: MODEL_NAME });
     const prompt = `Atue como um Advogado Eleitoral Senior especialista no TSE.
-O cliente (Campanha) reportou a seguinte situação/incidente:
+${context}
+
+O cliente (Campanha) reportou a seguinte situação/incidente jurídico ou ataque do adversário:
 "${requestText}"
 
-Com base na teoria geral do direito eleitoral, jurisprudência do TSE e gestão de riscos:
-1. Formule uma minuta de defesa ou tese jurídica inicial estruturada (em 3 parágrafos).
-2. Cite possíveis embasamentos legais (Leis, Resoluções do TSE, súmulas) aplicáveis ao caso.
-3. Classifique o nível de risco dessa situação (Baixo, Médio, Crítico) se não for defendida.
-Responda diretamente em formato texto bem estruturado.`;
+Com base na teoria geral do direito eleitoral brasileiro, resoluções vigentes do TSE e jurisprudência:
+1. Formule uma minuta de defesa técnica ou tese jurídica inicial estruturada.
+2. Cite especificamente os artigos de leis ou resoluções (ex: Res. 23.610/2019) aplicáveis.
+3. Classifique o nível de risco (Baixo, Médio, Crítico).
+4. Sugira uma "Ação Imediata" (Ex: Pedido de Liminar, Direito de Resposta, Notificação Extrajudicial).
+
+Responda diretamente em formato de memorando jurídico profissional, sem markdown de código, usando tom formal e assertivo.`;
     
     const result = await model.generateContent(prompt);
     const text = result.response.text().trim();

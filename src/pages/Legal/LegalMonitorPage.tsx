@@ -4,6 +4,7 @@ import { useCampaign } from '../../context/CampaignContext';
 import { collection, onSnapshot, query, orderBy, addDoc, serverTimestamp } from 'firebase/firestore';
 import { db } from '../../services/firebase';
 import { generateLegalDefense } from '../../services/aiService';
+import { useAuth } from '../../context/AuthContext';
 
 interface LegalAlert {
   id: string;
@@ -11,19 +12,20 @@ interface LegalAlert {
   title: string;
   level: 'High' | 'Medium' | 'Low';
   doc: string;
-  createdAt: any;
+  createdAt: { seconds: number } | null;
   desc: string;
 }
 
 export default function LegalMonitorPage() {
-  const { campaignId } = useCampaign();
+  const { campaignId, activeCampaign } = useCampaign();
+  const { profile } = useAuth();
   const [activeTab, setActiveTab] = useState<'monitor' | 'rag'>('monitor');
   const [alerts, setAlerts] = useState<LegalAlert[]>([]);
   const [ragText, setRagText] = useState('');
   const [submittingRag, setSubmittingRag] = useState(false);
   const [ragResult, setRagResult] = useState('');
   const [showAddAlert, setShowAddAlert] = useState(false);
-  const [newAlert, setNewAlert] = useState({ title: '', source: 'Manus AI', level: 'Medium', doc: '', desc: '' });
+  const [newAlert, setNewAlert] = useState({ title: '', source: 'Manual', level: 'Medium', doc: '', desc: '' });
 
   useEffect(() => {
     if (!campaignId) return;
@@ -42,13 +44,14 @@ export default function LegalMonitorPage() {
     setSubmittingRag(true);
     setRagResult('');
     try {
-      const draft = await generateLegalDefense(ragText);
+      const draft = await generateLegalDefense(ragText, activeCampaign?.identity);
       
       await addDoc(collection(db, `campaigns/${campaignId}/legal_defense`), {
         requestText: ragText,
         defenseDraft: draft,
         status: 'Concluído',
-        createdAt: serverTimestamp()
+        createdAt: serverTimestamp(),
+        createdBy: profile?.uid || 'system'
       });
       
       setRagResult(draft);
@@ -77,9 +80,9 @@ export default function LegalMonitorPage() {
     }
   };
 
-  const getTimeAgo = (ts: any) => {
+  const getTimeAgo = (ts: { seconds: number } | null) => {
     if (!ts) return 'Aguardando...';
-    const date = ts.seconds ? new Date(ts.seconds * 1000) : new Date();
+    const date = new Date(ts.seconds * 1000);
     const diff = Math.floor((new Date().getTime() - date.getTime()) / 60000);
     if (diff < 60) return `Há ${diff}min`;
     const hours = Math.floor(diff / 60);
@@ -149,10 +152,10 @@ export default function LegalMonitorPage() {
                    <button onClick={() => setActiveTab('rag')} className={`pb-1 transition-colors ${activeTab === 'rag' ? 'text-indigo-400 border-b-2 border-indigo-400' : 'text-slate-500'}`}>RAG AI (Defesa & Jurisprudência)</button>
                 </div>
                 {activeTab === 'monitor' && (
-                  <button onClick={() => setShowAddAlert(!showAddAlert)} className="px-3 py-1.5 bg-indigo-600/20 text-indigo-400 hover:bg-indigo-600/40 rounded border border-indigo-500/30 text-[10px] font-bold uppercase transition-colors">
-                    + Alerta Manual
-                  </button>
-                )}
+                    <button onClick={() => setShowAddAlert(!showAddAlert)} className="px-3 py-1.5 bg-indigo-600/20 text-indigo-400 hover:bg-indigo-600/40 rounded border border-indigo-500/30 text-[10px] font-bold uppercase transition-colors">
+                      + Registrar Ocorrência
+                    </button>
+                 )}
               </div>
 
               {activeTab === 'monitor' ? (

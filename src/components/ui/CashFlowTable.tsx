@@ -2,8 +2,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { useCampaign } from '../../context/CampaignContext';
 import { useAuth } from '../../context/AuthContext';
 import { collection, query, where, addDoc, serverTimestamp, onSnapshot, doc, updateDoc } from 'firebase/firestore';
-import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
-import { db, storage } from '../../services/firebase';
+import { db } from '../../services/firebase';
 import type { CashTransaction, FundraisingCampaign } from '../../types';
 import { Plus, Download, ArrowUpRight, ArrowDownRight, Clock, CheckCircle2, AlertCircle, FileText, User, Building2, X, Edit2, Link } from 'lucide-react';
 
@@ -79,13 +78,18 @@ export function CashFlowTable() {
 
     setIsUploading(true);
     try {
-      const storageRef = ref(storage, `campaigns/${campaignId}/receipts/${Date.now()}_${file.name}`);
-      const snapshot = await uploadBytes(storageRef, file);
-      const url = await getDownloadURL(snapshot.ref);
-      setAttachmentUrl(url);
-    } catch (e) {
-      console.error(e);
-      alert('Erro ao fazer upload do arquivo.');
+      const reader = new FileReader();
+      const base64Promise = new Promise<string>((resolve, reject) => {
+        reader.onload = () => resolve(reader.result as string);
+        reader.onerror = reject;
+      });
+      reader.readAsDataURL(file);
+      
+      const base64 = await base64Promise;
+      setAttachmentUrl(base64);
+    } catch (err: unknown) {
+      console.error(err);
+      alert('Erro ao converter arquivo para Base64.');
     } finally {
       setIsUploading(false);
     }

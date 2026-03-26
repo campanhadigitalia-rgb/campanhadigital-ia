@@ -90,8 +90,8 @@ export default function LegalFinanceiroPage({ onNavigate }: { onNavigate?: (p: a
 
             <div className="w-full bg-slate-900/60 rounded-full h-4 p-1 border border-white/5 relative overflow-hidden">
                <div className={`h-full rounded-full transition-all duration-1000 ${
-                 progress > 90 ? 'bg-gradient-to-r from-rose-500 to-rose-400 shadow-[0_0_15px_rgba(244,63,94,0.4)]' : 
-                 progress > 70 ? 'bg-gradient-to-r from-amber-500 to-amber-400' : 
+                 progress > 90 ? 'bg-linear-to-r from-rose-500 to-rose-400 shadow-[0_0_15px_rgba(244,63,94,0.4)]' : 
+                 progress > 70 ? 'bg-linear-to-r from-amber-500 to-amber-400' : 
                  'bg-linear-to-r from-emerald-500 to-teal-400 shadow-[0_0_15px_rgba(16,185,129,0.3)]'
                }`} style={{ width: `${progress}%` }} />
             </div>

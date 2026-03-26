@@ -1,7 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { collection, addDoc, deleteDoc, doc, onSnapshot, serverTimestamp, updateDoc } from 'firebase/firestore';
-import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
-import { db, storage } from '../../services/firebase';
+import { db } from '../../services/firebase';
 import { useCampaign } from '../../context/CampaignContext';
 import { Plus, Trash2, Building2, User, Car, Package, ShieldCheck, ShieldAlert, ShieldQuestion, Clock, FileText } from 'lucide-react';
 
@@ -119,16 +118,22 @@ Assinatura do Contratado
       const urls: string[] = [];
       for (let i = 0; i < files.length; i++) {
         const file = files[i];
-        const storageRef = ref(storage, `campaigns/${campaignId}/people/${Date.now()}_${file.name}`);
-        const snapshot = await uploadBytes(storageRef, file);
-        const url = await getDownloadURL(snapshot.ref);
-        urls.push(url);
+        
+        // Convert to Base64
+        const reader = new FileReader();
+        const base64Promise = new Promise<string>((resolve, reject) => {
+          reader.onload = () => resolve(reader.result as string);
+          reader.onerror = reject;
+        });
+        reader.readAsDataURL(file);
+        
+        const base64 = await base64Promise;
+        urls.push(base64);
       }
       setDocumentsUrl(prev => [...prev, ...urls]);
     } catch (err: unknown) {
       console.error(err);
-      const msg = err instanceof Error ? err.message : String(err);
-      alert(`Falha no Upload Firebase: ${msg}. \n\nPor favor, vá ao Console Firebase > Storage > e clique em "Get Started" (Iniciar)!`);
+      alert('Falha ao converter arquivo para Base64.');
     } finally {
       setIsUploading(false);
     }

@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Shield, AlertTriangle, CheckCircle, Gavel, Clock, Activity, CreditCard, User, Users, FileText, Globe, MessageSquare } from 'lucide-react';
 import { useCampaign } from '../../context/CampaignContext';
-import { collection, onSnapshot, query, orderBy, limit } from 'firebase/firestore';
+import { collection, onSnapshot, query, orderBy, limit, addDoc, serverTimestamp } from 'firebase/firestore';
 import { db } from '../../services/firebase';
 
 interface LegalAlert {
@@ -9,29 +9,70 @@ interface LegalAlert {
   title: string;
   type: 'Crítica' | 'Urgente' | 'Informativa';
   desc: string;
-  createdAt: any;
+  createdAt: { seconds: number; nanoseconds: number } | null;
 }
 
-export default function LegalDashboardPage({ onNavigate }: { onNavigate?: (p: any) => void }) {
+interface LegalNews {
+  id: string;
+  title: string;
+  tag: string;
+}
+
+interface LegalContract {
+  id: string;
+  title?: string;
+  name?: string;
+  type: string;
+  status: string;
+}
+
+export default function LegalDashboardPage({ onNavigate }: { onNavigate?: (p: string) => void }) {
   const { campaignId, activeCampaign } = useCampaign();
   const [alerts, setAlerts] = useState<LegalAlert[]>([]);
-  const [news] = useState<any[]>([
-    { id: 1, title: 'Resolução TSE 23.671: Novos limites para impulsionamento social.', tag: 'Jurisprudência' },
-    { id: 2, title: 'TRE-SC publica calendário de auditoria de urnas.', tag: 'Calendário' },
-    { id: 3, title: 'Entendimento sobre IA em propagandas se torna mais rígido.', tag: 'Alerta' },
-  ]);
+  const [news, setNews] = useState<LegalNews[]>([]);
+  const [contracts, setContracts] = useState<LegalContract[]>([]);
+  const [complianceStats, setComplianceStats] = useState({ approved: 0, rejected: 0 });
+  const [showAddNews, setShowAddNews] = useState(false);
+  const [showAddContract, setShowAddContract] = useState(false);
+  const [newNews, setNewNews] = useState({ title: '', tag: 'Geral' });
+  const [newContract, setNewContract] = useState({ title: '', type: 'Serviço', status: 'Pendente' });
 
   useEffect(() => {
     if (!campaignId) return;
-    const q = query(
+    const qAlerts = query(
       collection(db, `campaigns/${campaignId}/legal_alerts`),
       orderBy('createdAt', 'desc'),
       limit(5)
     );
-    const unsub = onSnapshot(q, snap => {
+    const unsubAlerts = onSnapshot(qAlerts, snap => {
       setAlerts(snap.docs.map(d => ({ id: d.id, ...d.data() } as LegalAlert)));
     });
-    return () => unsub();
+
+    const qNews = query(collection(db, `campaigns/${campaignId}/legal_news`), orderBy('createdAt', 'desc'), limit(10));
+    const unsubNews = onSnapshot(qNews, snap => {
+      setNews(snap.docs.map(d => ({ id: d.id, ...d.data() } as LegalNews)));
+    });
+
+    const qContracts = query(collection(db, `campaigns/${campaignId}/legal_contracts`), orderBy('createdAt', 'desc'), limit(5));
+    const unsubContracts = onSnapshot(qContracts, snap => {
+      setContracts(snap.docs.map(d => ({ id: d.id, ...d.data() } as LegalContract)));
+    });
+
+    const qCompliance = query(collection(db, `campaigns/${campaignId}/legal_compliance`));
+    const unsubCompliance = onSnapshot(qCompliance, snap => {
+      const docs = snap.docs.map(d => d.data());
+      setComplianceStats({
+        approved: docs.filter(d => d.status === 'Aprovado').length,
+        rejected: docs.filter(d => d.status === 'Risco').length
+      });
+    });
+
+    return () => {
+      unsubAlerts();
+      unsubNews();
+      unsubContracts();
+      unsubCompliance();
+    };
   }, [campaignId]);
 
   const identity = activeCampaign?.identity;
@@ -48,6 +89,28 @@ export default function LegalDashboardPage({ onNavigate }: { onNavigate?: (p: an
 
   const totalProgress = chkItems.reduce((acc, item) => acc + (checklist[item.key as keyof typeof checklist] ? item.weight : 0), 0);
   const activeProcessCount = alerts.filter((a: LegalAlert) => a.type === 'Crítica' || a.type === 'Urgente').length;
+
+  const handleAddNews = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!campaignId || !newNews.title) return;
+    await addDoc(collection(db, `campaigns/${campaignId}/legal_news`), {
+      ...newNews,
+      createdAt: serverTimestamp()
+    });
+    setNewNews({ title: '', tag: 'Geral' });
+    setShowAddNews(false);
+  };
+
+  const handleAddContract = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!campaignId || !newContract.title) return;
+    await addDoc(collection(db, `campaigns/${campaignId}/legal_contracts`), {
+      ...newContract,
+      createdAt: serverTimestamp()
+    });
+    setNewContract({ title: '', type: 'Serviço', status: 'Pendente' });
+    setShowAddContract(false);
+  };
 
 
   return (
@@ -166,22 +229,25 @@ export default function LegalDashboardPage({ onNavigate }: { onNavigate?: (p: an
            <div className="glass-card border border-white/5 overflow-hidden flex flex-col">
               <div className="p-4 bg-black/20 border-b border-white/5 flex justify-between items-center">
                  <h3 className="text-xs font-black uppercase tracking-widest text-slate-400 flex items-center gap-2"><FileText size={14} className="text-amber-400"/> Validação de Contratos</h3>
-                 <span className="px-2 py-0.5 bg-rose-500 text-white rounded text-[8px] font-black">2 PENDENTES</span>
+                                   <button onClick={() => setShowAddContract(true)} className="px-2 py-0.5 bg-indigo-500/20 text-indigo-400 rounded text-[8px] font-black uppercase hover:bg-indigo-500/40 transition-colors">+ Novo</button>
               </div>
               <div className="p-4 space-y-3 flex-1">
-                 {[
-                   { id: 1, title: 'Locação de Veículos - Frota A', date: 'Hoje', status: 'pendente' },
-                   { id: 2, title: 'Contrato Social Media - Agência X', date: 'Ontem', status: 'pendente' },
-                   { id: 3, title: 'Aluguel de Sede Campanha', date: '2 dias', status: 'ok' },
-                 ].map(c => (
-                   <div key={c.id} className="p-3 bg-black/30 rounded-lg border border-white/5 flex items-center justify-between group cursor-pointer hover:border-amber-500/30 transition-all">
-                      <div>
-                        <p className="text-xs font-bold text-slate-200">{c.title}</p>
-                        <p className="text-[9px] text-slate-500 uppercase font-black">{c.date} • Jurídico Financeiro</p>
-                      </div>
-                      {c.status === 'pendente' ? <AlertTriangle size={14} className="text-rose-500" /> : <CheckCircle size={14} className="text-emerald-500" />}
+                 {contracts.length === 0 ? (
+                   <div className="h-full flex flex-col items-center justify-center text-center p-4">
+                      <FileText size={24} className="text-slate-700 mb-2 opacity-20" />
+                      <p className="text-[10px] text-slate-600 font-bold uppercase">Nenhum contrato em auditoria</p>
                    </div>
-                 ))}
+                 ) : (
+                   contracts.map(c => (
+                     <div key={c.id} className="p-3 bg-black/30 rounded-lg border border-white/5 flex items-center justify-between group cursor-pointer hover:border-amber-500/30 transition-all">
+                        <div>
+                          <p className="text-xs font-bold text-slate-200">{c.title || c.name}</p>
+                          <p className="text-[9px] text-slate-500 uppercase font-black">{c.type || 'Contrato'} • {c.status || 'Pendente'}</p>
+                        </div>
+                        {c.status === 'Aprovado' ? <CheckCircle size={14} className="text-emerald-500" /> : <AlertTriangle size={14} className="text-rose-500" />}
+                     </div>
+                   ))
+                 )}
               </div>
               <div className="p-4 pt-0">
                  <button onClick={() => onNavigate?.('legal_financeiro')} className="w-full py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-lg text-[9px] font-black uppercase tracking-widest transition-all">Ver Auditoria Financeira</button>
@@ -190,17 +256,25 @@ export default function LegalDashboardPage({ onNavigate }: { onNavigate?: (p: an
 
            <div className="glass-card border border-white/5 overflow-hidden flex flex-col">
               <div className="p-4 bg-black/20 border-b border-white/5 flex justify-between items-center">
-                 <h3 className="text-xs font-black uppercase tracking-widest text-slate-400 flex items-center gap-2"><Globe size={14} className="text-indigo-400"/> Jurisprudência & Notícias</h3>
+                                   <h3 className="text-xs font-black uppercase tracking-widest text-slate-400 flex items-center gap-2"><Globe size={14} className="text-indigo-400"/> Jurisprudência & Notícias</h3>
+                  <button onClick={() => setShowAddNews(true)} className="px-2 py-0.5 bg-indigo-500/20 text-indigo-400 rounded text-[8px] font-black uppercase hover:bg-indigo-500/40 transition-colors">+ Adicionar</button>
               </div>
               <div className="p-4 space-y-3 flex-1 overflow-y-auto max-h-52 custom-scrollbar">
-                 {news.map(n => (
-                   <div key={n.id} className="p-3 bg-indigo-500/5 rounded-lg border border-indigo-500/10 space-y-1">
-                      <div className="flex justify-between items-start">
-                        <span className="px-1.5 py-0.5 bg-indigo-500/20 text-indigo-400 rounded text-[7px] font-black uppercase">{n.tag}</span>
+                 {news.length === 0 ? (
+                    <div className="h-full flex flex-col items-center justify-center text-center p-4">
+                      <Globe size={24} className="text-slate-700 mb-2 opacity-20" />
+                      <p className="text-[10px] text-slate-600 font-bold uppercase">Sem atualizações no Radar</p>
+                    </div>
+                 ) : (
+                    news.map(n => (
+                      <div key={n.id} className="p-3 bg-indigo-500/5 rounded-lg border border-indigo-500/10 space-y-1">
+                        <div className="flex justify-between items-start">
+                          <span className="px-1.5 py-0.5 bg-indigo-500/20 text-indigo-400 rounded text-[7px] font-black uppercase">{n.tag || 'Notícia'}</span>
+                        </div>
+                        <p className="text-[10px] font-bold text-slate-200 leading-snug">{n.title}</p>
                       </div>
-                      <p className="text-[10px] font-bold text-slate-200 leading-snug">{n.title}</p>
-                   </div>
-                 ))}
+                    ))
+                 )}
               </div>
               <div className="p-4 pt-0">
                   <div className="p-3 bg-black/40 rounded-lg border border-white/5 flex items-center gap-3">
@@ -241,19 +315,19 @@ export default function LegalDashboardPage({ onNavigate }: { onNavigate?: (p: an
                   <button className="text-[9px] font-black text-indigo-400 uppercase tracking-tighter hover:underline">Gerar Defesa RAG Agora</button>
                </div>
             </div>
-            <div className="p-4 bg-black/20 rounded-xl border border-emerald-500/10">
-               <p className="text-[10px] font-black text-emerald-400 uppercase tracking-widest mb-3">Compliance de Peças</p>
-               <div className="flex items-center gap-4">
-                  <div className="flex-1 text-center border-r border-white/5">
-                    <p className="text-xl font-black text-slate-100">12</p>
-                    <p className="text-[9px] text-slate-500 uppercase">Aprovadas</p>
-                  </div>
-                  <div className="flex-1 text-center">
-                    <p className="text-xl font-black text-rose-500">1</p>
-                    <p className="text-[9px] text-slate-500 uppercase font-black text-rose-400/80">Rejeitada</p>
-                  </div>
-               </div>
-            </div>
+             <div className="p-4 bg-black/20 rounded-xl border border-emerald-500/10">
+                <p className="text-[10px] font-black text-emerald-400 uppercase tracking-widest mb-3">Compliance de Peças</p>
+                <div className="flex items-center gap-4">
+                   <div className="flex-1 text-center border-r border-white/5">
+                     <p className="text-xl font-black text-slate-100">{complianceStats.approved}</p>
+                     <p className="text-[9px] text-slate-500 uppercase">Aprovadas</p>
+                   </div>
+                   <div className="flex-1 text-center">
+                     <p className="text-xl font-black text-rose-500">{complianceStats.rejected}</p>
+                     <p className="text-[9px] text-slate-500 uppercase font-black">Rejeitada</p>
+                   </div>
+                </div>
+             </div>
             <div className="p-4 bg-black/20 rounded-xl border border-white/5 space-y-3 text-center flex flex-col justify-center">
                <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Prestação de Contas</p>
                <div className="flex items-center justify-center gap-2 text-emerald-400">
@@ -264,6 +338,49 @@ export default function LegalDashboardPage({ onNavigate }: { onNavigate?: (p: an
             </div>
          </div>
       </section>
+
+       {/* Modais de Entrada de Dados (No Mocks Policy) */}
+       {showAddNews && (
+         <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4">
+           <form onSubmit={handleAddNews} className="bg-slate-900 border border-indigo-500/30 p-6 rounded-2xl w-full max-w-md space-y-4">
+             <h3 className="text-sm font-black text-indigo-400 uppercase tracking-widest">Registrar Notícia / Jurisprudência</h3>
+             <div className="space-y-3">
+               <input required value={newNews.title} onChange={e => setNewNews({...newNews, title: e.target.value})} placeholder="Título da notícia..." className="w-full bg-black/40 border border-white/10 rounded-lg p-3 text-xs text-white" />
+               <select value={newNews.tag} onChange={e => setNewNews({...newNews, tag: e.target.value})} className="w-full bg-black/40 border border-white/10 rounded-lg p-3 text-xs text-white">
+                 <option value="Justiça">Justiça</option>
+                 <option value="TRE">TRE/TSE</option>
+                 <option value="Calendário">Calendário</option>
+                 <option value="Geral">Geral</option>
+               </select>
+             </div>
+             <div className="flex justify-end gap-3 pt-2">
+               <button type="button" onClick={() => setShowAddNews(false)} className="text-xs text-slate-500 font-bold uppercase tracking-widest hover:text-white">Cancelar</button>
+               <button type="submit" className="px-6 py-2 bg-indigo-600 text-white text-[10px] font-black uppercase tracking-widest rounded-lg shadow-lg">Salvar no BD</button>
+             </div>
+           </form>
+         </div>
+       )}
+
+       {showAddContract && (
+         <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4">
+           <form onSubmit={handleAddContract} className="bg-slate-900 border border-amber-500/30 p-6 rounded-2xl w-full max-w-md space-y-4">
+             <h3 className="text-sm font-black text-amber-400 uppercase tracking-widest">Nova Pasta de Contrato</h3>
+             <div className="space-y-3">
+               <input required value={newContract.title} onChange={e => setNewContract({...newContract, title: e.target.value})} placeholder="Nome do Objeto (Ex: Locação de Vans)" className="w-full bg-black/40 border border-white/10 rounded-lg p-3 text-xs text-white" />
+               <select value={newContract.type} onChange={e => setNewContract({...newContract, type: e.target.value})} className="w-full bg-black/40 border border-white/10 rounded-lg p-3 text-xs text-white">
+                 <option value="Locação">Locação</option>
+                 <option value="Pessoal">Pessoal</option>
+                 <option value="Marketing">Marketing</option>
+                 <option value="Outros">Outros</option>
+               </select>
+             </div>
+             <div className="flex justify-end gap-3 pt-2">
+               <button type="button" onClick={() => setShowAddContract(false)} className="text-xs text-slate-500 font-bold uppercase tracking-widest hover:text-white">Cancelar</button>
+               <button type="submit" className="px-6 py-2 bg-amber-600 text-white text-[10px] font-black uppercase tracking-widest rounded-lg shadow-lg">Registrar Autoria</button>
+             </div>
+           </form>
+         </div>
+       )}
     </div>
   );
 }

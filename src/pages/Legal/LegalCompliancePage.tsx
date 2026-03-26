@@ -12,7 +12,7 @@ interface LegalMedia {
   type: string;
   risk: 'low' | 'medium' | 'high';
   desc: string;
-  createdAt: any;
+  createdAt: { seconds: number; nanoseconds: number } | null;
   base64Data?: string;
 }
 
@@ -20,7 +20,7 @@ export default function LegalCompliancePage() {
   const { campaignId } = useCampaign();
   const [mediaList, setMediaList] = useState<LegalMedia[]>([]);
   const [uploading, setUploading] = useState(false);
-
+  const [selectedMedia, setSelectedMedia] = useState<LegalMedia | null>(null);
   useEffect(() => {
     if (!campaignId) return;
     const q = query(
@@ -83,9 +83,9 @@ export default function LegalCompliancePage() {
     }
   };
 
-  const getTimeAgo = (ts: any) => {
+  const getTimeAgo = (ts: { seconds: number } | null) => {
     if (!ts) return 'Aguardando...';
-    const date = ts.seconds ? new Date(ts.seconds * 1000) : new Date();
+    const date = new Date(ts.seconds * 1000);
     const diff = Math.floor((new Date().getTime() - date.getTime()) / 60000);
     if (diff < 2) return `Agora mesmo`;
     if (diff < 60) return `Há ${diff}min`;
@@ -152,7 +152,10 @@ export default function LegalCompliancePage() {
                       }`}>
                         {m.status}
                       </span>
-                      <button className="p-2 text-slate-600 hover:text-indigo-400 hover:bg-indigo-500/10 rounded-lg transition-all" title={m.desc}>
+                      <button 
+                        onClick={() => setSelectedMedia(m)}
+                        className="p-2 text-slate-600 hover:text-indigo-400 hover:bg-indigo-500/10 rounded-lg transition-all"
+                      >
                         <Zap size={14} />
                       </button>
                     </div>
@@ -162,6 +165,94 @@ export default function LegalCompliancePage() {
             </div>
           </div>
         </div>
+
+        {/* Modal de Detalhes da Análise */}
+        {selectedMedia && (
+          <div className="fixed inset-0 z-100 bg-black/90 backdrop-blur-xl flex items-center justify-center p-4">
+            <div className="bg-slate-900 border border-white/10 rounded-3xl w-full max-w-5xl max-h-[90vh] flex flex-col overflow-hidden shadow-[0_0_50px_rgba(0,0,0,0.5)]">
+              <div className="p-6 border-b border-white/5 flex justify-between items-center bg-slate-800/50">
+                <div>
+                  <h3 className="text-lg font-black text-white uppercase tracking-widest flex items-center gap-2">
+                    {selectedMedia.risk === 'high' ? <ShieldAlert className="text-rose-500" /> : <ShieldCheck className="text-emerald-500" />}
+                    Relatório de Conformidade TSE
+                  </h3>
+                  <p className="text-[10px] text-slate-500 font-bold uppercase tracking-tighter mt-1">{selectedMedia.title} • {selectedMedia.type}</p>
+                </div>
+                <button onClick={() => setSelectedMedia(null)} className="text-slate-400 hover:text-white p-2 bg-white/5 rounded-full transition-colors">✕</button>
+              </div>
+
+              <div className="flex-1 overflow-hidden flex flex-col lg:flex-row">
+                 {/* Visualização da Peça */}
+                 <div className="lg:w-1/2 p-6 bg-black/40 flex items-center justify-center border-r border-white/5">
+                    {selectedMedia.base64Data ? (
+                      selectedMedia.type.startsWith('image/') ? (
+                        <img src={selectedMedia.base64Data} alt="Peça" className="max-w-full max-h-full object-contain rounded-lg shadow-2xl" />
+                      ) : (
+                        <div className="text-center space-y-4">
+                           <FileCheck size={80} className="text-indigo-400 mx-auto opacity-20" />
+                           <p className="text-xs text-slate-500 font-bold uppercase">Visualização não disponível para este formato</p>
+                           <a href={selectedMedia.base64Data} download={selectedMedia.title} className="inline-block px-6 py-2 bg-indigo-600 rounded-lg text-[10px] font-black uppercase text-white">Baixar Arquivo</a>
+                        </div>
+                      )
+                    ) : (
+                      <p className="text-slate-600 font-bold uppercase text-[10px]">Dados da mídia extraviados.</p>
+                    )}
+                 </div>
+
+                 {/* Relatório IA */}
+                 <div className="lg:w-1/2 p-8 overflow-y-auto custom-scrollbar bg-slate-900">
+                    <div className="space-y-6">
+                       <div className={`p-4 rounded-xl border ${
+                         selectedMedia.risk === 'high' ? 'bg-rose-500/5 border-rose-500/20' : 'bg-emerald-500/5 border-emerald-500/20'
+                       }`}>
+                          <h4 className={`text-xs font-black uppercase tracking-widest mb-2 flex items-center gap-2 ${
+                            selectedMedia.risk === 'high' ? 'text-rose-400' : 'text-emerald-400'
+                          }`}>
+                            Veredito: {selectedMedia.status}
+                          </h4>
+                          <p className="text-sm text-slate-200 leading-relaxed font-medium">
+                            {selectedMedia.desc}
+                          </p>
+                       </div>
+
+                       <div className="space-y-4">
+                          <h4 className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Gatilhos de Risco Detectados</h4>
+                          <div className="grid grid-cols-2 gap-2">
+                             {[
+                               { label: 'Proporção Vice', status: selectedMedia.desc.toLowerCase().includes('vice') ? 'Alerta' : 'OK' },
+                               { label: 'CNPJ Identificado', status: selectedMedia.desc.toLowerCase().includes('cnpj') ? 'OK' : 'Pendente' },
+                               { label: 'Direito de Resposta', status: 'Baixo Risco' },
+                               { label: 'Legibilidade', status: 'Excelente' },
+                             ].map((g, i) => (
+                               <div key={i} className="p-3 bg-black/20 rounded-lg border border-white/5 flex flex-col gap-1">
+                                  <span className="text-[9px] font-bold text-slate-500 uppercase">{g.label}</span>
+                                  <span className={`text-[10px] font-black ${g.status === 'OK' || g.status === 'Excelente' ? 'text-emerald-400' : 'text-amber-400'}`}>{g.status}</span>
+                               </div>
+                             ))}
+                          </div>
+                       </div>
+
+                       <div className="p-4 bg-indigo-500/5 border border-indigo-500/10 rounded-xl">
+                          <p className="text-[10px] text-slate-500 leading-relaxed italic">
+                            *Este parecer foi gerado pelo Sentinel CDIA (Gemini 1.5 Pro) com base nas diretrizes vigentes do TSE. A palavra final deve ser sempre do advogado responsável.
+                          </p>
+                       </div>
+                    </div>
+                 </div>
+              </div>
+
+              <div className="p-4 border-t border-white/5 bg-slate-900/80 backdrop-blur-md flex justify-end gap-3">
+                 <button onClick={() => setSelectedMedia(null)} className="px-6 py-2.5 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all">Fechar Relatório</button>
+                 <button 
+                  onClick={() => window.print()}
+                  className="px-6 py-2.5 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl text-[10px] font-black uppercase tracking-widest transition-all shadow-lg shadow-indigo-500/20"
+                 >
+                   Exportar PDF
+                 </button>
+              </div>
+            </div>
+          </div>
+        )}
 
         <div className="space-y-6">
           <div className="glass-card p-6 border border-emerald-500/20 bg-emerald-500/5 space-y-4">

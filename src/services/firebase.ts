@@ -12,7 +12,7 @@ import {
   type CollectionReference,
   type DocumentData,
 } from 'firebase/firestore';
-import { getStorage } from 'firebase/storage';
+
 import { getAnalytics, isSupported } from 'firebase/analytics';
 
 // ── Configuração importada do módulo centralizado ──
@@ -23,7 +23,6 @@ const app = getApps().length ? getApp() : initializeApp(firebaseConfig);
 
 export const auth    = getAuth(app);
 export const db      = getFirestore(app);
-export const storage = getStorage(app);
 export const googleProvider = new GoogleAuthProvider();
 
 // Analytics (só no browser)
