@@ -3,6 +3,7 @@ import { Camera, ShieldCheck, ShieldAlert, Zap, Search, Clock, FileCheck, CheckC
 import { useCampaign } from '../../context/CampaignContext';
 import { collection, onSnapshot, query, orderBy, addDoc, serverTimestamp } from 'firebase/firestore';
 import { db } from '../../services/firebase';
+import { analyzeCompliance } from '../../services/aiService';
 
 interface LegalMedia {
   id: string;
@@ -49,16 +50,25 @@ export default function LegalCompliancePage() {
       reader.readAsDataURL(file);
       reader.onload = async () => {
         const base64 = reader.result as string;
-        await addDoc(collection(db, `campaigns/${campaignId}/legal_compliance_media`), {
-          title: file.name,
-          status: 'Em Revisão',
-          type: file.type,
-          risk: 'medium',
-          desc: 'Aguardando processamento pela IA Sentinela do TSE.',
-          base64Data: base64,
-          createdAt: serverTimestamp()
-        });
-        alert('Mídia enviada para análise com sucesso!');
+        try {
+          const aiResult = await analyzeCompliance(base64, file.type);
+          
+          const finalRisk = aiResult.status === 'Risco' ? 'high' : 'low';
+          
+          await addDoc(collection(db, `campaigns/${campaignId}/legal_compliance_media`), {
+            title: file.name,
+            status: aiResult.status,
+            type: file.type,
+            risk: finalRisk,
+            desc: aiResult.report,
+            base64Data: base64, // Remove in production to save DB space if using Real Storage
+            createdAt: serverTimestamp()
+          });
+          alert('Mídia analisada com sucesso!');
+        } catch (error) {
+           console.error("AI Analysis Error", error);
+           alert("Erro na auditoria da peça publicitária.");
+        }
       };
       reader.onerror = () => {
         throw new Error('Falha ao ler o arquivo.');

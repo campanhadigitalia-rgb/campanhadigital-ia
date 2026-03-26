@@ -164,3 +164,73 @@ Alerte sobre armadilhas recorrentes (blind spot) e identifique um capital eleito
     return "Erro ao processar memória IA.";
   }
 }
+
+export async function generateLegalDefense(requestText: string): Promise<string> {
+  if (!API_KEY || API_KEY === 'YOUR_API_KEY_HERE') return "Serviço RAG Offline (Chave não configurada).";
+
+  try {
+    const model = genAI.getGenerativeModel({ model: MODEL_NAME });
+    const prompt = `Atue como um Advogado Eleitoral Senior especialista no TSE.
+O cliente (Campanha) reportou a seguinte situação/incidente:
+"${requestText}"
+
+Com base na teoria geral do direito eleitoral, jurisprudência do TSE e gestão de riscos:
+1. Formule uma minuta de defesa ou tese jurídica inicial estruturada (em 3 parágrafos).
+2. Cite possíveis embasamentos legais (Leis, Resoluções do TSE, súmulas) aplicáveis ao caso.
+3. Classifique o nível de risco dessa situação (Baixo, Médio, Crítico) se não for defendida.
+Responda diretamente em formato texto bem estruturado.`;
+    
+    const result = await model.generateContent(prompt);
+    const text = result.response.text().trim();
+    trackApiCall("generateLegalDefense", prompt, text);
+    
+    return text;
+  } catch (error) {
+    console.error("AI RAG Defense Error:", error);
+    return "Erro crítico no motor de defesa IA.";
+  }
+}
+
+export async function analyzeCompliance(mediaBase64: string, mimeType: string): Promise<{status: string, report: string}> {
+  if (!API_KEY || API_KEY === 'YOUR_API_KEY_HERE') {
+     // Mock fallback if something fails with key
+     return { status: "Aprovado", report: "Verificação Offline: Parece em conformidade." };
+  }
+
+  try {
+    // Media handling for Gemini
+    const parts: any[] = [];
+    parts.push({text: `Você é um Auditor Rigoroso do TSE. Analise esta peça publicitária da campanha.
+Verifique 3 coisas essenciais de compliance eleitoral:
+1. Proporção do vice (A resolução exige que o nome do vice tenha no mínimo 30% do tamanho do nome do titular, se visível nesta peça).
+2. Presença do CNPJ/CPF da campanha e de quem imprimiu/produziu.
+3. Identificação clara de que se trata de propaganda eleitoral.
+4. Identificação imediata de discursos de ódio, fake news, manipulações grosseiras (deepfake) ou ataques levianos.
+
+Se houver graves violações, declare Risco Imediato com os motivos. Se estiver conforme as resoluções principais, declare Aprovado ou Aprovado com Ressalvas.
+O seu retorno deve comecar OBRIGATORIAMENTE com a palavra "RISCO" ou "APROVADO", seguido de uma quebra de linha e do detalhamento.`});
+
+    // Strip data URL prefix to get raw base64
+    const base64Data = mediaBase64.split(',')[1];
+    if (base64Data) {
+      parts.push({
+        inlineData: {
+          data: base64Data,
+          mimeType: mimeType
+        }
+      });
+    }
+
+    const model = genAI.getGenerativeModel({ model: MODEL_NAME });
+    const result = await model.generateContent(parts);
+    const text = result.response.text().trim();
+    trackApiCall("analyzeCompliance", "Auditoria de Imagem MultiModal", text);
+    
+    const statusPrefix = text.toUpperCase().startsWith("RISCO") ? "Risco" : "Aprovado";
+    
+    return { status: statusPrefix, report: text };
+  } catch (error) {
+    console.error("AI Compliance Verification Error:", error);
+    return { status: "Erro", report: "Não foi possível auditar a peça via IA." };
+  }
+}

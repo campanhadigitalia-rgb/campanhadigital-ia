@@ -3,6 +3,7 @@ import { useState, useEffect } from 'react';
 import { useCampaign } from '../../context/CampaignContext';
 import { collection, onSnapshot, query, orderBy, addDoc, serverTimestamp } from 'firebase/firestore';
 import { db } from '../../services/firebase';
+import { generateLegalDefense } from '../../services/aiService';
 
 interface LegalAlert {
   id: string;
@@ -20,6 +21,7 @@ export default function LegalMonitorPage() {
   const [alerts, setAlerts] = useState<LegalAlert[]>([]);
   const [ragText, setRagText] = useState('');
   const [submittingRag, setSubmittingRag] = useState(false);
+  const [ragResult, setRagResult] = useState('');
   const [showAddAlert, setShowAddAlert] = useState(false);
   const [newAlert, setNewAlert] = useState({ title: '', source: 'Manus AI', level: 'Medium', doc: '', desc: '' });
 
@@ -38,18 +40,21 @@ export default function LegalMonitorPage() {
   const handleSubmitDefense = async () => {
     if (!ragText.trim() || !campaignId) return;
     setSubmittingRag(true);
+    setRagResult('');
     try {
+      const draft = await generateLegalDefense(ragText);
+      
       await addDoc(collection(db, `campaigns/${campaignId}/legal_defense`), {
         requestText: ragText,
-        status: 'Gerando Minuta',
+        defenseDraft: draft,
+        status: 'Concluído',
         createdAt: serverTimestamp()
       });
-      alert('Solicitação de Defesa (RAG) enviada para processamento!');
-      setRagText('');
-      setActiveTab('monitor'); // Optionally redirect to a defense list or just clear the form
+      
+      setRagResult(draft);
     } catch (err) {
       console.error(err);
-      alert('Erro ao submeter pedido de RAG.');
+      alert('Erro ao processar tese de defesa via RAG.');
     } finally {
       setSubmittingRag(false);
     }
@@ -214,6 +219,18 @@ export default function LegalMonitorPage() {
                       <CheckCircle2 size={16} className="text-emerald-400" />
                       <p className="text-[11px] text-slate-400 uppercase font-black">RAG (Retrieval-Augmented Generation) está consultando 4.500 acórdãos do TSE para fundamentar sua peça.</p>
                    </div>
+
+                   {ragResult && (
+                     <div className="p-5 bg-black/40 border border-emerald-500/30 rounded-xl space-y-4 animate-in fade-in zoom-in-95">
+                        <h4 className="flex items-center gap-2 text-sm font-bold text-emerald-400 m-0">
+                          <CheckCircle2 size={18} /> Minuta Gerada com Sucesso
+                        </h4>
+                        <div className="text-sm text-slate-300 whitespace-pre-wrap leading-relaxed">
+                          {ragResult}
+                        </div>
+                        <button onClick={() => { setRagText(''); setRagResult(''); }} className="px-4 py-2 mt-2 bg-slate-800 hover:bg-slate-700 text-white rounded text-xs transition-colors">Nova Consulta RAG</button>
+                     </div>
+                   )}
                 </div>
               )}
            </div>
