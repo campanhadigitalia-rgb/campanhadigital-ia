@@ -51,13 +51,15 @@ export function col<T = DocumentData>(path: string) {
 
 // ── Nomes de coleções (centralizados) ─────────────────────────
 export const COLLECTIONS = {
-  CAMPAIGNS:    'campaigns',
-  USERS:        'users',
-  CONTACTS:     'contacts',
-  INTERACTIONS: 'interactions',
-  TASKS:        'tasks',
-  ASSETS:       'assets',
-  MCP_QUEUE:    'mcp_queue',
-  EVENTS:       'events',
+  CAMPAIGNS:         'campaigns',
+  USERS:             'users',
+  CONTACTS:          'contacts',
+  INTERACTIONS:      'interactions',
+  TASKS:             'tasks',
+  ASSETS:            'assets',
+  MCP_QUEUE:         'mcp_queue',
+  EVENTS:            'events',
   SENTIMENT_METRICS: 'sentiment_metrics',
+  MONITORING_ITEMS:  'monitoring_items',
+  RSS_FEEDS:         'rss_feeds',
 } as const;

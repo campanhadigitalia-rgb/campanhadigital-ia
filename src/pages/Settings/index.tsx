@@ -59,7 +59,7 @@ export default function Settings() {
       </div>
 
       {/* Tabs Menu */}
-      <div className="flex gap-4 border-b border-white/5 pb-1">
+      <div className="flex flex-wrap gap-2 md:gap-4 border-b border-white/5 pb-1">
         <button 
           onClick={() => setActiveTab('general')}
           className={`px-4 py-2 text-sm font-bold transition-all border-b-2 ${activeTab === 'general' ? 'border-indigo-500 text-indigo-400' : 'border-transparent text-slate-500 hover:text-slate-300'}`}
@@ -102,7 +102,7 @@ export default function Settings() {
                   />
                 </div>
 
-                <div className="flex gap-4">
+                <div className="flex flex-col sm:flex-row gap-4">
                   <div className="flex flex-col gap-2 flex-1">
                     <label className="text-sm font-semibold text-slate-300">Ano Eleitoral</label>
                     <input 

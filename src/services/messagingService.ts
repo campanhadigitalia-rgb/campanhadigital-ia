@@ -43,7 +43,7 @@ export async function fetchQuickReplies(): Promise<FAQItem[]> {
 export interface BroadcastPayload {
   phones?: string[];
   text?: string;
-  [key: string]: any;
+  [key: string]: unknown;
 }
 
 /**
@@ -62,8 +62,11 @@ export async function dispatchPlatformBroadcast(cellIds: string[], contentPayloa
   // Em um cenário real, o sistema buscaria os números reais de telefone associados aos cellIds no Firestore.
   console.log(`[WhatsApp] Resolvendo contatos das células informadas: ${cellIds.join(', ')}`);
   
-  // Aqui assumimos que contentPayload contém os fones de destino extras ou mockados para teste.
-  const targetPhones = contentPayload.phones || ['5511999999999']; 
+  const targetPhones = contentPayload.phones || [];
+  if (targetPhones.length === 0) {
+    console.warn('[WhatsApp] Nenhum telefone alvo fornecido. Broadcast cancelado.');
+    return false;
+  }
 
   const messageText = contentPayload.text || 'Mensagem da Campanha';
 

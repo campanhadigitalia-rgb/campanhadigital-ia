@@ -30,10 +30,23 @@ export function verifyMetaWebhook(params: {
   return null;
 }
 
+/** Estrutura genérica de payload recebido da Meta (Instagram/Facebook). */
+export interface MetaWebhookPayload {
+  object?: string;
+  entry?: Array<{
+    id?: string;
+    changes?: Array<{
+      value?: Record<string, unknown>;
+      field?: string;
+    }>;
+  }>;
+  [key: string]: unknown;
+}
+
 /**
  * Processamento de Notificações Recebidas (POST).
  */
-export async function handleMetaMessage(payload: any, campaignId: string) {
+export async function handleMetaMessage(payload: MetaWebhookPayload, campaignId: string) {
   try {
     logger.debug('Novo payload de Webhook recebido.', payload);
     

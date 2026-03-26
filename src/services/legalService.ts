@@ -1,6 +1,7 @@
 import { GoogleGenerativeAI } from '@google/generative-ai';
 import { collection, addDoc, serverTimestamp } from 'firebase/firestore';
 import { db } from './firebase';
+import { sanitizeForPrompt } from '../utils/inputSanitizer';
 
 const API_KEY = import.meta.env.VITE_GEMINI_API_KEY || '';
 const genAI = new GoogleGenerativeAI(API_KEY);
@@ -170,13 +171,8 @@ Regras estritas:
   }
 }
 
-// ─── Processos (user-driven via Firestore, sem mock) ──────────────────────────
-// Processos são inseridos pelo advogado manualmente. Não existe API pública do PJe.
-// Esta função retorna lista vazia — os dados vêm do Firestore em tempo real no componente.
-
-export async function fetchCampaignLawsuits(): Promise<CampaignLawsuit[]> {
-  return [];
-}
+// fetchCampaignLawsuits removido — dados de processos são carregados
+// diretamente do Firestore nos componentes em tempo real.
 
 // ─── Salvar Defesa no Firestore ───────────────────────────────────────────────
 
@@ -241,7 +237,8 @@ export async function validateContentCompliance(text: string): Promise<{ status:
   if (!API_KEY) return { status: 'Safe', flags: [] };
   try {
     const model = genAI.getGenerativeModel({ model: 'gemini-2.0-flash' });
-    const prompt = `Como um auditor jurídico especializado em direito eleitoral brasileiro (TSE/TRE), analise o seguinte conteúdo de campanha: "${text}".
+    const safeText = sanitizeForPrompt(text);
+    const prompt = `Como um auditor jurídico especializado em direito eleitoral brasileiro (TSE/TRE), analise o seguinte conteúdo de campanha: "${safeText}".
     Identifique possíveis violações como: Fake News, Propaganda Antecipada, Ofensas Pessoais ou desinformação técnica.
     Responda APENAS com um JSON no formato:
     { "status": "Safe" | "Warning" | "Blocked", "flags": ["Descrição da violação 1"] }`;
@@ -265,11 +262,12 @@ export async function generateDefenseThesis(threatDescription: string): Promise<
 
   try {
     const model = genAI.getGenerativeModel({ model: 'gemini-2.0-flash' });
+    const safeDescription = sanitizeForPrompt(threatDescription);
     const prompt = `Você é um advogado especialista em Direito Eleitoral Brasileiro.
     Baseado na seguinte notificação/intimação recebida pela campanha, gere uma tese de defesa preliminar objetiva, com fundamentos legais, referência à Lei das Eleições (9.504/97), Código Eleitoral e precedentes do TSE/TRE-RS.
     
     OBJETO DA ACUSAÇÃO:
-    ${threatDescription}
+    ${safeDescription}
     
     Estruture a resposta com: 1) Resumo da violação alegada, 2) Tese de defesa principal, 3) Fundamentos legais, 4) Precedentes jurisprudenciais recomendados, 5) Próximos passos processuais.`;
     const result = await model.generateContent(prompt);

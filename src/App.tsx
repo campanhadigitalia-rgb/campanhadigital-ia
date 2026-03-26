@@ -7,7 +7,7 @@ import { useState } from 'react';
 import {
   Users, LogOut,
   Menu, X, Zap, Bot, MessageCircle, Brain, Scale, DollarSign, ClipboardList,
-  ChevronDown, ChevronRight
+  ChevronDown, ChevronRight, MapPin, PhoneCall, Target
 } from 'lucide-react';
 import { useAuth } from './context/AuthContext';
 import { useCampaign } from './context/CampaignContext';
@@ -26,6 +26,7 @@ import SettingsPage from './pages/Settings';
 import MCPAgents from './pages/MCPAgents';
 import FinancePage from './pages/Finance';
 import AdminPage from './pages/Administrative';
+import { PeopleManager } from './components/ui/PeopleManager';
 // LegalGuardian agora está embutido na LegalPage com tabs internas
 
 // ── Tela de Login ──────────────────────────────────────────────
@@ -42,8 +43,9 @@ function LoginScreen() {
     try {
       if (isRegister) await signUpWithEmail(email, password);
       else await signInWithEmail(email, password);
-    } catch (err: any) {
-      setError(err.message.replace('Firebase: ', ''));
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : String(err);
+      setError(msg.replace('Firebase: ', ''));
     }
   };
 
@@ -143,12 +145,12 @@ function LoginScreen() {
   );
 }
 
-export type NavId = 'dashboard' | 'legal' | 'finance_dashboard' | 'finance_caixa' | 'finance_suppliers' | 'finance_vaquinha' | 'admin' | 'studio' | 'whatsapp' | 'oracle' | 'contacts' | 'mcp' | 'settings' | 'agenda' | 'owner';
+export type NavId = 'dashboard' | 'legal' | 'finance_dashboard' | 'finance_caixa' | 'finance_suppliers' | 'finance_vaquinha' | 'admin' | 'pessoas' | 'studio' | 'whatsapp' | 'oracle' | 'contacts' | 'messaging' | 'mcp' | 'settings' | 'agenda' | 'owner';
 
 interface NavItem {
   id: string;
   label: string;
-  Icon: any;
+  Icon: React.ComponentType<{ size?: number; className?: string }>;
   subItems: {
     id: NavId;
     label: string;
@@ -169,48 +171,59 @@ const NAV_ITEMS: NavItem[] = [
     subItems: [
       { id: 'finance_dashboard', label: 'Dashboard Financeiro' },
       { id: 'finance_caixa', label: 'Livro Caixa (SPCE)' },
-      { id: 'finance_suppliers', label: 'Fornecedores & Contratos' },
       { id: 'finance_vaquinha', label: 'Vaquinha & Eventos' },
+      { id: 'finance_suppliers', label: 'Fornecedores' },
     ]
   },
   {
-    id: 'grp_gestao', label: '3. Gestão', Icon: Zap,
-    subItems: [
-      { id: 'owner', label: 'Master (Owner Portal)', proprietorOnly: true },
-      { id: 'agenda', label: 'Agenda Pessoal & Pública' }
-    ]
-  },
-  {
-    id: 'grp_estrategia', label: '4. Estratégia', Icon: Brain,
-    subItems: [
-      { id: 'dashboard', label: 'Doutrina (KPIs Globais)' },
-      { id: 'oracle', label: 'O Oráculo (Cérebro IA)', volunteerHidden: true }
-    ]
-  },
-  {
-    id: 'grp_admin', label: '5. Administrativo', Icon: ClipboardList,
+    id: 'grp_admin', label: '3. Administrativo', Icon: ClipboardList,
     subItems: [
       { id: 'admin', label: 'Frota, Logística & Estoque' }
     ]
   },
   {
-    id: 'grp_comunicacao', label: '6. Comunicação', Icon: MessageCircle,
+    id: 'grp_comunicacao', label: '4. Comunicação', Icon: MessageCircle,
     subItems: [
       { id: 'studio', label: 'Estúdio de Criação IA' },
       { id: 'whatsapp', label: 'Monitoramento & Whats' }
     ]
   },
   {
-    id: 'grp_rua', label: '7. Rua (Mobilização)', Icon: Users,
+    id: 'grp_pessoas', label: '5. Pessoas', Icon: Users,
+    subItems: [
+      { id: 'pessoas', label: 'Gerenciar Pessoas' }
+    ]
+  },
+  {
+    id: 'grp_rua_mobi', label: '6. Rua (Mobilização)', Icon: MapPin,
     subItems: [
       { id: 'contacts', label: 'Multiplicadores & CRM' }
     ]
   },
   {
-    id: 'grp_tec', label: '8. Tecnologia', Icon: Bot,
+    id: 'grp_rua_tele', label: '7. Rua (Telemarketing)', Icon: PhoneCall,
+    subItems: [
+      { id: 'messaging', label: 'Disparo & Mensagens' }
+    ]
+  },
+  {
+    id: 'grp_estrategia', label: '8. Estratégia', Icon: Brain,
+    subItems: [
+      { id: 'oracle', label: 'O Oráculo (Cérebro IA)', volunteerHidden: true }
+    ]
+  },
+  {
+    id: 'grp_tec', label: '9. Tecnologia', Icon: Bot,
     subItems: [
       { id: 'mcp', label: 'Painel de Agentes (MCP)' },
       { id: 'settings', label: 'Chaves de API & Conexões', volunteerHidden: true }
+    ]
+  },
+  {
+    id: 'grp_gestao', label: '10. Gestão', Icon: Zap,
+    subItems: [
+      { id: 'owner', label: 'Master (Owner Portal)', proprietorOnly: true },
+      { id: 'agenda', label: 'Agenda Pessoal & Pública' }
     ]
   }
 ];
@@ -220,8 +233,8 @@ export default function App() {
   const { user, profile, loading, logout } = useAuth();
   const { activeCampaign, viewMode }       = useCampaign();
   const [page, setPage]     = useState<NavId>('dashboard');
-  const [sidebarOpen, setSidebarOpen] = useState(true);
-  const [expandedGroups, setExpandedGroups] = useState<string[]>(['grp_gestao', 'grp_estrategia']);
+  const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [expandedGroups, setExpandedGroups] = useState<string[]>([]);
 
   const toggleGroup = (groupId: string) => {
     setExpandedGroups(prev => 
@@ -253,7 +266,9 @@ export default function App() {
     finance_suppliers:  <FinancePage activeTab="suppliers" />,
     finance_vaquinha:   <FinancePage activeTab="vaquinha" />,
     admin:              <AdminPage />,
+    pessoas:            <PeopleManager />,
     studio:             <Studio />,
+    messaging:          <Messaging />,
     whatsapp:           <Messaging />,
     oracle:             <OraclePage />,
     contacts:           <Contacts />,
@@ -264,23 +279,24 @@ export default function App() {
   };
 
   return (
-    <div style={{ display: 'flex', height: '100vh', overflow: 'hidden' }}>
+    <div className="flex h-screen overflow-hidden bg-slate-950 w-full relative">
+      
+      {/* Mobile Overlay */}
+      {sidebarOpen && (
+        <div 
+          className="fixed inset-0 bg-black/60 z-40 md:hidden backdrop-blur-sm transition-opacity"
+          onClick={() => setSidebarOpen(false)}
+        />
+      )}
+
       {/* Sidebar */}
-      <AnimatePresence initial={false}>
-        {sidebarOpen && (
-          <motion.aside
-            key="sidebar"
-            initial={{ width: 0, opacity: 0 }}
-            animate={{ width: 220, opacity: 1 }}
-            exit={{ width: 0, opacity: 0 }}
-            transition={{ type: 'spring', stiffness: 300, damping: 30 }}
-            style={{
-              background: 'rgba(15,23,42,0.95)',
-              borderRight: '1px solid rgba(99,102,241,0.12)',
-              display: 'flex', flexDirection: 'column',
-              overflow: 'hidden', flexShrink: 0,
-            }}
-          >
+      <aside
+        className={`fixed inset-y-0 left-0 z-50 flex flex-col w-[220px] shrink-0 overflow-hidden 
+          bg-slate-900 border-r border-indigo-500/10 shadow-2xl md:shadow-none
+          transition-transform duration-300 ease-in-out md:static md:translate-x-0
+          ${sidebarOpen ? 'translate-x-0' : '-translate-x-full'}
+        `}
+      >
             {/* Logo */}
             <div style={{ padding: '20px 16px', borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
@@ -303,9 +319,22 @@ export default function App() {
               </div>
             </div>
 
-            {/* Nav */}
-            <nav style={{ flex: 1, padding: '12px 8px', overflowY: 'auto' }}>
-              {NAV_ITEMS.map((group) => {
+            {/* Menu Principal */}
+          <nav className="flex-1 overflow-y-auto px-2 py-4 space-y-2 relative" style={{ scrollbarWidth: 'none' }}>
+            
+            <div className="mb-4">
+              <button
+                onClick={() => { setPage('dashboard'); setSidebarOpen(false); }}
+                className={`w-full flex items-center px-4 py-3 rounded-lg border-none cursor-pointer transition-colors shadow-sm ${page === 'dashboard' ? 'bg-indigo-500/15 text-indigo-400 border border-indigo-500/30' : 'bg-slate-900/50 text-slate-200 border border-white/5 hover:bg-white/5'}`}
+              >
+                <div className="flex items-center gap-3">
+                  <Target size={18} className={page === 'dashboard' ? 'text-indigo-400' : 'text-slate-400'} />
+                  <span className="text-[13px] font-black uppercase tracking-widest bg-clip-text text-transparent bg-gradient-to-r from-white to-slate-400">Página Inicial</span>
+                </div>
+              </button>
+            </div>
+
+            {NAV_ITEMS.map(group => {
                 const visibleSubItems = group.subItems.filter(sub => {
                   if (sub.proprietorOnly && profile?.role !== 'Proprietor') return false;
                   if (sub.volunteerHidden && profile?.role === 'Volunteer') return false;
@@ -347,15 +376,15 @@ export default function App() {
                           {visibleSubItems.map(sub => (
                             <button
                               key={sub.id}
-                              onClick={() => setPage(sub.id)}
-                              className="w-full flex items-center px-3 py-2 rounded-md border-none cursor-pointer transition-colors text-left"
-                              style={{
-                                background: page === sub.id ? 'rgba(99,102,241,0.18)' : 'transparent',
-                                color: page === sub.id ? '#818cf8' : '#94a3b8',
-                                fontSize: '13px',
-                                fontWeight: page === sub.id ? 600 : 500,
-                              }}
-                              onMouseEnter={e => { if (page !== sub.id) e.currentTarget.style.background = 'rgba(255,255,255,0.04)'; }}
+                                onClick={() => { setPage(sub.id); setSidebarOpen(false); }}
+                                className="w-full flex items-center px-3 py-2 rounded-md border-none cursor-pointer transition-colors text-left"
+                                style={{
+                                  background: page === sub.id ? 'rgba(99,102,241,0.18)' : 'transparent',
+                                  color: page === sub.id ? '#818cf8' : '#94a3b8',
+                                  fontSize: '13px',
+                                  fontWeight: page === sub.id ? 600 : 500,
+                                }}
+                                onMouseEnter={e => { if (page !== sub.id) e.currentTarget.style.background = 'rgba(255,255,255,0.04)'; }}
                               onMouseLeave={e => { if (page !== sub.id) e.currentTarget.style.background = 'transparent'; }}
                             >
                               {sub.label}
@@ -372,12 +401,24 @@ export default function App() {
             {/* User */}
             <div style={{ padding: '12px 8px', borderTop: '1px solid rgba(255,255,255,0.06)' }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '8px 12px' }}>
-                <img
-                  src={profile?.photoURL ?? user.photoURL ?? ''}
-                  alt="avatar"
-                  style={{ width: 32, height: 32, borderRadius: '50%', objectFit: 'cover',
-                    border: '2px solid rgba(99,102,241,0.4)' }}
-                />
+                {profile?.photoURL || user.photoURL ? (
+                  <img
+                    src={profile?.photoURL ?? user.photoURL ?? ''}
+                    alt="avatar"
+                    style={{ width: 32, height: 32, borderRadius: '50%', objectFit: 'cover',
+                      border: '2px solid rgba(99,102,241,0.4)' }}
+                  />
+                ) : (
+                  <div style={{
+                    width: 32, height: 32, borderRadius: '50%',
+                    background: 'linear-gradient(135deg,#6366f1,#818cf8)',
+                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    border: '2px solid rgba(99,102,241,0.4)',
+                    fontSize: 13, fontWeight: 700, color: '#fff',
+                  }}>
+                    {(profile?.displayName ?? user.displayName ?? 'U').charAt(0).toUpperCase()}
+                  </div>
+                )}
                 <div style={{ flex: 1, overflow: 'hidden' }}>
                   <p style={{ margin: 0, fontSize: 13, fontWeight: 600, color: '#e2e8f0',
                     whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
@@ -398,33 +439,25 @@ export default function App() {
                 </button>
               </div>
             </div>
-          </motion.aside>
-        )}
-      </AnimatePresence>
+          </aside>
 
-      {/* Main */}
-      <div style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+      {/* Main Content Area */}
+      <div className="flex-1 flex flex-col min-w-0 overflow-hidden relative w-full">
         {/* Topbar */}
-        <header style={{
-          height: 56, display: 'flex', alignItems: 'center',
-          padding: '0 20px', gap: 12,
-          background: 'rgba(10,15,30,0.8)',
-          backdropFilter: 'blur(12px)',
-          borderBottom: '1px solid rgba(99,102,241,0.1)',
-          flexShrink: 0,
-        }}>
+        <header className="h-14 shrink-0 flex items-center px-4 md:px-6 gap-3 bg-slate-900/80 backdrop-blur-md border-b border-indigo-500/10 z-30">
+          
           <button
             id="sidebar-toggle"
             onClick={() => setSidebarOpen(p => !p)}
-            style={{ background: 'none', border: 'none', cursor: 'pointer',
-              color: '#94a3b8', padding: 4, borderRadius: 6 }}
+            className="md:hidden p-1.5 rounded-md text-slate-400 hover:text-slate-200 hover:bg-white/5 transition-colors"
+            title={sidebarOpen ? "Fechar" : "Menu"}
           >
-            {sidebarOpen ? <X size={18} /> : <Menu size={18} />}
+            {sidebarOpen ? <X size={20} /> : <Menu size={20} />}
           </button>
 
           {/* Breadcrumb */}
           <span style={{ fontSize: 15, fontWeight: 600, color: '#f1f5f9' }}>
-            {NAV_ITEMS.flatMap(g => g.subItems).find(sub => sub.id === page)?.label}
+            {page === 'dashboard' ? 'Página Inicial (Dashboard Geral)' : NAV_ITEMS.flatMap(g => g.subItems).find(sub => sub.id === page)?.label}
           </span>
 
           {/* Campaign indicator */}
@@ -435,7 +468,7 @@ export default function App() {
               padding: '3px 10px', borderRadius: 20,
               border: '1px solid rgba(99,102,241,0.2)',
             }}>
-              {activeCampaign.name.replace(/Piratini/gi, 'CampanhaDigitalIA')} · {activeCampaign.year}
+              {activeCampaign.name} · {activeCampaign.year}
             </div>
           )}
 
@@ -445,10 +478,7 @@ export default function App() {
         </header>
 
         {/* Page content */}
-        <main style={{
-          flex: 1, overflow: 'auto', padding: 24,
-          background: 'var(--color-cdia-950)',
-        }}>
+        <main className="flex-1 overflow-auto p-4 md:p-6 bg-slate-950">
           <AnimatePresence mode="wait">
             <motion.div
               key={page}

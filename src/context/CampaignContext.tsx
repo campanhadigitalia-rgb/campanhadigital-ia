@@ -118,7 +118,7 @@ export function CampaignProvider({ children }: { children: React.ReactNode }) {
       const newRef = doc(collection(db, COLLECTIONS.CAMPAIGNS));
       const campaignData: Campaign = {
         id: newRef.id,
-        organization_id: 'org-principal', // Em produção viria do perfil do user
+        organization_id: profile?.organization_id ?? 'org-default',
         name: data.name,
         year: data.year,
         active: true,

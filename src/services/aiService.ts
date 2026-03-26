@@ -1,15 +1,9 @@
 import { GoogleGenerativeAI } from '@google/generative-ai';
-import type { Mention, AIReply, CampaignIdentity, Competitor } from '../types';
-
-export type Sentiment = 'positivo' | 'neutro' | 'negativo' | 'critico';
+import type { Mention, AIReply, CampaignIdentity, Competitor, Sentiment } from '../types';
+import { sanitizeForPrompt } from '../utils/inputSanitizer';
 
 const API_KEY = import.meta.env.VITE_GEMINI_API_KEY || '';
 const genAI = new GoogleGenerativeAI(API_KEY);
-
-if (typeof window !== 'undefined') {
-  console.log('[CDIA-AI] Key Length:', API_KEY?.length);
-  console.log('[CDIA-AI] Key Preview:', API_KEY?.substring(0, 8) + '...');
-}
 
 /**
  * Verifica se a chave do Gemini está operando corretamente.
@@ -39,9 +33,10 @@ export async function analyzeSentiment(text: string): Promise<Sentiment> {
     return 'neutro';
   }
   
+  const safeText = sanitizeForPrompt(text);
   try {
     const model = genAI.getGenerativeModel({ model: "gemini-flash-latest" });
-    const prompt = `Analise o seguinte texto: "${text}". 
+    const prompt = `Analise o seguinte texto: "${safeText}". 
 Responda APENAS com uma destas quatro palavras exatas em minúsculo: positivo, neutro, negativo, critico.`;
     
     const result = await model.generateContent(prompt);
@@ -78,12 +73,16 @@ export async function generateResponseOptions(
        Toda resposta deve seguir rigorosamente este tom de voz e contexto político.`
     : `Você é o time de inteligência de comunicação de um candidato político.`;
 
+  const safeText = sanitizeForPrompt(mention.text);
+  const safeRegion = sanitizeForPrompt(mention.region);
+  const safeTopic = sanitizeForPrompt(mention.topic);
+
   try {
     const model = genAI.getGenerativeModel({ model: "gemini-flash-latest" });
     
     const prompt = `${identityContext}
-Cidadão da região "${mention.region}" relatou: "${mention.text}"
-Tema: "${mention.topic}", Plataforma: "${mention.platform}"
+Cidadão da região "${safeRegion}" relatou: "${safeText}"
+Tema: "${safeTopic}", Plataforma: "${mention.platform}"
 
 Gere exatamente 3 opções de rascunho oficial de resposta. As abordagens são:
 1. Conciliador (empático e acolhedor)

@@ -158,6 +158,22 @@ export interface CashTransaction extends BaseDocument {
   paidStatus?: 'provisioned' | 'paid'; // Controle de efetivação de caixa
   supplierId?: string; // Link com fornecedor/contrato validado
   attachmentUrl?: string; // Link para NF ou Comprovante
+  linkedCampaignId?: string; // Vinculo com Vaquinha ou Evento (para dedução de taxas e update de progresso)
+}
+
+/** Campanhas de Arrecadação (Vaquinhas / Eventos) */
+export interface FundraisingCampaign extends BaseDocument {
+  type: 'vaquinha' | 'evento';
+  title: string;
+  description: string;
+  goal: number;
+  raised?: number;
+  pixKey: string;
+  eventDate?: string;
+  eventLocation?: string;
+  status: 'Ativa' | 'Encerrada' | 'Rascunho';
+  shareLink?: string;
+  feePercentage?: number; // % deduzido pela plataforma / produtora
 }
 
 /** Logística Administrativa */
@@ -213,4 +229,74 @@ export interface Mention {
 export interface AIReply {
   persona: 'Conciliador' | 'Técnico' | 'Firme';
   text: string;
+}
+
+// ──────────────────────────────────────────────────────────────
+//  Intelligence Hub — Monitoramento Centralizado
+// ──────────────────────────────────────────────────────────────
+
+/** Dados de candidatura retornados pelo TSE DivulgaCand */
+export interface CandidacyInfo {
+  nomeUrna: string;
+  cargo:    string;
+  partido:  string;
+  situacao: string;
+  numero:   string;
+  uf:       string;
+  ano:      number;
+  link:     string;
+}
+
+export type MonitoringPlatform =
+  | 'google_news'
+  | 'x_rss'
+  | 'x_manus'
+  | 'facebook_manus'
+  | 'instagram_manus'
+  | 'tse'
+  | 'tre'
+  | 'dou'
+  | 'dou_rs'
+  | 'rss_custom'
+  | 'rss_politica'
+  | 'mcp_manus';
+
+export type MonitoringType =
+  | 'news'       // notícia de mídia
+  | 'social'     // post / menção em rede social
+  | 'legal'      // processo, notificação judicial
+  | 'official'   // publicação em Diário Oficial
+  | 'competitor' // inteligência sobre concorrente
+  | 'poll';      // pesquisa de intenção de voto
+
+export type MonitoringSubject = 'candidate' | 'competitor' | 'party' | 'campaign';
+
+export interface MonitoringItem {
+  id: string;
+  campaign_id: string;
+  type: MonitoringType;
+  platform: MonitoringPlatform;
+  subject: MonitoringSubject;
+  title: string;
+  summary: string;
+  url?: string;
+  imageUrl?: string;
+  sentiment?: Sentiment;
+  /** Nome da pessoa referenciada (candidato ou concorrente) */
+  relatedPerson?: string;
+  rawData?: Record<string, unknown>;
+  fetchedAt: Date;
+  /** Se IA já processou e classificou este item */
+  processed?: boolean;
+}
+
+/** Fonte de RSS configurável pelo usuário */
+export interface RSSFeedConfig {
+  id: string;
+  campaign_id: string;
+  name: string;
+  url: string;
+  type: MonitoringType;
+  active: boolean;
+  createdAt: Date;
 }

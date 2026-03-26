@@ -65,14 +65,18 @@ export function subscribeMCPMessages(
  * Exposto via HTTP endpoint ou diretamente consumido por agentes.
  */
 export const MCP_ACTIONS = {
-  SYNC_CONTACTS:    'sync_contacts',
-  GENERATE_REPORT:  'generate_report',
-  IMPORT_CSV:       'import_csv',
-  SEND_WHATSAPP:    'send_whatsapp',
-  ANALYZE_NETWORK:  'analyze_network',
-  SCHEDULE_VISIT:   'schedule_visit',
-  MANUS_SEARCH:     'manus_deep_search', // Para busca de oponentes/notícias
-  TRE_CANDIDACY:    'tre_status_check',  // Para crawler do TRE
+  SYNC_CONTACTS:        'sync_contacts',
+  GENERATE_REPORT:      'generate_report',
+  IMPORT_CSV:           'import_csv',
+  SEND_WHATSAPP:        'send_whatsapp',
+  ANALYZE_NETWORK:      'analyze_network',
+  SCHEDULE_VISIT:       'schedule_visit',
+  MANUS_SEARCH:         'manus_deep_search',
+  TRE_CANDIDACY:        'tre_status_check',
+  // Intelligence Hub — Social Monitoring
+  MANUS_SOCIAL_SEARCH:  'manus_social_search',   // Busca menções Meta/X via Manus
+  MANUS_PROFILE_SCAN:   'manus_profile_scan',    // Analisa perfil de concorrente
+  MANUS_TREND_MONITOR:  'manus_trend_monitor',   // Monitora trends políticos
 } as const;
 
 export type MCPAction = typeof MCP_ACTIONS[keyof typeof MCP_ACTIONS];

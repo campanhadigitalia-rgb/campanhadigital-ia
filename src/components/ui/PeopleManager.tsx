@@ -56,7 +56,7 @@ const TYPE_COLORS: Record<SupplierType, string> = {
 
 const fmt = (v: number) => new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(v);
 
-export function SuppliersPage() {
+export function PeopleManager() {
   const { activeCampaign } = useCampaign();
   const [suppliers, setSuppliers] = useState<Supplier[]>([]);
   const [adding, setAdding] = useState(false);
@@ -151,12 +151,9 @@ export function SuppliersPage() {
           <Building2 size={28} />
         </div>
         <div>
-          <h2 className="text-xl font-bold text-slate-100 m-0 flex items-center gap-2"><Building2 className="text-indigo-400" /> Base de Pessoas e Fornecedores</h2>
-          <p className="text-sm text-slate-400 m-0 mt-0.5">Cadastre contratos, membros da equipe e prestadores para validação jurídica do Módulo Pessoas.</p>
+          <h3 className="text-xl font-bold flex items-center gap-2"><User className="text-indigo-400" /> Gestão de Pessoas (CRM)</h3>
+          <p className="text-sm text-slate-400">Controle unificado de PF/PJ, lideranças, contratos e documentos.</p>
         </div>
-        <button onClick={() => setAdding(true)} className="flex items-center gap-2 bg-indigo-600 hover:bg-indigo-500 text-white px-4 py-2 font-bold rounded-lg transition-colors">
-          <Plus size={16} /> Novo Fornecedor
-        </button>
       </div>
 
       {/* KPIs */}
@@ -310,6 +307,7 @@ export function SuppliersPage() {
           {filtered.map(s => {
             const Config = STATUS_CONFIG[s.legalStatus || 'pending'];
             const TypeIcon = TYPE_ICONS[s.type as keyof typeof TYPE_ICONS] || User;
+
             return (
               <div key={s.id} className="glass-card p-6 border border-white/5 relative overflow-hidden flex flex-col gap-4">
                  <div className="flex justify-between items-start">

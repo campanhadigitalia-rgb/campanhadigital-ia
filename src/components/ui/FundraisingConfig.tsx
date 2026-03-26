@@ -48,19 +48,22 @@ export function FundraisingConfig() {
   useEffect(() => {
     if (activeCampaign?.financeConfig) {
       const base = activeCampaign.financeConfig;
-      setFinance({
-        ...finance,
-        ...base,
-        categoryGoals: base.categoryGoals || {
-          fundoPartidario: 0,
-          doacaoFisica: base.monthlyGoal > 0 ? base.monthlyGoal : 0,
-          vaquinha: 0,
-          eventos: 0,
-          outros: 0
-        }
+      setFinance(prev => {
+        // Only override if the IDs don't match or on initial load, but for simplicity let's just initialize
+        return {
+          ...prev,
+          ...base,
+          categoryGoals: base.categoryGoals || {
+            fundoPartidario: 0,
+            doacaoFisica: base.monthlyGoal > 0 ? base.monthlyGoal : 0,
+            vaquinha: 0,
+            eventos: 0,
+            outros: 0
+          }
+        };
       });
     }
-  }, [activeCampaign, finance]);
+  }, [activeCampaign?.id]);
 
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();

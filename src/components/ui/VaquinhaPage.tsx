@@ -4,26 +4,12 @@ import { db } from '../../services/firebase';
 import { useCampaign } from '../../context/CampaignContext';
 import {
   Heart, Plus, Trash2, Copy, Share2, CheckCircle2, ExternalLink,
-  Calendar, Target, Banknote, Globe, Info
+  Calendar, Target, Banknote, Globe, Info, Percent
 } from 'lucide-react';
+import type { FundraisingCampaign } from '../../types';
 
 type CampaignType = 'vaquinha' | 'evento';
 type CampaignStatus = 'Ativa' | 'Encerrada' | 'Rascunho';
-
-interface FundraisingCampaign {
-  id: string;
-  type: CampaignType;
-  title: string;
-  description: string;
-  goal: number;
-  raised?: number;
-  pixKey: string;
-  eventDate?: string;
-  eventLocation?: string;
-  status: CampaignStatus;
-  shareLink?: string;
-  createdAt?: { seconds: number };
-}
 
 const fmt = (v: number) => new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(v);
 
@@ -32,10 +18,11 @@ export function VaquinhaPage() {
   const [campaigns, setCampaigns] = useState<FundraisingCampaign[]>([]);
   const [adding, setAdding] = useState(false);
   const [copiedId, setCopiedId] = useState<string | null>(null);
-  const [form, setForm] = useState<Omit<FundraisingCampaign, 'id'>>({
+  const [form, setForm] = useState<Omit<FundraisingCampaign, 'id' | 'createdAt' | 'updatedAt' | 'campaign_id' | 'createdBy'>>({
     type: 'vaquinha', title: '', description: '',
     goal: 0, raised: 0, pixKey: activeCampaign?.legalConfig?.pix || '',
-    eventDate: '', eventLocation: '', status: 'Ativa', shareLink: ''
+    eventDate: '', eventLocation: '', status: 'Ativa', shareLink: '',
+    feePercentage: 0
   });
 
   const path = useCallback(() =>
@@ -51,7 +38,11 @@ export function VaquinhaPage() {
     if (!p) { setCampaigns([]); return; }
     return onSnapshot(collection(db, p), snap => {
       const data = snap.docs.map(d => ({ id: d.id, ...d.data() } as FundraisingCampaign));
-      data.sort((a, b) => (b.createdAt?.seconds ?? 0) - (a.createdAt?.seconds ?? 0));
+      data.sort((a, b) => {
+        const aT = (a.createdAt as any)?.seconds ?? 0;
+        const bT = (b.createdAt as any)?.seconds ?? 0;
+        return bT - aT;
+      });
       setCampaigns(data);
     });
   }, [path]);
@@ -62,7 +53,7 @@ export function VaquinhaPage() {
     setAdding(true);
     try { await addDoc(collection(db, p), { ...form, raised: 0, createdAt: serverTimestamp() }); }
     finally { setAdding(false); }
-    setForm(f => ({ ...f, title: '', description: '', goal: 0, eventDate: '', eventLocation: '', shareLink: '' }));
+    setForm(f => ({ ...f, title: '', description: '', goal: 0, eventDate: '', eventLocation: '', shareLink: '', feePercentage: 0 }));
   };
 
   const handleDelete = async (id: string) => {
@@ -129,6 +120,12 @@ export function VaquinhaPage() {
               onChange={e => setForm(f => ({ ...f, goal: Number(e.target.value) }))}
               className={`${inp} pl-8`} />
           </div>
+          <div className="relative">
+            <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500 text-xs font-bold"><Percent size={12} /></span>
+            <input type="number" step="0.1" placeholder="Taxa Plataforma (%)" value={form.feePercentage || ''}
+              onChange={e => setForm(f => ({ ...f, feePercentage: Number(e.target.value) }))}
+              className={`${inp} pl-8`} title="Taxa cobrada pela plataforma (Ex: 6% Vakinha)" />
+          </div>
           <input placeholder="Chave PIX" value={form.pixKey} onChange={e => setForm(f => ({ ...f, pixKey: e.target.value }))} className={inp} />
           <select value={form.status} onChange={e => setForm(f => ({ ...f, status: e.target.value as CampaignStatus }))} className={inp}>
             {['Ativa', 'Rascunho', 'Encerrada'].map(s => <option key={s}>{s}</option>)}
@@ -171,9 +168,12 @@ export function VaquinhaPage() {
                 c.status === 'Encerrada' ? 'border-slate-700/20 opacity-60' :
                 c.type === 'evento' ? 'border-amber-500/20' : 'border-rose-500/20'
               }`}>
-                <div className="flex items-start justify-between gap-2">
+                <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-2">
                   <div>
-                    <span className="text-[10px] font-black text-slate-500 uppercase">{c.type === 'evento' ? '🎪 Evento' : '🫶 Vaquinha'}</span>
+                    <span className="text-[10px] font-black text-slate-500 uppercase flex items-center gap-1">
+                      {c.type === 'evento' ? '🎪 Evento' : '🫶 Vaquinha'}
+                      {c.feePercentage ? <span className="text-rose-400 bg-rose-500/10 px-1.5 rounded ml-2 border border-rose-500/20">Taxa: {c.feePercentage}%</span> : null}
+                    </span>
                     <h3 className="font-bold text-slate-100 text-sm mt-0.5 leading-tight">{c.title}</h3>
                   </div>
                   <select value={c.status} onChange={e => handleUpdateStatus(c.id, e.target.value as CampaignStatus)}

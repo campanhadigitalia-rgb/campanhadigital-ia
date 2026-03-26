@@ -1,10 +1,12 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { MessageSquare, AlertTriangle, CheckCircle, HelpCircle, Bot, RefreshCw } from 'lucide-react';
+import { MessageSquare, AlertTriangle, CheckCircle, HelpCircle, Bot, RefreshCw, Rss } from 'lucide-react';
 import { generateResponseOptions } from '../../services/aiService';
 import { collection, query, where, limit, orderBy, onSnapshot } from 'firebase/firestore';
 import { db } from '../../services/firebase';
 import { useCampaign } from '../../context/CampaignContext';
+import { useSocialItems } from '../../hooks/useMonitorFeed';
+import { runMonitoringCycle } from '../../services/monitorService';
 import type { Mention, Sentiment, AIReply } from '../../types';
 
 // Ícones simplificados para redes sociais
@@ -32,10 +34,21 @@ export function SocialSentinel({ onCrisisAlert }: SentinelProps) {
   const { activeCampaign } = useCampaign();
   const [feed, setFeed] = useState<Mention[]>([]);
   const [loadingInitial, setLoadingInitial] = useState(true);
+  const [syncing, setSyncing] = useState(false);
   
   const [selectedMention, setSelectedMention] = useState<string | null>(null);
   const [generatingReplies, setGeneratingReplies] = useState(false);
   const [replies, setReplies] = useState<Record<string, AIReply[]>>({});
+
+  // Intelligence Hub — monitoring_items (X + Manus)
+  const { items: hubItems } = useSocialItems(activeCampaign?.id ?? '', 20);
+
+  const handleSyncSocial = useCallback(async () => {
+    if (!activeCampaign || syncing) return;
+    setSyncing(true);
+    try { await runMonitoringCycle(activeCampaign, ['social']); }
+    finally { setSyncing(false); }
+  }, [activeCampaign, syncing]);
 
   useEffect(() => {
     if (!activeCampaign?.id) {
@@ -53,14 +66,8 @@ export function SocialSentinel({ onCrisisAlert }: SentinelProps) {
 
     const unsubscribe = onSnapshot(q, (snap) => {
       setLoadingInitial(false);
-      if (snap.empty) {
-        setFeed([]);
-        return;
-      }
-      
       const realFeed = snap.docs.map(doc => {
          const data = doc.data();
-         // Se vier do Webhook Meta, ele insere timestamp via FieldValue.serverTimestamp(), que pode ser object Date.
          const tstamp = data.timestamp?.toDate ? data.timestamp.toDate() : (data.timestamp || new Date());
          return {
            id: doc.id,
@@ -72,12 +79,28 @@ export function SocialSentinel({ onCrisisAlert }: SentinelProps) {
            timestamp: tstamp,
          } as Mention;
       });
-      
       setFeed(realFeed);
     });
 
     return () => unsubscribe();
   }, [activeCampaign?.id]);
+
+  // Mescla feed Firestore legado + monitoring_items do Intelligence Hub
+  const mergedFeed: Mention[] = [
+    ...feed,
+    ...hubItems
+      .filter(item => !feed.some(f => f.id === item.id))
+      .map(item => ({
+        id: item.id,
+        platform: item.platform === 'x_rss' || item.platform === 'x_manus' ? 'Twitter'
+          : item.platform === 'facebook_manus' ? 'Facebook' : 'Instagram',
+        text: item.summary || item.title,
+        sentiment: item.sentiment ?? 'neutro',
+        region: 'Online',
+        topic: 'Monitoramento',
+        timestamp: item.fetchedAt instanceof Date ? item.fetchedAt.toISOString() : String(item.fetchedAt),
+      } as unknown as Mention)),
+  ].slice(0, 40);
 
   // Monitora % de crises para disparar Alerta no Dashboard Pai
   useEffect(() => {
@@ -135,18 +158,34 @@ export function SocialSentinel({ onCrisisAlert }: SentinelProps) {
 
   return (
     <div className="flex flex-col gap-4 w-full">
-      <div className="flex items-center justify-between pointer-events-none">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
         <div>
-          <h2 className="text-xl font-bold text-slate-100 flex items-center gap-2 m-0 group">
+          <h2 className="text-xl font-bold text-slate-100 flex items-center gap-2 m-0">
             <MessageSquare size={20} className="text-indigo-400" />
             Social Sentinel (Escuta Ativa)
           </h2>
-          <p className="text-sm text-slate-400 m-0">Monitoramento e análise de sentimento em tempo real via IA</p>
+          <p className="text-sm text-slate-400 m-0">
+            {mergedFeed.length} menções monitoradas · Análise de sentimento IA em tempo real
+          </p>
         </div>
+        <button
+          onClick={handleSyncSocial}
+          disabled={syncing}
+          className="flex items-center justify-center gap-2 px-3 py-2 md:px-4 md:py-2.5 rounded-lg border border-indigo-500/30 bg-indigo-500/10 text-indigo-400 text-xs md:text-sm font-bold transition-all disabled:opacity-50 self-start sm:self-auto"
+        >
+          {syncing ? <RefreshCw size={12} className="animate-spin" /> : <Rss size={12} />}
+          {syncing ? 'Buscando...' : 'Buscar Menções'}
+        </button>
       </div>
 
       <div className="flex flex-col gap-3">
-        {feed.map(m => {
+        {mergedFeed.length === 0 && !loadingInitial ? (
+          <div className="glass-card p-8 text-center text-slate-500">
+            <MessageSquare size={32} className="mx-auto mb-3 opacity-30" />
+            <p className="m-0">Nenhuma menção ainda. Clique em "Buscar Menções" para sincronizar.</p>
+          </div>
+        ) : (
+          mergedFeed.map(m => {
           const isNegative = m.sentiment === 'negativo' || m.sentiment === 'critico';
           const isSelected = selectedMention === m.id;
           const myReplies = replies[m.id];
@@ -169,7 +208,7 @@ export function SocialSentinel({ onCrisisAlert }: SentinelProps) {
               
               <div className="p-4 flex flex-col gap-3">
                 <div className="flex items-center gap-3">
-                  <div className="w-8 h-8 rounded-full bg-slate-800 flex flex-shrink-0 items-center justify-center border border-slate-700">
+                  <div className="w-8 h-8 rounded-full bg-slate-800 flex shrink-0 items-center justify-center border border-slate-700">
                     <PlatformIcon platform={m.platform} />
                   </div>
                   <div className="flex flex-col flex-1">
@@ -177,7 +216,7 @@ export function SocialSentinel({ onCrisisAlert }: SentinelProps) {
                       <span className="text-xs font-semibold text-slate-300">Cidadão Anônimo</span>
                       <span className="text-[10px] text-slate-500">{new Date(m.timestamp).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</span>
                     </div>
-                    <div className="flex items-center gap-2 mt-0.5">
+                    <div className="flex flex-wrap items-center gap-2 mt-1">
                       <SentimentBadge type={m.sentiment} />
                       <span className="text-[10px] font-medium text-slate-400 px-1.5 py-0.5 rounded bg-slate-800/80"># {m.topic}</span>
                       <span className="text-[10px] font-medium text-slate-400 px-1.5 py-0.5 rounded bg-slate-800/80">{m.region}</span>
@@ -207,7 +246,7 @@ export function SocialSentinel({ onCrisisAlert }: SentinelProps) {
 
                       <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
                         {myReplies?.map((reply, idx) => (
-                           <div key={idx} className="bg-slate-900 border border-slate-700 rounded-lg p-3 hover:border-indigo-500/40 transition-colors group cursor-copy cursor-pointer">
+                           <div key={idx} className="bg-slate-900 border border-slate-700 rounded-lg p-3 hover:border-indigo-500/40 transition-colors group cursor-copy">
                              <div className="flex items-center gap-2 mb-2">
                                {reply.persona === 'Conciliador' && <div className="w-2 h-2 rounded-full bg-blue-400" />}
                                {reply.persona === 'Técnico' && <div className="w-2 h-2 rounded-full bg-amber-400" />}
@@ -229,8 +268,9 @@ export function SocialSentinel({ onCrisisAlert }: SentinelProps) {
               </AnimatePresence>
             </motion.div>
           );
-        })}
-      </div>
+        })
+      )}
     </div>
-  );
+  </div>
+);
 }

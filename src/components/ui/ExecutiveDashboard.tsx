@@ -112,19 +112,19 @@ export function ExecutiveDashboard() {
     <div className="flex flex-col gap-6 w-full h-full max-w-7xl mx-auto">
       <div className="flex flex-col md:flex-row md:items-end justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-black text-slate-100 flex items-center gap-2 tracking-tight uppercase">
+          <h1 className="text-xl md:text-2xl font-black text-slate-100 flex items-center gap-2 tracking-tight uppercase">
             {(activeCampaign?.name || 'CAMPANHADIGITAL IA').replace(/Piratini/gi, 'CampanhaDigitalIA')} <span className="text-emerald-500">•</span> ALTO COMANDO
           </h1>
-          <p className="text-sm text-slate-400">
+          <p className="text-xs md:text-sm text-slate-400">
             Operação de {profile?.displayName || 'Candidato'} monitorada em tempo real pelas engines de IA.
           </p>
         </div>
-        <div className="flex items-center gap-3">
-          <button onClick={exportPDF} className="bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-600 px-4 py-2.5 rounded-lg flex items-center gap-2 text-sm font-bold transition-all shadow-sm">
-            <Download size={16} /> Briefing Manhã (PDF)
+        <div className="flex flex-wrap items-center gap-2 w-full md:w-auto">
+          <button onClick={exportPDF} className="flex-1 md:flex-none justify-center bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-600 px-4 py-2.5 rounded-lg flex items-center gap-2 text-xs md:text-sm font-bold transition-all shadow-sm">
+            <Download size={14} /> Briefing (PDF)
           </button>
-          <button onClick={() => setWarMode(true)} className="bg-gradient-to-r from-red-600 to-rose-600 hover:from-red-500 hover:to-rose-500 text-white px-5 py-2.5 rounded-lg flex items-center gap-2 text-sm font-black transition-all shadow-[0_0_15px_rgba(220,38,38,0.5)]">
-            <Flame size={16} /> MODO GUERRA
+          <button onClick={() => setWarMode(true)} className="flex-1 md:flex-none justify-center bg-gradient-to-r from-red-600 to-rose-600 hover:from-red-500 hover:to-rose-500 text-white px-5 py-2.5 rounded-lg flex items-center gap-2 text-xs md:text-sm font-black transition-all shadow-[0_0_15px_rgba(220,38,38,0.5)]">
+            <Flame size={14} /> MODO GUERRA
           </button>
         </div>
       </div>
@@ -171,8 +171,8 @@ export function ExecutiveDashboard() {
             <span className="font-bold text-sm tracking-wide text-white">Oráculo de Votos</span>
           </div>
           <div className="z-10">
-            <div className="text-4xl font-black text-slate-100">{Number(currentIntent).toFixed(1)}<span className="text-xl text-emerald-500">%</span></div>
-            <p className="text-xs text-slate-400 mt-1 font-medium bg-emerald-500/10 inline-block px-2 py-0.5 rounded text-emerald-400 border border-emerald-500/20">Média calculada via agregação real.</p>
+            <div className="text-3xl md:text-4xl font-black text-slate-100">{Number(currentIntent).toFixed(1)}<span className="text-xl text-emerald-500">%</span></div>
+            <p className="text-[10px] md:text-xs mt-1 font-medium bg-emerald-500/10 inline-block px-2 py-0.5 rounded text-emerald-400 border border-emerald-500/20">Média calculada via agregação real.</p>
           </div>
         </div>
 
@@ -183,8 +183,8 @@ export function ExecutiveDashboard() {
             <span className="font-bold text-sm tracking-wide text-white">Saúde Financeira</span>
           </div>
           <div className="z-10">
-            <div className="text-3xl font-black text-slate-100"><span className="text-lg text-slate-500 mr-1">R$</span>{(financeRaised / 1000).toFixed(1)}<span className="text-xl text-sky-500">k</span></div>
-            <div className="flex items-center gap-1 mt-1"><CheckCircle size={12} className="text-emerald-500" /><p className="text-xs text-slate-400 font-medium tracking-tight">Caixa em conformidade institucional.</p></div>
+            <div className="text-2xl md:text-3xl font-black text-slate-100"><span className="text-base md:text-lg text-slate-500 mr-1">R$</span>{(financeRaised / 1000).toFixed(1)}<span className="text-lg md:text-xl text-sky-500">k</span></div>
+            <div className="flex items-center gap-1 mt-1"><CheckCircle size={10} className="text-emerald-500" /><p className="text-[10px] md:text-xs text-slate-400 font-medium tracking-tight">Caixa em conformidade institucional.</p></div>
           </div>
         </div>
 
@@ -195,8 +195,8 @@ export function ExecutiveDashboard() {
             <span className="font-bold text-sm tracking-wide text-white">Clima de Rua</span>
           </div>
           <div className="z-10">
-            <div className="text-4xl font-black text-slate-100">{streetClimate}<span className="text-xl text-amber-500">%</span></div>
-            <p className="text-xs text-slate-400 mt-1 font-medium bg-amber-500/10 inline-block px-2 py-0.5 rounded text-amber-400 border border-amber-500/20">Engajamento: {totalEngagement} interações reais.</p>
+            <div className="text-3xl md:text-4xl font-black text-slate-100">{streetClimate}<span className="text-lg md:text-xl text-amber-500">%</span></div>
+            <p className="text-[10px] md:text-xs mt-1 font-medium bg-amber-500/10 inline-block px-2 py-0.5 rounded text-amber-400 border border-amber-500/20">Engajamento: {totalEngagement} interações reais.</p>
           </div>
         </div>
 
@@ -207,8 +207,8 @@ export function ExecutiveDashboard() {
             <span className="font-bold text-sm tracking-wide text-white">Alcance Digital</span>
           </div>
           <div className="z-10">
-            <div className="text-4xl font-black text-slate-100">{(totalReach / 1000).toFixed(1)}<span className="text-xl text-fuchsia-500">M</span></div>
-            <p className="text-xs text-slate-400 mt-1 font-medium tracking-tight">Impacto Diário Consolidado.</p>
+            <div className="text-3xl md:text-4xl font-black text-slate-100">{(totalReach / 1000).toFixed(1)}<span className="text-lg md:text-xl text-fuchsia-500">M</span></div>
+            <p className="text-[10px] md:text-xs text-slate-400 mt-1 font-medium tracking-tight">Impacto Diário Consolidado.</p>
           </div>
         </div>
       </div>

@@ -127,8 +127,8 @@ export function PollsOracle() {
                {/* Resultados da Simulação PieChart */}
                <AnimatePresence mode="wait">
                  {simResults && !simLoading && (
-                   <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, scale: 0.9 }} className="flex-1 flex items-center justify-center gap-6 bg-slate-900/30 rounded-xl p-4 border border-indigo-500/20">
-                      <div className="w-32 h-32 relative">
+                   <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, scale: 0.9 }} className="flex-1 flex flex-col sm:flex-row items-center justify-center gap-6 bg-slate-900/30 rounded-xl p-4 border border-indigo-500/20">
+                      <div className="w-24 h-24 sm:w-32 sm:h-32 relative shrink-0">
                         <ResponsiveContainer width="100%" height="100%">
                           <PieChart>
                             <Pie
@@ -179,8 +179,8 @@ export function PollsOracle() {
       {/* Relatório de Cidades em Risco / Metas CRM */}
       <div className="glass-card flex flex-col border border-white/5 overflow-hidden">
          <div className="p-4 border-b border-white/5 bg-black/20 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-            <h3 className="font-bold text-slate-100 flex items-center gap-2 m-0 text-sm">
-              <Target size={16} className="text-emerald-400" /> Painel de Fronteiras: Conversão Diária (1º Turno)
+            <h3 className="font-bold text-slate-100 flex items-center gap-2 m-0 text-xs sm:text-sm">
+              <Target size={16} className="text-emerald-400 shrink-0" /> Painel de Fronteiras: Conversão Diária (1º Turno)
             </h3>
             <div className="flex items-center gap-2 text-xs font-medium px-3 py-1.5 rounded-lg border border-amber-500/30 bg-amber-500/10 text-amber-500">
                <AlertTriangle size={14} /> Foco Urgente: Margem &lt; 2%
@@ -204,7 +204,7 @@ export function PollsOracle() {
                         <MapPin size={14} className="text-slate-500" /> {r.city}
                       </td>
                       <td className="p-4 text-center text-slate-300 font-medium">
-                        {showHistorical ? `${(40 + Math.random() * 15).toFixed(1)}%` : `${r.intent}%`}
+                        {showHistorical ? `${(40 + ((idx * 7) % 15)).toFixed(1)}%` : `${r.intent}%`}
                       </td>
                       <td className="p-4 text-center">
                         <span className={`inline-flex items-center justify-center gap-1.5 px-2.5 py-1 text-[11px] font-bold uppercase rounded border ${showHistorical ? 'text-amber-500 bg-amber-500/10 border-amber-500/30' : getMarginColor(r.margin)}`}>
@@ -213,7 +213,7 @@ export function PollsOracle() {
                         </span>
                       </td>
                       <td className={`p-4 font-black text-right text-lg ${showHistorical ? 'text-indigo-400' : 'text-emerald-400'}`}>
-                        {showHistorical ? `${(Math.random() * 5).toFixed(1)}%` : `+${r.requiredDailyNewVotes.toLocaleString('pt-BR')}`}
+                        {showHistorical ? `${((idx * 3) % 5).toFixed(1)}%` : `+${r.requiredDailyNewVotes.toLocaleString('pt-BR')}`}
                         <span className="text-[10px] text-slate-500 font-normal ml-1 uppercase">{showHistorical ? ' de crescimento' : ' votos/dia'}</span>
                       </td>
                       <td className="p-4 text-right">

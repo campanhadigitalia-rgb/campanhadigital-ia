@@ -5,6 +5,7 @@ export interface ContentPayload {
 }
 
 import { GoogleGenerativeAI } from '@google/generative-ai';
+import { sanitizeForPrompt } from '../utils/inputSanitizer';
 
 const API_KEY = import.meta.env.VITE_GEMINI_API_KEY || '';
 const genAI = new GoogleGenerativeAI(API_KEY);
@@ -14,7 +15,8 @@ export async function generateCampaignScripts(fact: string): Promise<ContentPayl
   
   try {
     const model = genAI.getGenerativeModel({ model: "gemini-flash-latest" });
-    const prompt = `Como um estrategista digital político sênior, crie scripts para 3 redes sociais sobre este fato: "${fact}".
+    const safeFact = sanitizeForPrompt(fact);
+    const prompt = `Como um estrategista digital político sênior, crie scripts para 3 redes sociais sobre este fato: "${safeFact}".
     O tom deve ser inspirador, focado em entregas e autoridade.
     Redes: Instagram (legenda com hashtags), TikTok (roteiro de vídeo curto/hook), Twitter/X (institucional e direto).
     Responda APENAS com um JSON puro no formato:

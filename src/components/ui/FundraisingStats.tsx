@@ -88,12 +88,21 @@ export function FundraisingStats() {
         <div className="flex flex-col gap-5">
           <div className="grid grid-cols-2 gap-3">
              <div className="p-4 rounded-xl bg-black/40 border border-white/5">
-                <p className="text-[9px] font-black text-slate-500 uppercase flex items-center gap-1.5 mb-1"><Target size={12}/> Meta Global</p>
+                <p className="text-[9px] font-black text-slate-500 uppercase flex items-center gap-1.5 mb-1" title="Definido em Configurações -> Financeiro"><Target size={12}/> Meta Global</p>
                 <p className="text-xl font-black text-slate-200">{formatCurrency(stats.monthlyGoal)}</p>
              </div>
              <div className="p-4 rounded-xl bg-emerald-500/5 border border-emerald-500/20">
                 <p className="text-[9px] font-black text-emerald-500 uppercase flex items-center gap-1.5 mb-1"><HandCoins size={12}/> Total Arrecadado</p>
                 <p className="text-xl font-black text-emerald-400">{formatCurrency(stats.raised)}</p>
+             </div>
+             
+             <div className="p-3 rounded-xl bg-slate-900/40 border border-slate-700/30">
+                <p className="text-[9px] font-black text-slate-500 uppercase flex items-center gap-1.5 mb-1" title="Definido em Configurações -> Financeiro">Teto Oficial TSE</p>
+                <p className="text-sm font-black text-amber-500/80">{formatCurrency(activeCampaign?.financeConfig?.tseSpendingLimit || 0)}</p>
+             </div>
+             <div className="p-3 rounded-xl bg-slate-900/40 border border-slate-700/30">
+                <p className="text-[9px] font-black text-slate-500 uppercase flex items-center gap-1.5 mb-1" title="Definido em Configurações -> Financeiro">Teto Gastos Interno</p>
+                <p className="text-sm font-black text-emerald-500/80">{formatCurrency(activeCampaign?.financeConfig?.spendingLimit || 0)}</p>
              </div>
           </div>
 
