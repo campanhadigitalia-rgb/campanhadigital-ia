@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { User, Target, Map, Sparkles, Plus, Trash2, Save } from 'lucide-react';
+import { User, Target, Map, Sparkles, Plus, Trash2, Save, Camera, Users } from 'lucide-react';
 import { useCampaign } from '../../context/CampaignContext';
 import { doc, updateDoc } from 'firebase/firestore';
 import { db, COLLECTIONS } from '../../services/firebase';
@@ -15,10 +15,17 @@ export default function IdentitySettings() {
   const [identity, setIdentity] = useState<CampaignIdentity>(
     activeCampaign?.identity || {
       name: '',
+      urnName: '',
       position: '',
       location: '',
       party: '',
-      bio_base: ''
+      coalition: '',
+      state: '',
+      history: '',
+      bio_base: '',
+      ai_directives: '',
+      photoOfficial: '',
+      subCharacters: []
     }
   );
 
@@ -85,7 +92,35 @@ export default function IdentitySettings() {
   };
 
   const removeCompetitor = (id: string) => {
-    setCompetitors(competitors.filter(c => c.id !== id));
+    setCompetitors(competitors.filter((c: Competitor) => c.id !== id));
+  };
+
+  const handlePhotoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onloadend = () => {
+      setIdentity({ ...identity, photoOfficial: reader.result as string });
+    };
+    reader.readAsDataURL(file);
+  };
+
+  const addSubCharacter = () => {
+    const newChars = [...(identity.subCharacters || [])];
+    newChars.push({ role: 'Vice-Prefeito', name: '' });
+    setIdentity({ ...identity, subCharacters: newChars });
+  };
+
+  const removeSubCharacter = (idx: number) => {
+    const newChars = [...(identity.subCharacters || [])];
+    newChars.splice(idx, 1);
+    setIdentity({ ...identity, subCharacters: newChars });
+  };
+
+  const updateSubCharacter = (idx: number, field: string, value: string) => {
+    const newChars = [...(identity.subCharacters || [])];
+    newChars[idx] = { ...newChars[idx], [field]: value };
+    setIdentity({ ...identity, subCharacters: newChars });
   };
 
   return (
@@ -102,32 +137,73 @@ export default function IdentitySettings() {
           </div>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <div className="space-y-1">
-            <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest pl-1">Nome Político</label>
-            <input 
-              value={identity.name}
-              onChange={e => setIdentity({...identity, name: e.target.value})}
-              className="w-full bg-slate-950 border border-white/10 rounded-lg px-4 py-2.5 text-slate-300 focus:border-indigo-500/50 outline-none" 
-              placeholder="Ex: João da Silva"
-            />
+        <div className="flex flex-col md:flex-row gap-6 mb-6">
+          {/* Photo Section */}
+          <div className="flex flex-col items-center gap-2">
+            <div className="relative group w-32 h-32 rounded-xl overflow-hidden bg-slate-900 border border-white/10">
+              {identity.photoOfficial ? (
+                <img src={identity.photoOfficial} alt="Avatar" className="w-full h-full object-cover" />
+              ) : (
+                <div className="w-full h-full flex flex-col items-center justify-center text-slate-600">
+                  <User size={40} />
+                </div>
+              )}
+              <label className="absolute inset-0 bg-black/60 flex items-center justify-center opacity-0 group-hover:opacity-100 cursor-pointer transition-opacity">
+                <Camera size={24} className="text-white" />
+                <input type="file" className="hidden" accept="image/*" onChange={handlePhotoUpload} />
+              </label>
+            </div>
+            <p className="text-[10px] font-black text-slate-500 uppercase">Foto Oficial</p>
           </div>
-          <div className="space-y-1">
-            <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest pl-1">Cargo Desejado</label>
-            <input 
-              value={identity.position}
-              onChange={e => setIdentity({...identity, position: e.target.value})}
-              className="w-full bg-slate-950 border border-white/10 rounded-lg px-4 py-2.5 text-slate-300 focus:border-indigo-500/50 outline-none" 
-              placeholder="Ex: Prefeito"
-            />
+
+          <div className="flex-1 grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="space-y-1">
+              <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest pl-1">Nome Civil</label>
+              <input 
+                value={identity.name}
+                onChange={e => setIdentity({...identity, name: e.target.value})}
+                className="w-full bg-slate-950 border border-white/10 rounded-lg px-4 py-2.5 text-slate-300 focus:border-indigo-500/50 outline-none" 
+                placeholder="Ex: João da Silva Santos"
+              />
+            </div>
+            <div className="space-y-1">
+              <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest pl-1">Nome de Urna / Campanha</label>
+              <input 
+                value={identity.urnName}
+                onChange={e => setIdentity({...identity, urnName: e.target.value})}
+                className="w-full bg-slate-950 border border-white/10 rounded-lg px-4 py-2.5 text-slate-300 focus:border-indigo-500/50 outline-none" 
+                placeholder="Ex: João do Povo"
+              />
+            </div>
+            <div className="space-y-1">
+              <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest pl-1">Cargo Desejado</label>
+              <input 
+                value={identity.position}
+                onChange={e => setIdentity({...identity, position: e.target.value})}
+                className="w-full bg-slate-950 border border-white/10 rounded-lg px-4 py-2.5 text-slate-300 focus:border-indigo-500/50 outline-none" 
+                placeholder="Ex: Prefeito"
+              />
+            </div>
+            <div className="space-y-1">
+              <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest pl-1">Cidade Sede / Concorrência</label>
+              <input 
+                value={identity.location}
+                onChange={e => setIdentity({...identity, location: e.target.value})}
+                className="w-full bg-slate-950 border border-white/10 rounded-lg px-4 py-2.5 text-slate-300 focus:border-indigo-500/50 outline-none" 
+                placeholder="Ex: Porto Alegre"
+              />
+            </div>
           </div>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           <div className="space-y-1">
-            <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest pl-1">Localização</label>
+            <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest pl-1">Estado (UF)</label>
             <input 
-              value={identity.location}
-              onChange={e => setIdentity({...identity, location: e.target.value})}
+              value={identity.state}
+              onChange={e => setIdentity({...identity, state: e.target.value})}
               className="w-full bg-slate-950 border border-white/10 rounded-lg px-4 py-2.5 text-slate-300 focus:border-indigo-500/50 outline-none" 
-              placeholder="Ex: Porto Alegre / RS"
+              placeholder="Ex: RS"
             />
           </div>
           <div className="space-y-1">
@@ -139,17 +215,105 @@ export default function IdentitySettings() {
               placeholder="Ex: PL"
             />
           </div>
+          <div className="space-y-1">
+            <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest pl-1">Coligação</label>
+            <input 
+              value={identity.coalition}
+              onChange={e => setIdentity({...identity, coalition: e.target.value})}
+              className="w-full bg-slate-950 border border-white/10 rounded-lg px-4 py-2.5 text-slate-300 focus:border-indigo-500/50 outline-none" 
+              placeholder="Ex: Mudança Já (PL/PP/MDB)"
+            />
+          </div>
         </div>
 
         <div className="mt-4 space-y-1">
-          <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest pl-1">Biografia Base (Voz da IA)</label>
+          <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest pl-1">Histórico Político</label>
           <textarea 
-            value={identity.bio_base}
-            onChange={e => setIdentity({...identity, bio_base: e.target.value})}
-            rows={4}
+            value={identity.history}
+            onChange={e => setIdentity({...identity, history: e.target.value})}
+            rows={3}
             className="w-full bg-slate-950 border border-white/10 rounded-lg px-4 py-2.5 text-slate-300 focus:border-indigo-500/50 outline-none resize-none" 
-            placeholder="Descreva o tom de voz, as principais bandeiras e o histórico do candidato para que a IA possa emulá-lo perfeitamente..."
+            placeholder="Relate mandatos anteriores, cargos ocupados e trajetória política..."
           />
+        </div>
+
+        <div className="mt-4 grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div className="space-y-1">
+            <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest pl-1">Biografia Base (Narrativa IA)</label>
+            <textarea 
+              value={identity.bio_base}
+              onChange={e => setIdentity({...identity, bio_base: e.target.value})}
+              rows={4}
+              className="w-full bg-slate-950 border border-white/10 rounded-lg px-4 py-2.5 text-slate-300 focus:border-indigo-500/50 outline-none resize-none" 
+              placeholder="Descreva as principais bandeiras e o histórico do candidato para que a IA possa emulá-lo perfeitamente..."
+            />
+          </div>
+          <div className="space-y-1">
+            <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest pl-1">Diretrizes de Tom (Voz da IA)</label>
+            <textarea 
+              value={identity.ai_directives}
+              onChange={e => setIdentity({...identity, ai_directives: e.target.value})}
+              rows={4}
+              className="w-full bg-slate-950 border border-white/10 rounded-lg px-4 py-2.5 text-slate-300 focus:border-indigo-500/50 outline-none resize-none" 
+              placeholder="Ex: Use um tom esperançoso mas firme, foque em segurança e família, evite termos técnicos complexos..."
+            />
+          </div>
+        </div>
+      </section>
+
+      {/* 1.5 Subpersonagens (Vices, Suplentes) */}
+      <section className="glass-card p-6 border-indigo-500/20">
+        <div className="flex items-center justify-between mb-6">
+          <div className="flex items-center gap-3">
+            <div className="p-2 bg-indigo-500/10 rounded-lg text-indigo-400">
+              <Users size={24} />
+            </div>
+            <div>
+              <h2 className="text-xl font-bold text-slate-100 uppercase tracking-tight">Vices & Suplentes</h2>
+              <p className="text-xs text-slate-500">Adicione outros integrantes da chapa majoritária.</p>
+            </div>
+          </div>
+          <button 
+            onClick={addSubCharacter}
+            className="flex items-center gap-2 bg-indigo-600 hover:bg-indigo-500 text-white px-4 py-2 rounded-lg text-xs font-bold transition-all"
+          >
+            <Plus size={14} /> Novo Subpersonagem
+          </button>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          {identity.subCharacters?.map((char: any, idx: number) => (
+            <div key={idx} className="flex items-center gap-4 p-4 bg-slate-950/50 border border-white/10 rounded-xl relative group">
+              <div className="flex-1 space-y-3">
+                <div className="grid grid-cols-2 gap-2">
+                  <div className="space-y-1">
+                    <label className="text-[9px] font-black text-slate-500 uppercase">Função</label>
+                    <input 
+                      value={char.role}
+                      onChange={e => updateSubCharacter(idx, 'role', e.target.value)}
+                      className="w-full bg-transparent border-b border-white/10 text-slate-300 text-xs py-1 outline-none focus:border-indigo-500/50"
+                      placeholder="Ex: Vice-Prefeito"
+                    />
+                  </div>
+                  <div className="space-y-1">
+                    <label className="text-[9px] font-black text-slate-500 uppercase">Nome</label>
+                    <input 
+                      value={char.name}
+                      onChange={e => updateSubCharacter(idx, 'name', e.target.value)}
+                      className="w-full bg-transparent border-b border-white/10 text-slate-300 text-xs py-1 outline-none focus:border-indigo-500/50"
+                      placeholder="Nome completo"
+                    />
+                  </div>
+                </div>
+              </div>
+              <button 
+                onClick={() => removeSubCharacter(idx)}
+                className="p-2 text-slate-600 hover:text-red-400 transition-colors"
+              >
+                <Trash2 size={16} />
+              </button>
+            </div>
+          ))}
         </div>
       </section>
 
@@ -176,7 +340,7 @@ export default function IdentitySettings() {
         </div>
 
         <div className="flex flex-col gap-3">
-          {competitors.map((comp, idx) => (
+          {competitors.map((comp: Competitor, idx: number) => (
             <div key={comp.id} className="flex flex-wrap items-end gap-3 p-4 bg-black/20 rounded-xl border border-white/5 group">
               <div className="flex-1 min-w-[200px] space-y-1">
                 <label className="text-[9px] font-black text-slate-600 uppercase">Nome do Oponente</label>
@@ -234,11 +398,11 @@ export default function IdentitySettings() {
         </div>
 
         <div className="flex flex-wrap gap-2">
-           {neighborhood.map((city, idx) => (
-             <div key={idx} className="bg-amber-500/10 border border-amber-500/20 px-3 py-1.5 rounded-full flex items-center gap-2 text-amber-200 text-sm font-medium">
-               {city}
-               <button onClick={() => setNeighborhood(neighborhood.filter((_, i) => i !== idx))}><X size={12} /></button>
-             </div>
+           {neighborhood.map((city: string, idx: number) => (
+              <div key={idx} className="bg-amber-500/10 border border-amber-500/20 px-3 py-1.5 rounded-full flex items-center gap-2 text-amber-200 text-sm font-medium">
+                {city}
+                <button onClick={() => setNeighborhood(neighborhood.filter((_: any, i: number) => i !== idx))}><X size={12} /></button>
+              </div>
            ))}
            <div className="relative">
              <input 

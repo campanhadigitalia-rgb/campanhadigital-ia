@@ -21,11 +21,22 @@ export interface Organization {
 }
 
 export interface CampaignIdentity {
-  name: string;
+  name: string;         // Nome Civil ou Completo
+  urnName: string;      // Nome de Urna
   position: string;
   location: string;
   party: string;
-  bio_base: string;
+  coalition?: string;   // Coligação
+  state: string;        // Estado (UF)
+  history: string;      // Histórico político
+  bio_base: string;     // Biografia Base
+  ai_directives?: string; // Diretrizes extras de tom para a IA
+  photoOfficial?: string; // Base64 ou URL da foto oficial
+  subCharacters?: {     // Vices, suplentes ou figuras-chave
+    role: string;
+    name: string;
+    photo?: string;
+  }[];
 }
 
 export interface Competitor {
