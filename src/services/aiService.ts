@@ -1,5 +1,5 @@
 import { GoogleGenerativeAI, type Part } from '@google/generative-ai';
-import type { Mention, AIReply, CampaignIdentity, Competitor, Sentiment } from '../types';
+import type { Mention, AIReply, CampaignIdentity, Competitor, Sentiment, Campaign, MonitoringItem } from '../types';
 import { sanitizeForPrompt } from '../utils/inputSanitizer';
 import { trackApiCall } from '../utils/billingMonitor';
 
@@ -243,5 +243,47 @@ O seu retorno deve comecar OBRIGATORIAMENTE com a palavra "RISCO" ou "APROVADO",
   } catch (error) {
     console.error("AI Compliance Verification Error:", error);
     return { status: "Erro", report: "Não foi possível auditar a peça via IA." };
+  }
+}
+
+/**
+ * Gera uma análise de cenário (Prós/Contras/Riscos) baseada nos itens de monitoramento.
+ */
+export async function generateScenarioAnalysis(
+  campaign: Campaign,
+  items: MonitoringItem[]
+): Promise<{ pros: string[]; cons: string[]; risks: string[]; summary: string }> {
+  if (!API_KEY) throw new Error('Chave de API do Gemini não configurada.');
+
+  const model = genAI!.getGenerativeModel({ model: "gemini-1.5-pro" });
+  
+  // Resumo dos itens para o prompt
+  const itemsText = items.slice(0, 30).map(i => `[${i.type.toUpperCase()}] ${i.title}: ${i.summary}`).join('\n');
+  
+  const prompt = `Você é um Estrategista Político de Elite e Consultor de Gerenciamento de Crise.
+Analise os seguintes dados de monitoramento (notícias e dados jurídicos) do candidato ${campaign.identity?.name} na eleição de ${campaign.year}:
+
+${itemsText}
+
+Com base nestes dados reais encontrados, gere uma Análise de Cenário Estratégico.
+Retorne APENAS um JSON no formato:
+{
+  "pros": ["ponto positivo 1", "ponto positivo 2"],
+  "cons": ["ponto de ataque/fraco 1", "ponto de ataque/fraco 2"],
+  "risks": ["risco jurídico ou de imagem 1", "risco 2"],
+  "summary": "Resumo executivo da situação em 3 linhas"
+}
+Seja técnico, franco e direto. Se os dados forem escassos, use seu conhecimento geral sobre o contexto político de ${campaign.year} no Brasil para complementar as tendências.`;
+
+  try {
+    const result = await model.generateContent(prompt);
+    let text = result.response.text().trim();
+    if (text.startsWith('```json')) text = text.replace(/^```json/, '').replace(/```$/, '').trim();
+    if (text.startsWith('```')) text = text.replace(/^```/, '').replace(/```$/, '').trim();
+    
+    return JSON.parse(text);
+  } catch (error) {
+    console.error("Scenario Analysis Error:", error);
+    throw new Error('Falha ao gerar análise de cenário via IA.');
   }
 }

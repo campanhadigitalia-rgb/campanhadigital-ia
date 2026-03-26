@@ -14,6 +14,7 @@ import { onSnapshot, doc, updateDoc, serverTimestamp, setDoc, collection, query,
 import { col, COLLECTIONS, db } from '../services/firebase';
 import type { Campaign, CampaignYear, ViewMode } from '../types';
 import { useAuth } from './AuthContext';
+import { startAutoMonitoring, stopAutoMonitoring } from '../services/monitorService';
 
 // ── Tipagem do contexto ────────────────────────────────────────
 interface CampaignContextValue {
@@ -95,6 +96,21 @@ export function CampaignProvider({ children }: { children: React.ReactNode }) {
 
     return unsubscribe;
   }, [user, profile]); // re-avalia se usuário ou perfil mudar
+
+  // Trigger automático de monitoramento ao carregar campanha
+  useEffect(() => {
+    if (activeCampaign && activeCampaign.identity?.name) {
+      // Inicia polling a cada 30 min (delay inicial de alguns segundos para não pesar o load)
+      const timer = setTimeout(() => {
+        startAutoMonitoring(activeCampaign);
+      }, 5000);
+      
+      return () => {
+        clearTimeout(timer);
+        stopAutoMonitoring();
+      };
+    }
+  }, [activeCampaign?.id]);
 
   const selectCampaign = useCallback(
     (id: string) => {

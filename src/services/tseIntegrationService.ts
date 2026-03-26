@@ -190,6 +190,7 @@ export interface TRESearchResult {
  */
 export async function searchTREByName(
   candidateName: string,
+  year: number,
   uf = 'RS',
 ): Promise<TRESearchResult> {
   const empty = { isAI: false, isRateLimited: false, summary: '', items: [] };
@@ -204,15 +205,15 @@ export async function searchTREByName(
 
     const safeName = sanitizeForPrompt(candidateName);
 
-    const prompt = `Pesquise no Google por processos eleitorais, notificações e decisões do TRE-${uf} envolvendo o candidato "${safeName}".
+    const prompt = `Como um analista jurídico eleitoral sênior, pesquise no Google por processos eleitorais, notificações, decisões do TRE-${uf} e notícias de jurisprudência envolvendo o candidato "${safeName}" especificamente relacionadas à eleição de ${year}.
 Retorne um JSON com o seguinte formato:
 {
-  "summary": "resumo em 2-3 frases do que foi encontrado",
+  "summary": "resumo técnico de 2-3 frases do que foi encontrado",
   "items": [
-    { "title": "título do resultado", "snippet": "trecho relevante", "url": "url se disponível" }
+    { "title": "título do processo ou notícia", "snippet": "trecho relevante com data", "url": "url se disponível" }
   ]
 }
-Se não encontrar nada relevante, retorne items vazio e summary explicando.
+Se não encontrar nada relevante para o ano ${year}, mencione no resumo.
 Responda APENAS com JSON válido.`;
 
     const result = await model.generateContent(prompt);
@@ -253,7 +254,7 @@ export async function runLegalMonitoringCycle(campaign: Campaign): Promise<void>
 
   // 2. TRE via Gemini (se identidade configurada)
   if (campaign.identity?.name) {
-    const treResult = await searchTREByName(campaign.identity.name);
+    const treResult = await searchTREByName(campaign.identity.name, campaign.year, campaign.identity.state || 'RS');
     if (treResult.isAI && treResult.items.length > 0) {
       for (const item of treResult.items) {
         await addDoc(collection(db, COLLECTIONS.MONITORING_ITEMS), {

@@ -72,10 +72,11 @@ export async function fetchCandidateNews(
   if (!campaign.identity?.name) return [];
 
   const { name, party, location } = campaign.identity;
+  const year = campaign.year;
   const keywords = [
-    name,
-    `${name} ${party}`,
-    `${name} ${location}`,
+    `${name} ${year}`,
+    `${name} ${party} ${year}`,
+    `${name} ${location} ${year}`,
   ];
 
   const results: Omit<MonitoringItem, 'id'>[] = [];

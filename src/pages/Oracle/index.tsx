@@ -3,25 +3,36 @@ import { PollsOracle } from '../../components/ui/PollsOracle';
 import { useCampaign } from '../../context/CampaignContext';
 import { runMonitoringCycle } from '../../services/monitorService';
 import { useNewsItems, useLegalItems, useOfficialItems } from '../../hooks/useMonitorFeed';
-import { RefreshCw, Newspaper, Scale, BookOpen, ExternalLink } from 'lucide-react';
+import { RefreshCw, Newspaper, Scale, BookOpen, ExternalLink, ShieldCheck } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
+import { ScenarioAnalysis } from '../../components/ui/ScenarioAnalysis';
 
 export default function OraclePage() {
   const { activeCampaign } = useCampaign();
   const [syncing, setSyncing] = useState(false);
   const [lastSync, setLastSync] = useState<Date | null>(null);
-  const [activeTab, setActiveTab] = useState<'oracle' | 'news' | 'legal'>('oracle');
+  const [activeTab, setActiveTab] = useState<'oracle' | 'news' | 'legal' | 'análise'>('oracle');
 
   const campaignId = activeCampaign?.id ?? '';
   const { items: newsItems,    loading: newsLoading    } = useNewsItems(campaignId, 15);
   const { items: legalItems,   loading: legalLoading   } = useLegalItems(campaignId, 10);
   const { items: officialItems, loading: officialLoading } = useOfficialItems(campaignId, 10);
 
+  const [syncResult, setSyncResult] = useState<{ news: number, legal: number } | null>(null);
+
   const handleSync = async () => {
     if (!activeCampaign || syncing) return;
     setSyncing(true);
+    setSyncResult(null);
     try {
-      await runMonitoringCycle(activeCampaign, ['news', 'legal']);
+      const results = await runMonitoringCycle(activeCampaign, ['news', 'legal']);
+      const newsRes = results.find(r => r.module === 'news');
+      const legalRes = results.find(r => r.module === 'legal');
+      
+      setSyncResult({
+        news: newsRes?.itemsSaved ?? 0,
+        legal: legalRes?.itemsSaved ?? 0
+      });
       setLastSync(new Date());
     } finally {
       setSyncing(false);
@@ -32,7 +43,10 @@ export default function OraclePage() {
     { id: 'oracle', label: 'Oracle',   icon: <BookOpen size={14} /> },
     { id: 'news',   label: `Notícias ${newsItems.length > 0 ? `(${newsItems.length})` : ''}`, icon: <Newspaper size={14} /> },
     { id: 'legal',  label: `Jurídico ${(legalItems.length + officialItems.length) > 0 ? `(${legalItems.length + officialItems.length})` : ''}`, icon: <Scale size={14} /> },
+    { id: 'análise', label: 'Análise IA', icon: <ShieldCheck size={14} /> },
   ] as const;
+
+  const allMonitoringItems = [...newsItems, ...legalItems, ...officialItems];
 
   return (
     <div className="flex flex-col gap-4 w-full h-full">
@@ -42,7 +56,7 @@ export default function OraclePage() {
           {tabs.map(tab => (
             <button
               key={tab.id}
-              onClick={() => setActiveTab(tab.id)}
+              onClick={() => setActiveTab(tab.id as any)}
               className={`flex-1 sm:flex-none flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-semibold transition-all ${
                 activeTab === tab.id
                   ? 'bg-linear-to-br from-indigo-500 to-indigo-600 text-white shadow-sm'
@@ -68,10 +82,16 @@ export default function OraclePage() {
         </button>
       </div>
 
-      {lastSync && (
-        <p style={{ margin: 0, fontSize: 11, color: '#64748b' }}>
-          Última sincronização: {lastSync.toLocaleTimeString('pt-BR')}
-        </p>
+      {lastSync && !syncing && (
+        <div className="flex items-center justify-between text-[11px] text-slate-500">
+          <p className="m-0">Última sincronização: {lastSync.toLocaleTimeString('pt-BR')}</p>
+          {syncResult && (
+            <div className="flex items-center gap-3">
+              <span className="text-emerald-400 font-bold">+{syncResult.news} Notícias</span>
+              <span className="text-amber-400 font-bold">+{syncResult.legal} Jurídico</span>
+            </div>
+          )}
+        </div>
       )}
 
       {/* Conteúdo das abas */}
@@ -182,6 +202,12 @@ export default function OraclePage() {
                   </div>
                 ))
             )}
+          </motion.div>
+        )}
+
+        {activeTab === 'análise' && activeCampaign && (
+          <motion.div key="analysis" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
+            <ScenarioAnalysis activeCampaign={activeCampaign} items={allMonitoringItems} />
           </motion.div>
         )}
       </AnimatePresence>

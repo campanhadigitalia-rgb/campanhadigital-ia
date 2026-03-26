@@ -4,6 +4,7 @@ import { useCampaign } from '../../context/CampaignContext';
 import { doc, updateDoc } from 'firebase/firestore';
 import { db, COLLECTIONS } from '../../services/firebase';
 import { suggestOpponents } from '../../services/aiService';
+import { runMonitoringCycle } from '../../services/monitorService';
 import type { Competitor, CampaignIdentity } from '../../types';
 
 export default function IdentitySettings() {
@@ -51,6 +52,11 @@ export default function IdentitySettings() {
         updatedAt: new Date()
       });
       alert('Configurações de Identidade salvas com sucesso!');
+      
+      // Dispara ciclo de monitoramento em background para já popular o dashboard
+      runMonitoringCycle(activeCampaign).catch(err => {
+        console.error("Monitor Cycle Background Error:", err);
+      });
     } catch (err) {
       console.error(err);
       alert('Erro ao salvar configurações.');
