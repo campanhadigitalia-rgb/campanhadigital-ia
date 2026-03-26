@@ -20,6 +20,8 @@ export default function LegalMonitorPage() {
   const [alerts, setAlerts] = useState<LegalAlert[]>([]);
   const [ragText, setRagText] = useState('');
   const [submittingRag, setSubmittingRag] = useState(false);
+  const [showAddAlert, setShowAddAlert] = useState(false);
+  const [newAlert, setNewAlert] = useState({ title: '', source: 'Manus AI', level: 'Medium', doc: '', desc: '' });
 
   useEffect(() => {
     if (!campaignId) return;
@@ -50,6 +52,23 @@ export default function LegalMonitorPage() {
       alert('Erro ao submeter pedido de RAG.');
     } finally {
       setSubmittingRag(false);
+    }
+  };
+
+  const handleAddAlert = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!campaignId || !newAlert.title) return;
+    try {
+      await addDoc(collection(db, `campaigns/${campaignId}/legal_alerts`), {
+        ...newAlert,
+        createdAt: serverTimestamp()
+      });
+      alert('Alerta manual registrado com sucesso!');
+      setShowAddAlert(false);
+      setNewAlert({ title: '', source: 'Manus AI', level: 'Medium', doc: '', desc: '' });
+    } catch (err) {
+      console.error(err);
+      alert('Erro ao registrar alerta.');
     }
   };
 
@@ -119,13 +138,40 @@ export default function LegalMonitorPage() {
 
         <div className="lg:col-span-3 space-y-6">
            <div className="glass-card p-6 border border-white/5">
-              <div className="flex items-center gap-6 border-b border-white/5 pb-4 mb-6 text-xs font-black uppercase tracking-widest">
-                 <button onClick={() => setActiveTab('monitor')} className={`pb-1 transition-colors ${activeTab === 'monitor' ? 'text-indigo-400 border-b-2 border-indigo-400' : 'text-slate-500'}`}>Monitor de Movimentações</button>
-                 <button onClick={() => setActiveTab('rag')} className={`pb-1 transition-colors ${activeTab === 'rag' ? 'text-indigo-400 border-b-2 border-indigo-400' : 'text-slate-500'}`}>RAG AI (Defesa & Jurisprudência)</button>
+              <div className="flex items-center justify-between border-b border-white/5 pb-4 mb-6">
+                <div className="flex items-center gap-6 text-xs font-black uppercase tracking-widest">
+                   <button onClick={() => setActiveTab('monitor')} className={`pb-1 transition-colors ${activeTab === 'monitor' ? 'text-indigo-400 border-b-2 border-indigo-400' : 'text-slate-500'}`}>Monitor de Movimentações</button>
+                   <button onClick={() => setActiveTab('rag')} className={`pb-1 transition-colors ${activeTab === 'rag' ? 'text-indigo-400 border-b-2 border-indigo-400' : 'text-slate-500'}`}>RAG AI (Defesa & Jurisprudência)</button>
+                </div>
+                {activeTab === 'monitor' && (
+                  <button onClick={() => setShowAddAlert(!showAddAlert)} className="px-3 py-1.5 bg-indigo-600/20 text-indigo-400 hover:bg-indigo-600/40 rounded border border-indigo-500/30 text-[10px] font-bold uppercase transition-colors">
+                    + Alerta Manual
+                  </button>
+                )}
               </div>
 
               {activeTab === 'monitor' ? (
                 <div className="space-y-4">
+                  {showAddAlert && (
+                    <form onSubmit={handleAddAlert} className="p-4 bg-indigo-950/20 border border-indigo-500/30 rounded-xl space-y-3 mb-6 animate-in slide-in-from-top-2">
+                       <h4 className="text-xs font-black text-indigo-300 uppercase mb-2">Registrar Alerta (Logger Manus AI)</h4>
+                       <div className="grid grid-cols-2 gap-3">
+                         <input required value={newAlert.title} onChange={e => setNewAlert({...newAlert, title: e.target.value})} placeholder="Título do Alerta (Ex: Notificação Recebida)" className="bg-black/40 border border-white/10 rounded p-2 text-xs text-white" />
+                         <input required value={newAlert.doc} onChange={e => setNewAlert({...newAlert, doc: e.target.value})} placeholder="Documento Secundário (Ex: Processo nº 123)" className="bg-black/40 border border-white/10 rounded p-2 text-xs text-white" />
+                         <select value={newAlert.level} onChange={e => setNewAlert({...newAlert, level: e.target.value as 'High'|'Medium'|'Low'})} className="bg-black/40 border border-white/10 rounded p-2 text-xs text-white">
+                            <option value="High">Crítico (High)</option>
+                            <option value="Medium">Atenção (Medium)</option>
+                            <option value="Low">Informativo (Low)</option>
+                         </select>
+                         <input required value={newAlert.source} onChange={e => setNewAlert({...newAlert, source: e.target.value})} placeholder="Fonte (DJE, Redes, Manus AI)" className="bg-black/40 border border-white/10 rounded p-2 text-xs text-white" />
+                       </div>
+                       <textarea required value={newAlert.desc} onChange={e => setNewAlert({...newAlert, desc: e.target.value})} placeholder="Descrição do caso..." className="w-full bg-black/40 border border-white/10 rounded p-2 text-xs text-white h-16"></textarea>
+                       <div className="flex justify-end gap-2 mt-2">
+                          <button type="button" onClick={() => setShowAddAlert(false)} className="px-4 py-2 text-xs text-slate-400 hover:text-white font-bold">Cancelar</button>
+                          <button type="submit" className="px-4 py-2 bg-indigo-600 hover:bg-indigo-500 text-white rounded text-xs font-bold shadow-lg">Salvar no BD</button>
+                       </div>
+                    </form>
+                  )}
                   {alerts.length === 0 ? (
                     <p className="text-xs text-slate-500 text-center py-8">A base de dados do Radar de Adversários está sem alertas (Sincronizado).</p>
                   ) : (
