@@ -91,6 +91,16 @@ export function CashFlowTable() {
     }
   };
 
+  // Search & Filter State
+  const [searchTerm, setSearchTerm] = useState('');
+  const [filterType, setFilterType] = useState<'all' | 'income' | 'expense'>('all');
+  const [filterCategory, setFilterCategory] = useState<string>('all');
+  const [filterSupplier, setFilterSupplier] = useState<string>('all');
+  const [dateStart, setDateStart] = useState('');
+  const [dateEnd, setDateEnd] = useState('');
+
+  const [fundraising, setFundraising] = useState<CashTransaction[]>([]);
+
   const fetchSuppliers = useCallback(() => {
     if (!campaignId) return;
     const p = `campaigns/${campaignId}/people`;
@@ -109,17 +119,48 @@ export function CashFlowTable() {
 
   useEffect(() => {
     if (!campaignId) return;
+
+    // 1. Transações Manuais
     const q = query(collection(db, 'finance_transactions'), where('campaign_id', '==', campaignId));
     const unsub = onSnapshot(q, (snap) => {
       const data = snap.docs.map(d => ({ id: d.id, ...d.data() } as CashTransaction));
-      data.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
       setTransactions(data);
       setLoading(false);
     });
+
+    // 2. Transações de Vaquinha/Evento (Mapeadas para o Fluxo)
+    const qFund = query(collection(db, `campaigns/${campaignId}/fundraisingCampaigns`));
+    const unsubFund = onSnapshot(qFund, (snap) => {
+      const data = snap.docs.map(d => {
+        const doc = d.data();
+        return {
+          id: d.id,
+          description: doc.title,
+          amount: Number(doc.raised) || 0,
+          type: 'income',
+          category: doc.type === 'vaquinha' ? 'vaquinha' : 'eventos',
+          date: doc.createdAt?.seconds ? new Date(doc.createdAt.seconds * 1000).toISOString() : new Date().toISOString(),
+          status: 'completed',
+          paidStatus: 'paid',
+          isAuto: true,
+          campaign_id: campaignId,
+          createdAt: doc.createdAt || serverTimestamp(),
+          updatedAt: serverTimestamp(),
+          createdBy: 'system'
+        } as unknown as CashTransaction;
+      });
+      setFundraising(data);
+    });
+
     const unsubSuppliers = fetchSuppliers();
     const unsubCamps = fetchFundCamps();
-    return () => { unsub(); unsubSuppliers?.(); unsubCamps?.(); };
+    return () => { unsub(); unsubFund(); unsubSuppliers?.(); unsubCamps?.(); };
   }, [campaignId, fetchSuppliers, fetchFundCamps]);
+
+  // Combine and sort
+  const allTransactions = [...transactions, ...fundraising].sort((a, b) => 
+    new Date(b.date).getTime() - new Date(a.date).getTime()
+  );
 
   const handleCreate = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -226,9 +267,26 @@ export function CashFlowTable() {
     await updateDoc(doc(db, 'finance_transactions', t.id), { paidStatus: newStatus });
   };
 
-  const cIncome = transactions.filter(t => t.type === 'income').reduce((acc, t) => acc + t.amount, 0);
-  const cExpense = transactions.filter(t => t.type === 'expense').reduce((acc, t) => acc + t.amount, 0);
+  const filteredTransactions = allTransactions.filter(t => {
+    const matchesSearch = t.description.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                          t.category.toLowerCase().includes(searchTerm.toLowerCase());
+    const matchesType = filterType === 'all' || t.type === filterType;
+    const matchesCategory = filterCategory === 'all' || t.category === filterCategory;
+    const matchesSupplier = filterSupplier === 'all' || t.supplierId === filterSupplier;
+    
+    let matchesDate = true;
+    if (dateStart) matchesDate = matchesDate && new Date(t.date) >= new Date(dateStart);
+    if (dateEnd) matchesDate = matchesDate && new Date(t.date) <= new Date(dateEnd);
+
+    return matchesSearch && matchesType && matchesCategory && matchesSupplier && matchesDate;
+  });
+
+  const cIncome = filteredTransactions.filter(t => t.type === 'income').reduce((acc, t) => acc + t.amount, 0);
+  const cExpense = filteredTransactions.filter(t => t.type === 'expense').reduce((acc, t) => acc + t.amount, 0);
   const balance = cIncome - cExpense;
+
+  const totalIncome = allTransactions.filter(t => t.type === 'income').reduce((acc, t) => acc + t.amount, 0);
+  const totalExpense = allTransactions.filter(t => t.type === 'expense').reduce((acc, t) => acc + t.amount, 0);
 
   return (
     <div className="w-full flex flex-col gap-6 animate-in fade-in duration-500">
@@ -260,7 +318,10 @@ export function CashFlowTable() {
         <div className="p-4 border-b border-white/5 flex flex-wrap items-center justify-between gap-4 bg-slate-900/80 backdrop-blur-md">
           <div className="flex items-center gap-3">
              <div className="p-2 bg-indigo-500/20 text-indigo-400 rounded-lg"><FileText size={20}/></div>
-             <h3 className="text-sm font-bold text-slate-200">Livro Caixa SPCE (Realimentado)</h3>
+             <div>
+               <h3 className="text-sm font-bold text-slate-200">Livro Caixa SPCE (Realimentado)</h3>
+               <p className="text-[10px] text-slate-500 font-medium">Total Global: <span className="text-emerald-400">{formatCurrency(totalIncome)}</span> / <span className="text-rose-400">{formatCurrency(totalExpense)}</span></p>
+             </div>
           </div>
           <div className="flex gap-2">
             <button className="flex items-center gap-2 px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-widest bg-white/5 hover:bg-white/10 text-white transition-colors">
@@ -270,6 +331,63 @@ export function CashFlowTable() {
               <Plus size={16} /> Novo
             </button>
           </div>
+        </div>
+
+        {/* Barra de Filtros */}
+        <div className="p-3 bg-black/40 border-b border-white/5 flex flex-wrap gap-3 items-center">
+          <div className="flex-1 min-w-[200px]">
+             <input 
+               type="text" 
+               placeholder="Buscar descrição ou categoria..." 
+               value={searchTerm}
+               onChange={e => setSearchTerm(e.target.value)}
+               className="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-1.5 text-xs text-white outline-none focus:border-indigo-500/50"
+             />
+          </div>
+          <select 
+            value={filterType} 
+            onChange={e => setFilterType(e.target.value as any)}
+            className="bg-white/5 border border-white/10 rounded-lg px-3 py-1.5 text-xs text-white outline-none focus:border-indigo-500/50 [&>option]:bg-slate-900"
+          >
+            <option value="all">Tipos: Todos</option>
+            <option value="income">Entradas</option>
+            <option value="expense">Saídas</option>
+          </select>
+          <select 
+            value={filterCategory} 
+            onChange={e => setFilterCategory(e.target.value)}
+            className="bg-white/5 border border-white/10 rounded-lg px-3 py-1.5 text-xs text-white outline-none focus:border-indigo-500/50 [&>option]:bg-slate-900"
+          >
+            <option value="all">Categorias: Todas</option>
+            {Object.entries(CATEGORY_LABELS).map(([k,v]) => (
+              <option key={k} value={k}>{v}</option>
+            ))}
+          </select>
+          <select 
+            value={filterSupplier} 
+            onChange={e => setFilterSupplier(e.target.value)}
+            className="bg-white/5 border border-white/10 rounded-lg px-3 py-1.5 text-xs text-white outline-none focus:border-indigo-500/50 [&>option]:bg-slate-900 max-w-[150px]"
+          >
+            <option value="all">Fornecedores: Todos</option>
+            {suppliers.map(s => (
+              <option key={s.id} value={s.id}>{s.name}</option>
+            ))}
+          </select>
+          <div className="flex items-center gap-2">
+            <span className="text-[10px] font-bold text-slate-500 uppercase">De:</span>
+            <input type="date" value={dateStart} onChange={e => setDateStart(e.target.value)} className="bg-white/5 border border-white/10 rounded-lg px-2 py-1 text-[10px] text-white outline-none focus:border-indigo-500/50" />
+            <span className="text-[10px] font-bold text-slate-500 uppercase">Até:</span>
+            <input type="date" value={dateEnd} onChange={e => setDateEnd(e.target.value)} className="bg-white/5 border border-white/10 rounded-lg px-2 py-1 text-[10px] text-white outline-none focus:border-indigo-500/50" />
+          </div>
+          {(searchTerm || filterType !== 'all' || filterCategory !== 'all' || filterSupplier !== 'all' || dateStart || dateEnd) && (
+            <button 
+              onClick={() => { setSearchTerm(''); setFilterType('all'); setFilterCategory('all'); setFilterSupplier('all'); setDateStart(''); setDateEnd(''); }} 
+              className="p-1.5 bg-rose-500/10 text-rose-400 rounded-lg hover:bg-rose-500/20 transition-colors"
+              title="Limpar Filtros"
+            >
+              <X size={14} />
+            </button>
+          )}
         </div>
 
         <div className="overflow-x-auto">
@@ -287,9 +405,9 @@ export function CashFlowTable() {
             <tbody className="divide-y divide-white/5">
               {loading ? (
                 <tr><td colSpan={6} className="p-8 text-center text-slate-500">Processando registros...</td></tr>
-              ) : transactions.length === 0 ? (
-                <tr><td colSpan={6} className="p-8 text-center text-slate-500">Sem movimentações no período.</td></tr>
-              ) : transactions.map(t => {
+              ) : filteredTransactions.length === 0 ? (
+                <tr><td colSpan={6} className="p-8 text-center text-slate-500">Nenhuma movimentação encontrada com os filtros atuais.</td></tr>
+              ) : filteredTransactions.map(t => {
                 const supplier = t.supplierId ? suppliers.find(s => s.id === t.supplierId) : null;
                 const isApproved = supplier ? supplier.legalStatus === 'approved' : t.type === 'income';
 
@@ -404,17 +522,20 @@ export function CashFlowTable() {
                  <div className="space-y-1">
                   <label className="text-[10px] font-bold text-slate-500 uppercase ml-1">Categoria de Entrada/Saída</label>
                   <select value={category} onChange={e => setCategory(e.target.value)} className="w-full bg-black/50 border border-slate-700 rounded-lg p-2.5 text-white text-xs outline-none focus:border-indigo-500/50 [&>option]:bg-slate-900">
-                    <optgroup label="Entradas">
-                      <option value="fundoPartidario">Fundo Partidário (FEFC)</option>
-                      <option value="doacaoFisica">Doação Pessoa Física</option>
-                      <option value="vaquinha">Crowdfunding / Vaquinha</option>
-                      <option value="eventos">Eventos Arrecadação</option>
-                    </optgroup>
-                    <optgroup label="Saídas">
-                      <option value="pessoal">Equipe / Cabos Eleitorais</option>
-                      <option value="grafica">Materiais Gráficos</option>
-                      <option value="marketing">Impulsionamento / Digital</option>
-                    </optgroup>
+                    {type === 'income' ? (
+                      <optgroup label="Entradas (Receitas)">
+                        <option value="fundoPartidario">Fundo Partidário (FEFC)</option>
+                        <option value="doacaoFisica">Doação Pessoa Física</option>
+                        <option value="vaquinha">Crowdfunding / Vaquinha</option>
+                        <option value="eventos">Eventos Arrecadação</option>
+                      </optgroup>
+                    ) : (
+                      <optgroup label="Saídas (Despesas)">
+                        <option value="pessoal">Equipe / Cabos Eleitorais</option>
+                        <option value="grafica">Materiais Gráficos</option>
+                        <option value="marketing">Impulsionamento / Digital</option>
+                      </optgroup>
+                    )}
                     <option value="outros">Outros / Diversos</option>
                   </select>
                  </div>

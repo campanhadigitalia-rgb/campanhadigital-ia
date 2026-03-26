@@ -60,7 +60,8 @@ const TYPE_COLORS: Record<SupplierType, string> = {
 const fmt = (v: number) => new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(v);
 
 export function SuppliersPage() {
-  const { activeCampaign } = useCampaign();
+  // Use campaignId directly for more stability
+  const { campaignId } = useCampaign();
   const [suppliers, setSuppliers] = useState<Supplier[]>([]);
   const [adding, setAdding] = useState(false);
   const [filterType, setFilterType] = useState<SupplierType | 'Todos'>('Todos');
@@ -75,19 +76,19 @@ export function SuppliersPage() {
   const [isGeneratingDraft, setIsGeneratingDraft] = useState(false);
   const [draftContent, setDraftContent] = useState('');
 
-  const path = useCallback(() =>
-    activeCampaign ? `campaigns/${activeCampaign.id}/people` : null,
-    [activeCampaign]);
+  const getPath = useCallback(() =>
+    campaignId ? `campaigns/${campaignId}/people` : null,
+    [campaignId]);
 
   useEffect(() => {
-    const p = path();
+    const p = getPath();
     if (!p) { setSuppliers([]); return; }
     return onSnapshot(collection(db, p), snap => {
       const data = snap.docs.map(d => ({ id: d.id, ...d.data() } as Supplier));
       data.sort((a, b) => (b.createdAt?.seconds ?? 0) - (a.createdAt?.seconds ?? 0));
       setSuppliers(data);
     });
-  }, [path]);
+  }, [getPath]);
 
   const generateDraft = (s: Supplier) => {
     const draftText = `
@@ -111,14 +112,14 @@ Assinatura do Contratado
 
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files;
-    if (!files || !activeCampaign) return;
+    if (!files || !campaignId) return;
 
     setIsUploading(true);
     try {
       const urls: string[] = [];
       for (let i = 0; i < files.length; i++) {
         const file = files[i];
-        const storageRef = ref(storage, `campaigns/${activeCampaign.id}/people/${Date.now()}_${file.name}`);
+        const storageRef = ref(storage, `campaigns/${campaignId}/people/${Date.now()}_${file.name}`);
         const snapshot = await uploadBytes(storageRef, file);
         const url = await getDownloadURL(snapshot.ref);
         urls.push(url);
@@ -134,10 +135,15 @@ Assinatura do Contratado
   };
 
   const handleAdd = async () => {
-    const p = path();
-    if (!p || !form.name.trim()) return;
+    const p = getPath();
+    if (!p) { 
+       alert('Erro: Campanha não carregada.');
+       return; 
+    }
+    if (!form.name.trim()) return;
+    
     setAdding(true);
-    try { 
+    try {
       await addDoc(collection(db, p), { 
         ...form, 
         documentsUrl,
@@ -145,8 +151,9 @@ Assinatura do Contratado
         createdAt: serverTimestamp() 
       }); 
       setDocumentsUrl([]);
+    } finally { 
+      setAdding(false); 
     }
-    finally { setAdding(false); }
     setForm({ 
       type: 'Pessoa Jurídica', name: '', cpfCnpj: '', contact: '', 
       category: 'Locação de Veículo', contractValue: 0, notes: '', 
@@ -156,13 +163,13 @@ Assinatura do Contratado
   };
 
   const handleUpdateStatus = async (id: string, status: LegalStatus) => {
-    const p = path();
+    const p = getPath();
     if (!p) return;
     await updateDoc(doc(db, p, id), { legalStatus: status });
   };
 
   const handleDelete = async (id: string) => {
-    const p = path();
+    const p = getPath();
     if (!p) return;
     if (confirm('Deseja excluir este fornecedor?')) {
       await deleteDoc(doc(db, p, id));

@@ -79,6 +79,45 @@ html, body, #root {
   animation: gradient-shift 8s ease infinite;
 }
 
+/* Sidebar Responsive */
+.sidebar-main {
+  position: fixed;
+  z-index: 1000;
+  height: 100vh;
+  width: 220px;
+  background: rgba(7, 10, 20, 0.98);
+  backdrop-filter: blur(15px);
+  border-right: 1px solid rgba(99, 102, 241, 0.15);
+  box-shadow: 20px 0 50px rgba(0,0,0,0.5);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  flex-shrink: 0;
+}
+
+@media (min-width: 1024px) {
+  .sidebar-main {
+    position: relative;
+    box-shadow: none;
+    background: rgba(15, 23, 42, 0.95);
+  }
+}
+
+/* Mobile Backdrop */
+.mobile-backdrop {
+  position: fixed;
+  inset: 0;
+  background-color: rgba(0, 0, 0, 0.6);
+  backdrop-filter: blur(4px);
+  z-index: 999;
+}
+
+@media (min-width: 1024px) {
+  .mobile-backdrop {
+    display: none;
+  }
+}
+
 @keyframes gradient-shift {
   0%   { background-position: 0% 50%; }
   50%  { background-position: 100% 50%; }

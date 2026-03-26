@@ -47,20 +47,37 @@ service cloud.firestore {
 
     // Campanhas - Admin ou Proprietário
     match /campaigns/{campaignId} {
-      allow read: if isProprietor() || (isSignedIn() && resource.data.admin_email == request.auth.token.email);
-      allow write: if isProprietor() || (isSignedIn() && resource.data.admin_email == request.auth.token.email);
+      allow read, write: if isProprietor() || (isSignedIn() && resource.data.admin_email == request.auth.token.email);
       allow create: if isProprietor();
+
+      // Permitir acesso a sub-coleções (fornecedores, vaquinhas, etc.)
+      match /{subCollection}/{docId} {
+        allow read, write: if isProprietor() || isCampaignAdmin(campaignId) || (isSignedIn() && getProfile().campaign_id == campaignId);
+      }
     }
 
-    // Contatos, Interações, Mensagens, etc. (Multi-Tenant isolado por campaign_id)
+    // Transações Financeiras (Coleção Legada/Top-level se usada)
+    match /finance_transactions/{docId} {
+      allow read, write: if isProprietor() || (
+        isSignedIn() && 
+        (
+          ('campaign_id' in resource.data && hasCampaignAccess(resource.data.campaign_id)) ||
+          ('campaign_id' in request.resource.data && hasCampaignAccess(request.resource.data.campaign_id))
+        )
+      );
+      allow create: if isSignedIn() && 'campaign_id' in request.resource.data && hasCampaignAccess(request.resource.data.campaign_id);
+    }
+
+    // Outras coleções (Multi-Tenant isolado por campaign_id)
     match /{collection}/{docId} {
       allow read, write: if isProprietor() || (
         isSignedIn() && 
-        'campaign_id' in resource.data && 
-        hasCampaignAccess(resource.data.campaign_id)
+        (
+          (resource != null && 'campaign_id' in resource.data && hasCampaignAccess(resource.data.campaign_id)) ||
+          (request.resource != null && 'campaign_id' in request.resource.data && hasCampaignAccess(request.resource.data.campaign_id))
+        )
       );
       
-      // Permitir criação se o usuário tiver acesso à campanha enviada no payload
       allow create: if isProprietor() || (
         isSignedIn() && 
         'campaign_id' in request.resource.data && 

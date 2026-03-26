@@ -77,7 +77,12 @@ export function CampaignProvider({ children }: { children: React.ReactNode }) {
 
       // Removemos auto-select forçado para mostrar o Modal
       // Apenas restaura do LocalStorage se existir
-      if (!activeCampaign) {
+      if (activeCampaign) {
+        const updated = data.find((c) => c.id === activeCampaign.id);
+        if (updated && JSON.stringify(updated) !== JSON.stringify(activeCampaign)) {
+          setActiveCampaign(updated);
+        }
+      } else {
         const savedId = localStorage.getItem('@Campanha_Ativa');
         if (savedId) {
           const found = data.find((c) => c.id === savedId);

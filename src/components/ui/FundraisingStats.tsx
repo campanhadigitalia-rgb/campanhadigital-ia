@@ -1,8 +1,9 @@
 import { useState, useEffect } from 'react';
-import { PieChart as LucidePieChart } from 'lucide-react';
+import { PieChart as LucidePieChart, QrCode, HandCoins, X, Download, Target } from 'lucide-react';
 import { BarChart as RechartsBarChart, Bar as RechartsBar, XAxis as RechartsXAxis, YAxis as RechartsYAxis, Tooltip as RechartsTooltip, ResponsiveContainer as RechartsResponsiveContainer, CartesianGrid as RechartsCartesianGrid, Cell as RechartsCell } from 'recharts';
 import { motion, AnimatePresence } from 'framer-motion';
-import { QrCode, HandCoins, X, Download, Target } from 'lucide-react';
+import { onSnapshot, collection, query, where } from 'firebase/firestore';
+import { db } from '../../services/firebase';
 import { fetchFinanceStats, type FinanceStats } from '../../services/multipliersService';
 import { useCampaign } from '../../context/CampaignContext';
 
@@ -28,15 +29,24 @@ export function FundraisingStats() {
   const [showPix, setShowPix] = useState(false);
 
   useEffect(() => {
-    fetchFinanceStats(campaignId).then((data) => {
-      const userGoal = activeCampaign?.financeConfig?.monthlyGoal;
-      if (userGoal && userGoal > 0) {
-         setStats({ ...data, monthlyGoal: userGoal });
-      } else {
-         setStats(data);
-      }
-    });
-  }, [campaignId, activeCampaign]);
+    if (!campaignId) return;
+
+    const updateStats = async () => {
+      const data = await fetchFinanceStats(campaignId);
+      const userGoal = activeCampaign?.financeConfig?.monthlyGoal || 0;
+      setStats({ ...data, monthlyGoal: userGoal });
+    };
+
+    // Listen to manual transactions
+    const qT = query(collection(db, 'finance_transactions'), where('campaign_id', '==', campaignId));
+    const unsubT = onSnapshot(qT, updateStats);
+
+    // Listen to vaquinhas/eventos
+    const qF = query(collection(db, `campaigns/${campaignId}/fundraisingCampaigns`));
+    const unsubF = onSnapshot(qF, updateStats);
+
+    return () => { unsubT(); unsubF(); };
+  }, [campaignId, activeCampaign?.financeConfig?.monthlyGoal]);
 
   if (!stats) {
     return (
@@ -50,16 +60,28 @@ export function FundraisingStats() {
 
   const progressPercent = stats.monthlyGoal > 0 ? Math.min((stats.raised / stats.monthlyGoal) * 100, 100) : 0;
 
-  const chartData = Object.entries(stats.breakdown)
+  const realData = Object.entries(stats.breakdown)
     .filter(([, val]) => val > 0)
     .map(([key, val]) => ({
       name: CATEGORY_LABELS[key] || key,
       valor: val,
-      color: CATEGORY_COLORS[key] || '#cccccc'
-    }))
-    .sort((a, b) => b.valor - a.valor);
+      color: CATEGORY_COLORS[key] || '#cccccc',
+      type: 'real'
+    }));
 
-  const displayData = chartData.length > 0 ? chartData : [{ name: 'Aguardando Doações', valor: 0.01, color: '#1e293b' }];
+  const plannedData = activeCampaign?.financeConfig?.categoryGoals 
+    ? Object.entries(activeCampaign.financeConfig.categoryGoals)
+        .filter(([, val]) => val > 0)
+        .map(([key, val]) => ({
+          name: `${CATEGORY_LABELS[key] || key} (Meta)`,
+          valor: val,
+          color: `${CATEGORY_COLORS[key] || '#cccccc'}80`, // 50% opacity for planned
+          type: 'planned'
+        }))
+    : [];
+
+  const chartData = realData.length > 0 ? realData : plannedData;
+  const displayData = chartData.length > 0 ? chartData : [{ name: 'Aguardando Planejamento', valor: 0.01, color: '#1e293b', type: 'none' }];
 
   const formatCurrency = (val: number) => new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(val);
 
@@ -122,21 +144,29 @@ export function FundraisingStats() {
 
           {/* Breakdown */}
           <div className="mt-2 space-y-2">
-            <p className="text-[9px] font-black text-slate-500 uppercase tracking-widest pl-1">Detalhamento por Origem</p>
+            <p className="text-[9px] font-black text-slate-500 uppercase tracking-widest pl-1 flex justify-between">
+              <span>Detalhamento por Origem</span>
+              <span>Real / Meta</span>
+            </p>
             {Object.entries(stats.breakdown).map(([key, val]) => {
               const perc = stats.raised > 0 ? (val / stats.raised) * 100 : 0;
+              const goal = activeCampaign?.financeConfig?.categoryGoals?.[key as keyof typeof activeCampaign.financeConfig.categoryGoals] || 0;
               const isSourceActive = activeCampaign?.financeConfig?.sources[key as keyof typeof activeCampaign.financeConfig.sources] ?? true;
-              if (val === 0 && !isSourceActive) return null;
+              
+              if (val === 0 && !isSourceActive && goal === 0) return null;
               
               return (
                 <div key={key} className="flex items-center justify-between p-2 rounded-lg bg-black/20 border border-white/5 group hover:border-white/10 transition-colors">
                   <div className="flex items-center gap-2">
                     <div className="w-2 h-2 rounded-full" style={{ backgroundColor: CATEGORY_COLORS[key] || '#666' }} />
-                    <span className="text-[11px] font-bold text-slate-300">{CATEGORY_LABELS[key] || key}</span>
+                    <div className="flex flex-col">
+                      <span className="text-[11px] font-bold text-slate-300">{CATEGORY_LABELS[key] || key}</span>
+                      <span className="text-[9px] font-bold text-slate-600">{perc.toFixed(1)}% do mix atual</span>
+                    </div>
                   </div>
                   <div className="text-right">
                     <p className="text-xs font-black text-slate-100 m-0">{formatCurrency(val)}</p>
-                    <p className="text-[9px] font-bold text-slate-600 m-0">{perc.toFixed(1)}% do mix</p>
+                    <p className="text-[9px] font-bold text-emerald-500/70 m-0">Meta: {formatCurrency(goal)}</p>
                   </div>
                 </div>
               );
@@ -145,8 +175,8 @@ export function FundraisingStats() {
         </div>
 
         {/* Painel Direito (Gráfico) */}
-        <div className="flex flex-col h-full min-h-[250px] items-center justify-center p-4 rounded-2xl bg-black/20 border border-white/5">
-          <RechartsResponsiveContainer width="100%" height="100%">
+        <div className="flex flex-col h-[300px] w-full items-center justify-center p-4 rounded-2xl bg-black/20 border border-white/5 relative">
+          <RechartsResponsiveContainer width="99%" height="100%">
             <RechartsBarChart layout="vertical" data={displayData} margin={{ top: 5, right: 30, left: 40, bottom: 5 }}>
               <RechartsCartesianGrid strokeDasharray="3 3" horizontal={false} stroke="rgba(255,255,255,0.05)" />
               <RechartsXAxis type="number" hide />

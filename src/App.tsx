@@ -21,13 +21,16 @@ import Contacts from './pages/Contacts';
 import Studio from './pages/Studio';
 import Messaging from './pages/Messaging';
 import OraclePage from './pages/Oracle';
-import LegalPage from './pages/Legal';
+import LegalDocsPage from './pages/Legal';
+import LegalDashboardPage from './pages/Legal/LegalDashboardPage';
+import LegalCompliancePage from './pages/Legal/LegalCompliancePage';
+import LegalMonitorPage from './pages/Legal/LegalMonitorPage';
+import LegalFinanceiroPage from './pages/Legal/LegalFinanceiroPage';
 import SettingsPage from './pages/Settings';
 import MCPAgents from './pages/MCPAgents';
 import FinancePage from './pages/Finance';
 import AdminPage from './pages/Administrative';
 import { PeopleManager } from './components/ui/PeopleManager';
-// LegalGuardian agora está embutido na LegalPage com tabs internas
 
 // ── Tela de Login ──────────────────────────────────────────────
 function LoginScreen() {
@@ -145,7 +148,7 @@ function LoginScreen() {
   );
 }
 
-export type NavId = 'dashboard' | 'legal' | 'finance_dashboard' | 'finance_caixa' | 'finance_suppliers' | 'finance_vaquinha' | 'admin' | 'pessoas' | 'studio' | 'whatsapp' | 'oracle' | 'contacts' | 'messaging' | 'mcp' | 'settings' | 'agenda' | 'owner';
+export type NavId = 'dashboard' | 'legal_dashboard' | 'legal_compliance' | 'legal_monitor' | 'legal_financeiro' | 'legal_docs' | 'finance_dashboard' | 'finance_caixa' | 'finance_suppliers' | 'finance_vaquinha' | 'admin' | 'pessoas' | 'studio' | 'whatsapp' | 'oracle' | 'contacts' | 'messaging' | 'mcp' | 'settings' | 'agenda' | 'owner';
 
 interface NavItem {
   id: string;
@@ -163,7 +166,11 @@ const NAV_ITEMS: NavItem[] = [
   {
     id: 'grp_juridico', label: '1. Jurídico', Icon: Scale,
     subItems: [
-      { id: 'legal', label: 'Compliance Jurídico' }
+      { id: 'legal_dashboard',   label: '⚖️ Central Jurídica' },
+      { id: 'legal_compliance',  label: '🔍 Compliance de Conteúdo' },
+      { id: 'legal_monitor',     label: '🎯 Monitor de Adversários' },
+      { id: 'legal_financeiro',  label: '📊 Prestação de Contas' },
+      { id: 'legal_docs',        label: '🗂️ Dossiê de Registro' },
     ]
   },
   {
@@ -259,23 +266,27 @@ export default function App() {
   if (!user) return <LoginScreen />;
 
   const PAGE_MAP: Record<NavId, React.ReactNode> = {
-    dashboard:          <Dashboard />,
-    legal:              <LegalPage />,
-    finance_dashboard:  <FinancePage activeTab="dashboard" />,
-    finance_caixa:      <FinancePage activeTab="caixa" />,
-    finance_suppliers:  <FinancePage activeTab="suppliers" />,
-    finance_vaquinha:   <FinancePage activeTab="vaquinha" />,
-    admin:              <AdminPage />,
-    pessoas:            <PeopleManager />,
-    studio:             <Studio />,
-    messaging:          <Messaging />,
-    whatsapp:           <Messaging />,
-    oracle:             <OraclePage />,
-    contacts:           <Contacts />,
-    mcp:                <MCPAgents />,
-    settings:           <SettingsPage />,
-    agenda:             <CampaignCalendar />,
-    owner:              <div className="p-6 text-white">Owner Portal under construction.</div>
+    dashboard:            <Dashboard />,
+    legal_dashboard:      <LegalDashboardPage onNavigate={setPage} />,
+    legal_compliance:     <LegalCompliancePage />,
+    legal_monitor:        <LegalMonitorPage />,
+    legal_financeiro:     <LegalFinanceiroPage onNavigate={setPage} />,
+    legal_docs:           <LegalDocsPage />,
+    finance_dashboard:    <FinancePage activeTab="dashboard" />,
+    finance_caixa:        <FinancePage activeTab="caixa" />,
+    finance_suppliers:    <FinancePage activeTab="suppliers" />,
+    finance_vaquinha:     <FinancePage activeTab="vaquinha" />,
+    admin:                <AdminPage />,
+    pessoas:              <PeopleManager />,
+    studio:               <Studio />,
+    messaging:            <Messaging />,
+    whatsapp:             <Messaging />,
+    oracle:               <OraclePage />,
+    contacts:             <Contacts />,
+    mcp:                  <MCPAgents />,
+    settings:             <SettingsPage />,
+    agenda:               <CampaignCalendar />,
+    owner:                <div className="p-6 text-white">Owner Portal under construction.</div>
   };
 
   return (

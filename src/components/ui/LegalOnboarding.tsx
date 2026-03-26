@@ -9,6 +9,7 @@ import jsPDF from 'jspdf';
 interface AttachedFile {
   name: string;
   size: number;
+  dataUrl?: string; // Base64 stored in Firestore (no Firebase Storage cost)
 }
 
 export function LegalOnboarding() {
@@ -22,6 +23,7 @@ export function LegalOnboarding() {
     cnpj: null, bankAccount: null, pix: null,
     fidelidade: null, docs: null, tre: null, cnpj_emitted: null, spce_setup: null
   });
+  const [attachSaving, setAttachSaving] = useState(false);
   const [legal, setLegal] = useState({
     cnpj: '',
     bankAccount: '',
@@ -52,6 +54,11 @@ export function LegalOnboarding() {
           spce_setup: activeCampaign.legalConfig.checklist?.spce_setup || false
         }
       });
+      // Load saved attachments from Firestore (Base64, no Storage cost)
+      const savedAtts = (activeCampaign.legalConfig as { attachments?: Record<string, AttachedFile> }).attachments;
+      if (savedAtts) {
+        setAttachments(prev => ({ ...prev, ...savedAtts }));
+      }
     }
   }, [activeCampaign]);
 
@@ -202,16 +209,44 @@ export function LegalOnboarding() {
     fileRefs.current[key]?.click();
   };
 
-  const handleFileChange = (key: string, e: React.ChangeEvent<HTMLInputElement>) => {
+  // Convert file to Base64 and save to Firestore (replaces Firebase Storage — free tier)
+  const handleFileChange = async (key: string, e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
-    if (file) {
-      setAttachments(prev => ({ ...prev, [key]: { name: file.name, size: file.size } }));
+    if (!file || !activeCampaign) return;
+    if (file.size > 800 * 1024) {
+      alert('Arquivo muito grande. O limite é 800 KB para armazenamento no banco. Comprima o arquivo e tente novamente.');
+      return;
+    }
+    setAttachSaving(true);
+    try {
+      const dataUrl = await new Promise<string>((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => resolve(reader.result as string);
+        reader.onerror = reject;
+        reader.readAsDataURL(file);
+      });
+      const attFile: AttachedFile = { name: file.name, size: file.size, dataUrl };
+      const updated = { ...attachments, [key]: attFile };
+      setAttachments(updated);
+      // Persist to Firestore (no Storage cost)
+      await updateDoc(doc(db, COLLECTIONS.CAMPAIGNS, activeCampaign.id), {
+        'legalConfig.attachments': updated,
+      });
+    } catch {
+      alert('Erro ao salvar o arquivo. Tente novamente.');
+    } finally {
+      setAttachSaving(false);
     }
   };
 
-  const removeAttachment = (key: string) => {
-    setAttachments(prev => ({ ...prev, [key]: null }));
+  const removeAttachment = async (key: string) => {
+    if (!activeCampaign) return;
+    const updated = { ...attachments, [key]: null };
+    setAttachments(updated);
     if (fileRefs.current[key]) fileRefs.current[key]!.value = '';
+    await updateDoc(doc(db, COLLECTIONS.CAMPAIGNS, activeCampaign.id), {
+      'legalConfig.attachments': updated,
+    });
   };
 
   const checkItems = [
@@ -232,9 +267,13 @@ export function LegalOnboarding() {
     return (
       <div className="flex items-center gap-1">
         {att ? (
-          <span className="flex items-center gap-1 text-[10px] text-emerald-400 bg-emerald-500/10 border border-emerald-500/20 px-1.5 py-0.5 rounded max-w-[120px]">
+          <span className="flex items-center gap-1 text-[10px] text-emerald-400 bg-emerald-500/10 border border-emerald-500/20 px-1.5 py-0.5 rounded max-w-[140px]">
             <Paperclip size={8} />
-            <span className="truncate">{att.name}</span>
+            {att.dataUrl ? (
+              <a href={att.dataUrl} download={att.name} className="truncate hover:text-emerald-300 transition-colors">{att.name}</a>
+            ) : (
+              <span className="truncate">{att.name}</span>
+            )}
             <button type="button" onClick={() => removeAttachment(field)} className="ml-0.5 text-red-400 hover:text-red-300">
               <X size={8} />
             </button>
@@ -243,9 +282,10 @@ export function LegalOnboarding() {
           <button
             type="button"
             onClick={() => triggerFileInput(field)}
-            className="text-indigo-400 hover:text-indigo-300 flex items-center gap-1 bg-indigo-500/10 hover:bg-indigo-500/20 px-2 py-0.5 rounded transition-colors text-[10px] border border-indigo-500/20"
+            disabled={attachSaving}
+            className="text-indigo-400 hover:text-indigo-300 disabled:opacity-50 flex items-center gap-1 bg-indigo-500/10 hover:bg-indigo-500/20 px-2 py-0.5 rounded transition-colors text-[10px] border border-indigo-500/20"
           >
-            <Upload size={9} /> Anexar
+            <Upload size={9} /> {attachSaving ? '...' : 'Anexar'}
           </button>
         )}
         <input

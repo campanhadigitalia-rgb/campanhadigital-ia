@@ -54,24 +54,38 @@ export async function fetchFinanceStats(campaignId: string): Promise<FinanceStat
   };
 
   try {
-     const q = query(collection(db, 'finance_transactions'), where('campaign_id', '==', campaignId));
-     const snap = await getDocs(q);
-     
-     if (snap.empty) return emptyStats;
-
      const stats = { ...emptyStats };
      
-     snap.docs.forEach(d => {
+     // 1. Transações manuais (Livro Caixa)
+     const qTransactions = query(collection(db, 'finance_transactions'), where('campaign_id', '==', campaignId));
+     const snapT = await getDocs(qTransactions);
+     
+     snapT.docs.forEach(d => {
        const data = d.data();
        if (data.type === 'income') {
-         stats.raised += data.amount || 0;
+         const amount = Number(data.amount) || 0;
+         stats.raised += amount;
          const cat = data.category as keyof typeof stats.breakdown;
          if (stats.breakdown[cat] !== undefined) {
-           stats.breakdown[cat] += data.amount || 0;
+           stats.breakdown[cat] += amount;
          } else {
-           stats.breakdown.outros += data.amount || 0;
+           stats.breakdown.outros += amount;
          }
        }
+     });
+
+     // 2. Vaquinhas e Eventos (Fundraising Campaigns)
+     const qFund = query(collection(db, `campaigns/${campaignId}/fundraisingCampaigns`));
+     const snapF = await getDocs(qFund);
+     
+     snapF.docs.forEach(d => {
+       const data = d.data();
+       const raised = Number(data.raised) || 0;
+       const type = data.type as 'vaquinha' | 'evento';
+       
+       stats.raised += raised;
+       if (type === 'vaquinha') stats.breakdown.vaquinha += raised;
+       else if (type === 'evento') stats.breakdown.eventos += raised;
      });
 
      return stats;
