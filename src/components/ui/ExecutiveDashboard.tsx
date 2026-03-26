@@ -50,9 +50,9 @@ export function ExecutiveDashboard() {
     enabled: !!activeCampaign?.id
   });
 
-  const { data: polls } = useQuery<any[]>({ 
+  const { data: polls } = useQuery<Record<string, number>[]>({ 
     queryKey: ['oracle_polls', activeCampaign?.id], 
-    queryFn: () => getPollTrackingHistory(activeCampaign?.id || 'CDIA_2026'), 
+    queryFn: () => getPollTrackingHistory(activeCampaign?.id || 'CDIA_2026') as unknown as Promise<Record<string, number>[]>, 
     staleTime: 60000 
   });
 
@@ -60,11 +60,11 @@ export function ExecutiveDashboard() {
   const { data: cells } = useQuery({ queryKey: ['militancy_cells'], queryFn: () => fetchMilitancyCells(activeCampaign?.id || 'CDIA_2026'), staleTime: 60000 });
 
   const pollsList = Array.isArray(polls) ? polls : [];
-  const currentIntent = aggregates?.currentIntent || (pollsList.length > 0 ? (pollsList[pollsList.length - 1] as any).Governador || 0 : 0);
+  const currentIntent = aggregates?.currentIntent || (pollsList.length > 0 ? (pollsList[pollsList.length - 1] as Record<string, number>).Governador || 0 : 0);
   const totalEngagement = aggregates?.engagementCount || 0;
   
-  const financeRaised = (finance as any)?.raised || 0;
-  const totalReach = Array.isArray(cells) ? (cells as any[]).reduce((acc: number, c: any) => acc + (c.estimatedReach || 0), 0) : 0;
+  const financeRaised = (finance as { raised?: number } | undefined)?.raised || 0;
+  const totalReach = Array.isArray(cells) ? (cells as { estimatedReach?: number }[]).reduce((acc: number, c) => acc + (c.estimatedReach || 0), 0) : 0;
   const streetClimate = totalEngagement > 0 ? Math.min(100, Math.floor((totalEngagement / 1000) * 100)) : 0;
 
   const exportPDF = () => { logger.info('Iniciando exportação de PDF...'); window.print(); };
@@ -123,7 +123,7 @@ export function ExecutiveDashboard() {
           <button onClick={exportPDF} className="flex-1 md:flex-none justify-center bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-600 px-4 py-2.5 rounded-lg flex items-center gap-2 text-xs md:text-sm font-bold transition-all shadow-sm">
             <Download size={14} /> Briefing (PDF)
           </button>
-          <button onClick={() => setWarMode(true)} className="flex-1 md:flex-none justify-center bg-gradient-to-r from-red-600 to-rose-600 hover:from-red-500 hover:to-rose-500 text-white px-5 py-2.5 rounded-lg flex items-center gap-2 text-xs md:text-sm font-black transition-all shadow-[0_0_15px_rgba(220,38,38,0.5)]">
+          <button onClick={() => setWarMode(true)} className="flex-1 md:flex-none justify-center bg-linear-to-r from-red-600 to-rose-600 hover:from-red-500 hover:to-rose-500 text-white px-5 py-2.5 rounded-lg flex items-center gap-2 text-xs md:text-sm font-black transition-all shadow-[0_0_15px_rgba(220,38,38,0.5)]">
             <Flame size={14} /> MODO GUERRA
           </button>
         </div>
@@ -146,7 +146,7 @@ export function ExecutiveDashboard() {
       </div>
 
       <div className="bg-slate-900/80 border border-red-500/20 rounded-xl py-4 px-3 min-h-[60px] flex flex-col sm:flex-row items-start sm:items-center gap-3 flex-wrap shadow-inner relative overflow-hidden">
-         <div className="absolute left-0 top-0 bottom-0 w-1 bg-gradient-to-b from-amber-500 to-red-500"></div>
+         <div className="absolute left-0 top-0 bottom-0 w-1 bg-linear-to-b from-amber-500 to-red-500"></div>
          <span className="text-[10px] font-black uppercase text-red-500 tracking-widest bg-red-500/10 px-2 py-1 rounded ml-2 flex items-center gap-1.5 whitespace-nowrap">
            <AlertTriangle size={12}/> Prioridades Máximas
          </span>

@@ -178,7 +178,7 @@ export function VehicleLogistics() {
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           <div className="lg:col-span-1 flex flex-col gap-6">
             {!activeRun ? (
-               <div className="glass-card border border-amber-500/30 p-5 bg-gradient-to-br from-amber-500/5 to-transparent">
+               <div className="glass-card border border-amber-500/30 p-5 bg-linear-to-br from-amber-500/5 to-transparent">
                  <h3 className="font-bold text-amber-300 flex items-center gap-2 mb-4"><MapPin size={16} /> Nova Saída (Check-out)</h3>
                  <div className="flex flex-col gap-3">
                    <div>
@@ -200,7 +200,7 @@ export function VehicleLogistics() {
                  </div>
                </div>
             ) : (
-               <div className="glass-card border border-emerald-500/30 p-5 bg-gradient-to-br from-emerald-500/5 to-transparent relative overflow-hidden">
+               <div className="glass-card border border-emerald-500/30 p-5 bg-linear-to-br from-emerald-500/5 to-transparent relative overflow-hidden">
                  <div className="absolute top-0 left-0 w-1 h-full bg-amber-500 animate-pulse" />
                  <h3 className="font-bold text-emerald-300 flex items-center gap-2 mb-4"><MapPin size={16} /> Retornar Veículo (Check-in)</h3>
                  <div className="bg-slate-900/50 p-3 rounded-lg border border-white/5 mb-4">

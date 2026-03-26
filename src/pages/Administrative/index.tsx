@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { Package, Truck, LayoutDashboard } from 'lucide-react';
 import { VehicleLogistics } from '../../components/ui/VehicleLogistics';
 import { MaterialInventory } from '../../components/ui/MaterialInventory';
+import { AdminReports } from '../../components/ui/AdminReports';
 
 export default function AdminPage() {
   const [activeTab, setActiveTab] = useState<'overview' | 'logistics' | 'materials'>('overview');
@@ -30,17 +31,7 @@ export default function AdminPage() {
       </div>
 
       <section className="flex-1 flex flex-col">
-        {activeTab === 'overview' && (
-          <div className="flex-1 glass-card border border-amber-500/20 p-6 flex flex-col items-center justify-center text-center gap-4">
-             <div className="w-16 h-16 bg-amber-500/10 rounded-full flex items-center justify-center text-amber-500">
-               <Package size={32} />
-             </div>
-             <div>
-               <h2 className="text-xl font-bold text-slate-200">Painel Administrativo da Campanha</h2>
-               <p className="text-sm text-slate-400 mt-2 max-w-md">Gerencie a estrutura física do comitê. Abastecimento de veículos, rota de panfletagem, e requisições de material impresso pelas lideranças.</p>
-             </div>
-          </div>
-        )}
+        {activeTab === 'overview' && <AdminReports />}
         {activeTab === 'logistics' && <VehicleLogistics />}
         {activeTab === 'materials' && <MaterialInventory />}
       </section>

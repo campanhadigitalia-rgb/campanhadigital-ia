@@ -3,8 +3,9 @@ import { ShieldCheck, Scale } from 'lucide-react';
 import { LegalOnboarding } from '../../components/ui/LegalOnboarding';
 import { LegalGuardian } from '../../components/ui/LegalGuardian';
 import { LegalApprovals } from '../../components/ui/LegalApprovals';
+import { LegalCaseManager } from '../../components/ui/LegalCaseManager';
 
-type Tab = 'aprovação' | 'guardiao' | 'deferimento';
+type Tab = 'aprovação' | 'processos' | 'guardiao' | 'deferimento';
 
 export default function LegalPage() {
   const [tab, setTab] = useState<Tab>('aprovação');
@@ -15,8 +16,9 @@ export default function LegalPage() {
       <div className="flex items-center gap-2 border-b border-slate-800 pb-0 overflow-x-auto scrollbar-hide">
         {[
           { id: 'aprovação' as Tab, label: 'Aprovação de Contratos', Icon: ShieldCheck, color: 'emerald' },
-          { id: 'guardiao'   as Tab, label: 'Guardião Jurídico',     Icon: Scale,       color: 'red'   },
-          { id: 'deferimento' as Tab, label: 'Docs Deferimento', Icon: ShieldCheck, color: 'indigo' },
+          { id: 'processos'  as Tab, label: 'Processos Judiciais',     Icon: Scale,       color: 'red'   },
+          { id: 'guardiao'   as Tab, label: 'Guardião Jurídico',     Icon: Scale,       color: 'indigo'   },
+          { id: 'deferimento' as Tab, label: 'Docs Deferimento', Icon: ShieldCheck, color: 'slate' },
         ].map(({ id, label, Icon, color }) => (
           <button
             key={id}
@@ -37,6 +39,7 @@ export default function LegalPage() {
 
       {/* Tab content */}
       {tab === 'aprovação' && <LegalApprovals />}
+      {tab === 'processos'  && <LegalCaseManager />}
       {tab === 'guardiao'    && <LegalGuardian />}
       {tab === 'deferimento' && <LegalOnboarding />}
     </div>

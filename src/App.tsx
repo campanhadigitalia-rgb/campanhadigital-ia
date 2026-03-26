@@ -329,7 +329,7 @@ export default function App() {
               >
                 <div className="flex items-center gap-3">
                   <Target size={18} className={page === 'dashboard' ? 'text-indigo-400' : 'text-slate-400'} />
-                  <span className="text-[13px] font-black uppercase tracking-widest bg-clip-text text-transparent bg-gradient-to-r from-white to-slate-400">Página Inicial</span>
+                  <span className="text-[13px] font-black uppercase tracking-widest bg-clip-text text-transparent bg-linear-to-r from-white to-slate-400">Página Inicial</span>
                 </div>
               </button>
             </div>

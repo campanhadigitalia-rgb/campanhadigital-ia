@@ -45,7 +45,7 @@ export default function OraclePage() {
               onClick={() => setActiveTab(tab.id)}
               className={`flex-1 sm:flex-none flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-semibold transition-all ${
                 activeTab === tab.id
-                  ? 'bg-gradient-to-br from-indigo-500 to-indigo-600 text-white shadow-sm'
+                  ? 'bg-linear-to-br from-indigo-500 to-indigo-600 text-white shadow-sm'
                   : 'bg-transparent text-slate-400 hover:text-slate-300 hover:bg-white/5'
               }`}
             >

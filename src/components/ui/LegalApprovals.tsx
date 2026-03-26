@@ -58,6 +58,24 @@ export function LegalApprovals() {
     }
   };
 
+  const handleUpdateData = async (id: string, data: Partial<Supplier>) => {
+    if (!activeCampaign) return;
+    try {
+      await updateDoc(doc(db, `campaigns/${activeCampaign.id}/people`, id), data);
+      setEditingId(null);
+    } catch (err) {
+      console.error(err);
+    }
+  };
+
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [editForm, setEditForm] = useState<Partial<Supplier>>({});
+
+  const startEditing = (s: Supplier) => {
+    setEditingId(s.id);
+    setEditForm({ name: s.name, cpfCnpj: s.cpfCnpj, contractValue: s.contractValue });
+  };
+
   if (loading) {
     return (
       <div className="p-8 text-center text-slate-500 animate-pulse">
@@ -104,8 +122,25 @@ export function LegalApprovals() {
                 </span>
                 <span className="text-[10px] text-slate-500 uppercase">{s.category}</span>
               </div>
-              <p className="font-bold text-slate-200 text-base">{s.name}</p>
-              {s.cpfCnpj && <p className="font-mono text-xs text-slate-400 mt-0.5">{s.cpfCnpj}</p>}
+              {editingId === s.id ? (
+                <div className="space-y-2 max-w-sm mt-3">
+                  <input className="w-full bg-black/40 border border-indigo-500/30 rounded px-2 py-1 text-xs text-white" value={editForm.name} onChange={e => setEditForm({...editForm, name: e.target.value})} />
+                  <input className="w-full bg-black/40 border border-indigo-500/30 rounded px-2 py-1 text-xs text-white" value={editForm.cpfCnpj} onChange={e => setEditForm({...editForm, cpfCnpj: e.target.value})} />
+                  <input type="number" className="w-full bg-black/40 border border-indigo-500/30 rounded px-2 py-1 text-xs text-white" value={editForm.contractValue} onChange={e => setEditForm({...editForm, contractValue: Number(e.target.value)})} />
+                  <div className="flex gap-2 pt-1 font-black">
+                    <button onClick={() => handleUpdateData(s.id, editForm)} className="text-[10px] text-emerald-400 bg-emerald-500/10 px-3 py-1 rounded border border-emerald-500/20 uppercase tracking-tighter">Salvar Alterações</button>
+                    <button onClick={() => setEditingId(null)} className="text-[10px] text-slate-500 hover:text-slate-300">Cancelar</button>
+                  </div>
+                </div>
+              ) : (
+                <>
+                  <p className="font-bold text-slate-200 text-base flex items-center gap-2">
+                    {s.name}
+                    <button onClick={() => startEditing(s)} className="text-slate-500 hover:text-indigo-400 transition-colors" title="Corrigir Dados"><FileText size={14}/></button>
+                  </p>
+                  {s.cpfCnpj && <p className="font-mono text-xs text-slate-400 mt-0.5">{s.cpfCnpj}</p>}
+                </>
+              )}
               
               {/* Anexos */}
               {s.documentsUrl && s.documentsUrl.length > 0 && (

@@ -354,7 +354,7 @@ export function CashFlowTable() {
 
       {/* Modal de Lançamento */}
       {isModalOpen && (
-        <div className="fixed inset-0 z-[100] bg-black/80 backdrop-blur-md flex items-center justify-center p-4">
+        <div className="fixed inset-0 z-100 bg-black/80 backdrop-blur-md flex items-center justify-center p-4">
           <div className="bg-slate-900 border border-indigo-500/20 rounded-2xl w-full max-w-lg overflow-hidden shadow-2xl animate-in zoom-in-95 duration-200">
             <div className="p-5 border-b border-white/5 flex justify-between items-center bg-slate-800/50">
               <h3 className="text-sm font-black text-white uppercase tracking-widest">Novo Lançamento SPCE</h3>

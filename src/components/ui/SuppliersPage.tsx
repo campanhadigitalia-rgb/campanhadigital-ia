@@ -18,6 +18,9 @@ interface Supplier {
   contractValue: number;
   isMonthly?: boolean;
   notes: string;
+  activity?: string;
+  signatureStatus?: 'pending' | 'signed_gov' | 'signed_physical';
+  signedUrl?: string;
   legalStatus: LegalStatus;
   legalNotes?: string;
   documentsUrl?: string[];
@@ -64,10 +67,13 @@ export function SuppliersPage() {
   const [form, setForm] = useState<Omit<Supplier, 'id'>>({
     type: 'Pessoa Jurídica', name: '', cpfCnpj: '', contact: '',
     category: 'Locação de Veículo', contractValue: 0, notes: '',
-    legalStatus: 'pending', isMonthly: false
+    legalStatus: 'pending', isMonthly: false,
+    activity: '', signatureStatus: 'pending', signedUrl: ''
   });
   const [documentsUrl, setDocumentsUrl] = useState<string[]>([]);
   const [isUploading, setIsUploading] = useState(false);
+  const [isGeneratingDraft, setIsGeneratingDraft] = useState(false);
+  const [draftContent, setDraftContent] = useState('');
 
   const path = useCallback(() =>
     activeCampaign ? `campaigns/${activeCampaign.id}/people` : null,
@@ -82,6 +88,26 @@ export function SuppliersPage() {
       setSuppliers(data);
     });
   }, [path]);
+
+  const generateDraft = (s: Supplier) => {
+    const draftText = `
+CONTRATO DE PRESTAÇÃO DE SERVIÇOS - CAMPANHA ELEITORAL 2026
+
+CONTRATANTE: [NOME DO CANDIDATO/COMITÊ]
+CONTRATADO: ${s.name}
+CPF/CNPJ: ${s.cpfCnpj || '—'}
+
+OBJETO: O contratado prestará serviços de ${s.activity || '[DESCREVER ATIVIDADE]'} para a campanha eleitoral.
+VALOR: ${fmt(s.contractValue || 0)} (${s.isMonthly ? 'Mensal' : 'Pagamento Único'})
+
+DATA: ${new Date().toLocaleDateString('pt-BR')}
+
+_________________________________________
+Assinatura do Contratado
+    `;
+    setDraftContent(draftText);
+    setIsGeneratingDraft(true);
+  };
 
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files;
@@ -121,7 +147,12 @@ export function SuppliersPage() {
       setDocumentsUrl([]);
     }
     finally { setAdding(false); }
-    setForm({ type: 'Pessoa Jurídica', name: '', cpfCnpj: '', contact: '', category: 'Locação de Veículo', contractValue: 0, notes: '', legalStatus: 'pending', isMonthly: false });
+    setForm({ 
+      type: 'Pessoa Jurídica', name: '', cpfCnpj: '', contact: '', 
+      category: 'Locação de Veículo', contractValue: 0, notes: '', 
+      legalStatus: 'pending', isMonthly: false,
+      activity: '', signatureStatus: 'pending', signedUrl: ''
+    });
   };
 
   const handleUpdateStatus = async (id: string, status: LegalStatus) => {
@@ -200,6 +231,12 @@ export function SuppliersPage() {
             <option value="mensal">Pagamento Mensal</option>
           </select>
           <input placeholder="Breve objeto do contrato (ex: Aluguel de van p/ 30 dias)" value={form.notes} onChange={e => setForm(f => ({ ...f, notes: e.target.value }))} className={`${inp} sm:col-span-2 lg:col-span-2`} />
+          <input placeholder="Atividade Prestada" value={form.activity} onChange={e => setForm(f => ({ ...f, activity: e.target.value }))} className={inp} />
+          <select value={form.signatureStatus} onChange={e => setForm(f => ({ ...f, signatureStatus: e.target.value as 'pending' | 'signed_gov' | 'signed_physical' }))} className={inp}>
+            <option value="pending">Assinatura Pendente</option>
+            <option value="signed_gov">Assinado (Gov.br)</option>
+            <option value="signed_physical">Assinado (Físico)</option>
+          </select>
           
           {/* UPLOAD MULTIPLO VAI AQUI NESSA LINHA */}
           <div className="col-span-2 sm:col-span-4 lg:col-span-6 flex flex-wrap items-center gap-3 p-3 bg-black/20 rounded-lg border border-slate-700">
@@ -295,8 +332,10 @@ export function SuppliersPage() {
                       </div>
                     </td>
                     <td className="p-4">
-                      <button onClick={() => handleDelete(s.id)}
-                        className="p-2 text-slate-600 hover:text-red-400 hover:bg-red-500/10 transition-all rounded-lg"><Trash2 size={14} /></button>
+                      <div className="flex gap-1">
+                        <button onClick={() => generateDraft(s)} className="p-2 text-indigo-400 hover:text-indigo-300 hover:bg-indigo-500/10 rounded-lg transition-all" title="Gerar Minuta"><FileText size={14} /></button>
+                        <button onClick={() => handleDelete(s.id)} className="p-2 text-slate-600 hover:text-red-400 hover:bg-red-500/10 transition-all rounded-lg"><Trash2 size={14} /></button>
+                      </div>
                     </td>
                   </tr>
                 );
@@ -368,6 +407,34 @@ export function SuppliersPage() {
           </p>
         </div>
       </div>
+      {/* Draft Modal */}
+      {isGeneratingDraft && (
+        <div className="fixed inset-0 z-100 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm">
+          <div className="bg-slate-900 border border-white/10 rounded-2xl w-full max-w-2xl max-h-[80vh] flex flex-col overflow-hidden shadow-2xl">
+            <div className="p-6 border-b border-white/5 flex justify-between items-center bg-indigo-500/5">
+              <h4 className="text-lg font-bold flex items-center gap-2"><FileText className="text-indigo-400" /> Minuta de Contrato Sugerida</h4>
+              <button onClick={() => setIsGeneratingDraft(false)} className="text-slate-400 hover:text-white">✕</button>
+            </div>
+            <div className="p-8 overflow-y-auto flex-1 font-mono text-sm leading-relaxed text-slate-300 whitespace-pre-wrap bg-black/20">
+              {draftContent}
+            </div>
+            <div className="p-4 border-t border-white/5 flex justify-end gap-3 bg-slate-900/50">
+              <button 
+                onClick={() => {
+                  navigator.clipboard.writeText(draftContent);
+                  alert('Copiado para a área de transferência!');
+                }}
+                className="px-6 py-2 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl font-bold flex items-center gap-2 transition-all shadow-lg shadow-indigo-500/20"
+              >
+                Copiar Texto
+              </button>
+              <button onClick={() => setIsGeneratingDraft(false)} className="px-6 py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-xl font-bold">
+                Fechar
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

@@ -51,7 +51,7 @@ export function FundraisingStats() {
   const progressPercent = stats.monthlyGoal > 0 ? Math.min((stats.raised / stats.monthlyGoal) * 100, 100) : 0;
 
   const chartData = Object.entries(stats.breakdown)
-    .filter(([_, val]) => val > 0)
+    .filter(([, val]) => val > 0)
     .map(([key, val]) => ({
       name: CATEGORY_LABELS[key] || key,
       valor: val,
@@ -115,7 +115,7 @@ export function FundraisingStats() {
               <motion.div 
                 initial={{ width: 0 }}
                 animate={{ width: `${progressPercent}%` }}
-                className="bg-gradient-to-r from-emerald-600 to-emerald-400 h-full rounded-full shadow-[0_0_15px_rgba(16,185,129,0.4)]" 
+                className="bg-linear-to-r from-emerald-600 to-emerald-400 h-full rounded-full shadow-[0_0_15px_rgba(16,185,129,0.4)]" 
               />
             </div>
           </div>
@@ -166,14 +166,14 @@ export function FundraisingStats() {
                 formatter={(val: number) => [formatCurrency(val), 'Arrecadado']}
               />
               <RechartsBar dataKey="valor" radius={[0, 4, 4, 0]} barSize={24}>
-                {displayData.map((entry, index) => (
-                  <RechartsCell key={`cell-${index}`} fill={entry.color} />
+                {displayData.map((_entry: { color: string }, index: number) => (
+                  <RechartsCell key={`cell-${index}`} fill={_entry.color} />
                 ))}
               </RechartsBar>
             </RechartsBarChart>
           </RechartsResponsiveContainer>
           <div className="mt-4 flex flex-wrap justify-center gap-x-4 gap-y-2">
-             {chartData.map(c => (
+             {chartData.map((c: { name: string, color: string }) => (
                <div key={c.name} className="flex items-center gap-1.5">
                  <div className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: c.color }} />
                  <span className="text-[9px] font-bold text-slate-500">{c.name}</span>
@@ -190,7 +190,7 @@ export function FundraisingStats() {
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            className="fixed inset-0 z-[9999] flex items-center justify-center bg-slate-950/80 backdrop-blur-sm p-4"
+            className="fixed inset-0 z-9999 flex items-center justify-center bg-slate-950/80 backdrop-blur-sm p-4"
           >
             <motion.div 
               initial={{ scale: 0.9, y: 20 }}
