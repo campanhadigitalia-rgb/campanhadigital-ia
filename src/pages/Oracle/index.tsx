@@ -1,4 +1,4 @@
-﻿import { useState } from 'react';
+import { useState } from 'react';
 import { PollsOracle } from '../../components/ui/PollsOracle';
 import { useCampaign } from '../../context/CampaignContext';
 import { runMonitoringCycle } from '../../services/monitorService';
