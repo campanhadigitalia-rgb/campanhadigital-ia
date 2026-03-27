@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { doc, getDoc, collection, addDoc, serverTimestamp } from 'firebase/firestore';
 import { db } from '../services/firebase';
-import { Heart, QrCode, CheckCircle2, User, Phone, MapPin, Calendar, Clock, AlertCircle, Copy } from 'lucide-react';
+import { Heart, QrCode, CheckCircle2, User, Phone, MapPin, Calendar, AlertCircle, Copy } from 'lucide-react';
 
 interface PublicEventProps {
   campaignId: string;
@@ -30,7 +30,7 @@ export default function PublicEvent({ campaignId, eventId }: PublicEventProps) {
         } else {
           setError('Evento não encontrado ou indisponível no momento.');
         }
-      } catch (err) {
+      } catch {
          setError('Erro ao carregar os dados do evento.');
       } finally {
          setLoading(false);
@@ -54,7 +54,7 @@ export default function PublicEvent({ campaignId, eventId }: PublicEventProps) {
         createdAt: serverTimestamp()
       });
       setSuccess(true);
-    } catch (err) {
+    } catch {
       alert('Erro ao confirmar presença. Tente novamente.');
     } finally {
       setSubmitting(false);

@@ -1,9 +1,10 @@
 import { useState, useEffect } from 'react';
-import { Shield, CheckCircle, Gavel, Clock, Activity, CreditCard, User, Users, FileText, Globe, AlertTriangle, FileBadge, CheckSquare, MessageCircle, DollarSign, PlusCircle } from 'lucide-react';
+import { Shield, CheckCircle, Gavel, Clock, Activity, CreditCard, User, Users, FileText, Globe, AlertTriangle, FileBadge, CheckSquare, DollarSign, PlusCircle } from 'lucide-react';
 import { useCampaign } from '../../context/CampaignContext';
 import { collection, onSnapshot, query, orderBy, limit, addDoc, serverTimestamp } from 'firebase/firestore';
 import { db } from '../../services/firebase';
 import { useLegalItems } from '../../hooks/useMonitorFeed';
+import { DepartmentRequests } from '../../components/ui/DepartmentRequests';
 
 interface LegalContract {
   id: string;
@@ -38,7 +39,6 @@ export default function LegalDashboardPage({ onNavigate }: { onNavigate?: (p: st
   // States para novos widgets
   const [legalNotes, setLegalNotes] = useState<LegalNote[]>([]);
   const [financeTransactions, setFinanceTransactions] = useState<any[]>([]); // eslint-disable-line @typescript-eslint/no-explicit-any
-  const [legalRequests, setLegalRequests] = useState<any[]>([]); // eslint-disable-line @typescript-eslint/no-explicit-any
   const [marketingApprovals, setMarketingApprovals] = useState<any[]>([]); // eslint-disable-line @typescript-eslint/no-explicit-any
   const [showAddNote, setShowAddNote] = useState(false);
   const [newNote, setNewNote] = useState({ title: '', type: 'Processo', priority: 'Normal', date: '', desc: '' });
@@ -57,9 +57,6 @@ export default function LegalDashboardPage({ onNavigate }: { onNavigate?: (p: st
     const qFinance = query(collection(db, `campaigns/${campaignId}/finance_transactions`), orderBy('date', 'desc'), limit(10));
     const unsubFinance = onSnapshot(qFinance, snap => setFinanceTransactions(snap.docs.map(d => ({ id: d.id, ...d.data() }))));
 
-    const qRequests = query(collection(db, `campaigns/${campaignId}/legal_requests`), orderBy('createdAt', 'desc'), limit(20));
-    const unsubRequests = onSnapshot(qRequests, snap => setLegalRequests(snap.docs.map(d => ({ id: d.id, ...d.data() }))));
-
     const qApprovals = query(collection(db, `campaigns/${campaignId}/marketing_approvals`), orderBy('createdAt', 'desc'), limit(20));
     const unsubApprovals = onSnapshot(qApprovals, snap => setMarketingApprovals(snap.docs.map(d => ({ id: d.id, ...d.data() }))));
 
@@ -67,7 +64,6 @@ export default function LegalDashboardPage({ onNavigate }: { onNavigate?: (p: st
       unsubContracts();
       unsubNotes();
       unsubFinance();
-      unsubRequests();
       unsubApprovals();
     };
   }, [campaignId]);
@@ -358,28 +354,8 @@ export default function LegalDashboardPage({ onNavigate }: { onNavigate?: (p: st
             </div>
          </div>
 
-         {/* Card 2: Solicitações de Informação */}
-         <div className="glass-card border border-white/5 overflow-hidden flex flex-col">
-            <div className="p-4 bg-black/20 border-b border-white/5 flex justify-between items-center">
-               <h3 className="text-xs font-black uppercase tracking-widest text-slate-400 flex items-center gap-2"><MessageCircle size={14} className="text-indigo-400"/> Solicitações Jurídicas</h3>
-            </div>
-            <div className="p-4 flex-1 space-y-3 overflow-y-auto min-h-[150px] max-h-52 custom-scrollbar">
-               {legalRequests.length === 0 ? (
-                 <p className="text-[10px] text-slate-600 font-bold uppercase text-center mt-8">Nenhuma solicitação pendente.</p>
-               ) : (
-                 legalRequests.map(req => (
-                   <div key={req.id} className="p-3 bg-black/30 rounded-lg border border-white/5 hover:border-indigo-500/30 transition-all cursor-pointer">
-                      <div className="flex justify-between items-start mb-1">
-                         <span className="px-1.5 py-0.5 rounded text-[7px] font-black uppercase bg-indigo-500/20 text-indigo-400">{req.department || 'Geral'}</span>
-                         <span className="text-[8px] text-slate-500 font-mono">{req.createdAt ? (req.createdAt as any).toDate?.().toLocaleDateString() : 'Recente'}</span>{/* eslint-disable-line @typescript-eslint/no-explicit-any */}
-                      </div>
-                      <p className="text-[10px] font-bold text-slate-200">{req.title}</p>
-                      {req.desc && <p className="text-[9px] text-slate-400 line-clamp-2 mt-1">{req.desc}</p>}
-                   </div>
-                 ))
-               )}
-            </div>
-         </div>
+         {/* Card 2: Solicitações de Informação (Módulo Tickets Universal) */}
+         <DepartmentRequests currentDepartment="Jurídico" />
 
          {/* Card 3: Aprovação de Materiais */}
          <div className="glass-card border border-white/5 overflow-hidden flex flex-col">

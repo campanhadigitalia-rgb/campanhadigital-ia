@@ -196,7 +196,8 @@ export interface CashTransaction extends BaseDocument {
   status: 'pending' | 'completed';
   paidStatus?: 'provisioned' | 'paid'; // Controle de efetivaÃ§Ã£o de caixa
   supplierId?: string; // Link com fornecedor/contrato validado
-  attachmentUrl?: string; // Link para NF ou Comprovante
+  attachmentUrl?: string; // Link para NF única legada
+  attachmentUrls?: string[]; // Novos links múltiplos
   linkedCampaignId?: string; // Vinculo com Vaquinha ou Evento (para deduÃ§Ã£o de taxas e update de progresso)
 }
 

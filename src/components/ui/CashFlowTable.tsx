@@ -45,7 +45,7 @@ export function CashFlowTable() {
   const [paidStatus, setPaidStatus] = useState<'provisioned' | 'paid'>('paid');
   const [supplierId, setSupplierId] = useState('');
   const [linkedCampaignId, setLinkedCampaignId] = useState('');
-  const [attachmentUrl, setAttachmentUrl] = useState('');
+  const [attachmentUrls, setAttachmentUrls] = useState<string[]>([]);
   const [isUploading, setIsUploading] = useState(false);
   const [transactionDate, setTransactionDate] = useState(new Date().toISOString().split('T')[0]);
   const [editId, setEditId] = useState<string | null>(null);
@@ -53,7 +53,7 @@ export function CashFlowTable() {
   const openNewModal = () => {
     setEditId(null);
     setDesc(''); setAmount(''); setType('income'); setCategory('doacaoFisica');
-    setPaidStatus('paid'); setSupplierId(''); setLinkedCampaignId(''); setAttachmentUrl('');
+    setPaidStatus('paid'); setSupplierId(''); setLinkedCampaignId(''); setAttachmentUrls([]);
     setTransactionDate(new Date().toISOString().split('T')[0]);
     setIsModalOpen(true);
   };
@@ -67,26 +67,30 @@ export function CashFlowTable() {
     setPaidStatus(t.paidStatus || 'paid');
     setSupplierId(t.supplierId || '');
     setLinkedCampaignId(t.linkedCampaignId || '');
-    setAttachmentUrl(t.attachmentUrl || '');
+    setAttachmentUrls(t.attachmentUrls || t.attachmentUrl ? [t.attachmentUrl as string] : []);
     setTransactionDate(t.date ? new Date(t.date).toISOString().split('T')[0] : new Date().toISOString().split('T')[0]);
     setIsModalOpen(true);
   };
 
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file || !campaignId) return;
+    const files = e.target.files;
+    if (!files || !files.length || !campaignId) return;
 
     setIsUploading(true);
     try {
-      const reader = new FileReader();
-      const base64Promise = new Promise<string>((resolve, reject) => {
-        reader.onload = () => resolve(reader.result as string);
-        reader.onerror = reject;
-      });
-      reader.readAsDataURL(file);
-      
-      const base64 = await base64Promise;
-      setAttachmentUrl(base64);
+      const urls: string[] = [];
+      for (let i = 0; i < files.length; i++) {
+        const file = files[i];
+        const reader = new FileReader();
+        const base64Promise = new Promise<string>((resolve, reject) => {
+          reader.onload = () => resolve(reader.result as string);
+          reader.onerror = reject;
+        });
+        reader.readAsDataURL(file);
+        const base64 = await base64Promise;
+        urls.push(base64);
+      }
+      setAttachmentUrls(prev => [...prev, ...urls]);
     } catch (err: unknown) {
       console.error(err);
       alert('Erro ao converter arquivo para Base64.');
@@ -190,7 +194,7 @@ export function CashFlowTable() {
           category, 
           paidStatus,
           supplierId: type === 'expense' ? supplierId : '',
-          attachmentUrl,
+          attachmentUrls,
           linkedCampaignId: (type === 'income' && linkedCampaignId) ? linkedCampaignId : '',
           date: new Date(transactionDate).toISOString()
         };
@@ -223,7 +227,7 @@ export function CashFlowTable() {
              status: 'completed',
              paidStatus: 'paid',
              supplierId: '',
-             attachmentUrl: '',
+             attachmentUrls: [],
              linkedCampaignId: linkedCamp.id,
              date: new Date().toISOString()
            };
@@ -242,7 +246,7 @@ export function CashFlowTable() {
         status: 'completed',
         paidStatus,
         supplierId: type === 'expense' ? supplierId : '',
-        attachmentUrl,
+        attachmentUrls,
         linkedCampaignId: (type === 'income' && linkedCampaignId) ? linkedCampaignId : '',
         date: new Date(transactionDate).toISOString()
       };
@@ -258,7 +262,7 @@ export function CashFlowTable() {
          await updateDoc(doc(db, p, linkedCamp.id), { raised: (linkedCamp.raised || 0) + value });
       }
 
-      setDesc(''); setAmount(''); setSupplierId(''); setAttachmentUrl(''); setLinkedCampaignId(''); setIsModalOpen(false);
+      setDesc(''); setAmount(''); setSupplierId(''); setAttachmentUrls([]); setLinkedCampaignId(''); setIsModalOpen(false);
     } catch (e) {
       console.error(e);
       alert('Erro ao salvar transação.');
@@ -428,10 +432,18 @@ export function CashFlowTable() {
                           {supplier && <p className="text-[9px] text-slate-500 font-medium">Contrato: {supplier.name}</p>}
                         </div>
                       </div>
-                      {t.attachmentUrl && (
-                        <a href={t.attachmentUrl} target="_blank" rel="noreferrer" className="flex items-center gap-1 mt-1 ml-6 text-[9px] text-indigo-400 hover:text-indigo-300 w-max bg-indigo-500/10 px-1.5 rounded border border-indigo-500/20">
-                          <Link size={8}/> Documento Anexo
-                        </a>
+                      {((t.attachmentUrls && t.attachmentUrls.length > 0) || t.attachmentUrl) && (
+                         <div className="flex gap-1 mt-1 flex-wrap">
+                           {t.attachmentUrls ? t.attachmentUrls.map((url, idx) => (
+                              <a key={idx} href={url} target="_blank" rel="noreferrer" className="flex items-center gap-1 text-[9px] text-indigo-400 hover:text-indigo-300 bg-indigo-500/10 px-1.5 py-0.5 rounded border border-indigo-500/20">
+                                <Link size={8}/> Anexo {idx + 1}
+                              </a>
+                           )) : (
+                              <a href={t.attachmentUrl as string} target="_blank" rel="noreferrer" className="flex items-center gap-1 text-[9px] text-indigo-400 hover:text-indigo-300 bg-indigo-500/10 px-1.5 py-0.5 rounded border border-indigo-500/20">
+                                <Link size={8}/> Anexo 1
+                              </a>
+                           )}
+                         </div>
                       )}
                     </td>
                     <td className="p-4">
@@ -581,16 +593,16 @@ export function CashFlowTable() {
                 <label className="text-[10px] font-bold text-slate-500 uppercase ml-1">Anexar Comprovante / Recibo</label>
                 <div className="flex gap-2 items-center">
                   <label className={`flex-1 flex items-center justify-center gap-2 border border-dashed rounded-lg p-3 text-xs font-bold cursor-pointer transition-all ${
-                    attachmentUrl ? 'border-emerald-500/50 bg-emerald-500/10 text-emerald-400' : 'border-slate-700 bg-black/40 text-slate-400 hover:bg-slate-800'
+                    attachmentUrls.length > 0 ? 'border-emerald-500/50 bg-emerald-500/10 text-emerald-400' : 'border-slate-700 bg-black/40 text-slate-400 hover:bg-slate-800'
                   }`}>
-                    <input type="file" className="hidden" onChange={handleFileUpload} accept="image/*,.pdf" disabled={isUploading} />
-                    {isUploading ? 'Enviando...' : attachmentUrl ? 'Comprovante Anexado (Trocar)' : 'Selecionar Arquivo PDF/Imagem'}
+                    <input type="file" multiple className="hidden" onChange={handleFileUpload} accept="image/*,.pdf" disabled={isUploading} />
+                    {isUploading ? 'Enviando...' : attachmentUrls.length > 0 ? `${attachmentUrls.length} Comprovante(s) Anexado(s) - Clique p/ Adicionar Mais` : 'Selecionar Múltiplos Arquivos'}
                   </label>
-                  {attachmentUrl && (
-                     <button type="button" onClick={() => window.open(attachmentUrl, '_blank')} className="p-3 bg-indigo-500/20 text-indigo-400 rounded-lg border border-indigo-500/30 hover:bg-indigo-500/30 transition-colors" title="Ver Arquivo Anexo">
-                       <Link size={16} />
+                  {attachmentUrls.map((url, i) => (
+                     <button key={i} type="button" onClick={() => window.open(url, '_blank')} className="p-3 bg-indigo-500/20 text-indigo-400 rounded-lg border border-indigo-500/30 hover:bg-indigo-500/30 transition-colors" title="Ver Arquivo Anexo">
+                       Doc {i+1}
                      </button>
-                  )}
+                  ))}
                 </div>
               </div>
 

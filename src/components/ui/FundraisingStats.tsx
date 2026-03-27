@@ -170,7 +170,7 @@ export function FundraisingStats() {
              <RechartsResponsiveContainer width="100%" height="100%">
                <RechartsPieChart>
                  <RechartsTooltip 
-                   formatter={(val: number) => [formatCurrency(val), 'Arrecadado']}
+                   formatter={(val: any) => [formatCurrency(val as number), 'Arrecadado']}
                    contentStyle={{ backgroundColor: 'rgba(15,23,42,0.95)', border: '1px solid rgba(16,185,129,0.2)', borderRadius: '8px', fontSize: '12px' }}
                  />
                  <RechartsLegend iconType="circle" wrapperStyle={{ fontSize: '10px', bottom: 0 }} />
@@ -218,7 +218,7 @@ export function FundraisingStats() {
                   <RechartsTooltip 
                     cursor={{ fill: 'rgba(255,255,255,0.03)' }}
                     contentStyle={{ backgroundColor: 'rgba(15,23,42,0.95)', border: '1px solid rgba(244,63,94,0.2)', borderRadius: '8px', fontSize: '12px' }}
-                    formatter={(val: number) => [formatCurrency(val), 'Gasto']}
+                    formatter={(val: any) => [formatCurrency(val as number), 'Gasto']}
                   />
                   <RechartsBar dataKey="valor" radius={[0, 4, 4, 0]} barSize={20}>
                     {supplierExpenseData.map((entry, index) => (
