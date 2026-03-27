@@ -1,8 +1,8 @@
-// ──────────────────────────────────────────────────────────────
-//  CampanhaDigitalIA — Types: Multi-Tenant Core
-// ──────────────────────────────────────────────────────────────
+﻿// â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+//  CampanhaDigitalIA â€” Types: Multi-Tenant Core
+// â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
-/** Campanhas disponíveis no sistema */
+/** Campanhas disponÃ­veis no sistema */
 export type CampaignYear = 2024 | 2026 | 2028;
 
 export type Sentiment = 'positivo' | 'neutro' | 'negativo' | 'critico';
@@ -26,9 +26,9 @@ export interface CampaignIdentity {
   position: string;
   location: string;
   party: string;
-  coalition?: string;   // Coligação
+  coalition?: string;   // ColigaÃ§Ã£o
   state: string;        // Estado (UF)
-  history: string;      // Histórico político
+  history: string;      // HistÃ³rico polÃ­tico
   bio_base: string;     // Biografia Base
   ai_directives?: string; // Diretrizes extras de tom para a IA
   photoOfficial?: string; // Base64 ou URL da foto oficial
@@ -54,7 +54,7 @@ export interface Competitor {
 
 export interface Campaign {
   id: string;
-  organization_id: string; // Vínculo com a Organização
+  organization_id: string; // VÃ­nculo com a OrganizaÃ§Ã£o
   year: CampaignYear;
   name: string;
   description?: string;
@@ -62,16 +62,16 @@ export interface Campaign {
   createdAt: Date;
   identity?: CampaignIdentity;
   competitors?: Competitor[];
-  neighborhood?: string[]; // IDs/Nomes de cidades/regiões vizinhas
-  base_city?: string;    // Ponto de partida padrão para rotas
+  neighborhood?: string[]; // IDs/Nomes de cidades/regiÃµes vizinhas
+  base_city?: string;    // Ponto de partida padrÃ£o para rotas
   
-  // Herança e Dados Históricos
+  // HeranÃ§a e Dados HistÃ³ricos
   legacy_campaign_id?: string;
   admin_email: string;
   financeConfig?: {
     monthlyGoal: number;
-    spendingLimit: number; // Teto definido pelo usuário
-    tseSpendingLimit?: number; // Teto oficial do TSE para referência
+    spendingLimit: number; // Teto definido pelo usuÃ¡rio
+    tseSpendingLimit?: number; // Teto oficial do TSE para referÃªncia
     categoryGoals: {
       fundoPartidario: number;
       doacaoFisica: number;
@@ -108,13 +108,13 @@ export interface Campaign {
   }[];
 }
 
-/** Modo de visualização: ativa ou histórica */
+/** Modo de visualizaÃ§Ã£o: ativa ou histÃ³rica */
 export type ViewMode = 'active' | 'historical';
 
-/** Base obrigatória em todos os documentos Firestore */
+/** Base obrigatÃ³ria em todos os documentos Firestore */
 export interface BaseDocument {
   id: string;
-  campaign_id: string; // OBRIGATÓRIO — isolamento multi-tenant
+  campaign_id: string; // OBRIGATÃ“RIO â€” isolamento multi-tenant
   createdAt: Date;
   updatedAt: Date;
   createdBy: string;
@@ -129,11 +129,11 @@ export interface UserProfile extends BaseDocument {
   displayName: string;
   photoURL?: string;
   role: UserRole;
-  organization_id?: string; // Vínculo com a Organização
-  campaigns: string[]; // campanhas que o usuário tem acesso
+  organization_id?: string; // VÃ­nculo com a OrganizaÃ§Ã£o
+  campaigns: string[]; // campanhas que o usuÃ¡rio tem acesso
 }
 
-/** Contato genérico */
+/** Contato genÃ©rico */
 export interface Contact extends BaseDocument {
   name: string;
   cpf?: string;
@@ -148,7 +148,7 @@ export interface Contact extends BaseDocument {
   photoURL?: string;
 }
 
-/** Log de interação */
+/** Log de interaÃ§Ã£o */
 export interface Interaction extends BaseDocument {
   contactId: string;
   type: 'call' | 'meeting' | 'email' | 'whatsapp' | 'visit' | 'other';
@@ -158,7 +158,7 @@ export interface Interaction extends BaseDocument {
   outcome?: string;
 }
 
-/** Transação Financeira */
+/** TransaÃ§Ã£o Financeira */
 export interface CashTransaction extends BaseDocument {
   description: string;
   type: 'income' | 'expense';
@@ -166,13 +166,13 @@ export interface CashTransaction extends BaseDocument {
   amount: number;
   date: string;
   status: 'pending' | 'completed';
-  paidStatus?: 'provisioned' | 'paid'; // Controle de efetivação de caixa
+  paidStatus?: 'provisioned' | 'paid'; // Controle de efetivaÃ§Ã£o de caixa
   supplierId?: string; // Link com fornecedor/contrato validado
   attachmentUrl?: string; // Link para NF ou Comprovante
-  linkedCampaignId?: string; // Vinculo com Vaquinha ou Evento (para dedução de taxas e update de progresso)
+  linkedCampaignId?: string; // Vinculo com Vaquinha ou Evento (para deduÃ§Ã£o de taxas e update de progresso)
 }
 
-/** Campanhas de Arrecadação (Vaquinhas / Eventos) */
+/** Campanhas de ArrecadaÃ§Ã£o (Vaquinhas / Eventos) */
 export interface FundraisingCampaign extends BaseDocument {
   type: 'vaquinha' | 'evento';
   title: string;
@@ -187,7 +187,7 @@ export interface FundraisingCampaign extends BaseDocument {
   feePercentage?: number; // % deduzido pela plataforma / produtora
 }
 
-/** Logística Administrativa */
+/** LogÃ­stica Administrativa */
 export interface Vehicle extends BaseDocument {
   plate: string;
   model: string;
@@ -215,7 +215,7 @@ export interface Task extends BaseDocument {
   priority: 'low' | 'medium' | 'high';
 }
 
-/** MCP — Mensagem para agentes autônomos */
+/** MCP â€” Mensagem para agentes autÃ´nomos */
 export interface MCPMessage {
   id: string;
   campaign_id: string;
@@ -238,13 +238,13 @@ export interface Mention {
 }
 
 export interface AIReply {
-  persona: 'Conciliador' | 'Técnico' | 'Firme';
+  persona: 'Conciliador' | 'TÃ©cnico' | 'Firme';
   text: string;
 }
 
-// ──────────────────────────────────────────────────────────────
-//  Intelligence Hub — Monitoramento Centralizado
-// ──────────────────────────────────────────────────────────────
+// â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+//  Intelligence Hub â€” Monitoramento Centralizado
+// â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 /** Dados de candidatura retornados pelo TSE DivulgaCand */
 export interface CandidacyInfo {
@@ -270,15 +270,21 @@ export type MonitoringPlatform =
   | 'dou_rs'
   | 'rss_custom'
   | 'rss_politica'
-  | 'mcp_manus';
+  | 'mcp_manus'
+  | 'bluesky'
+  | 'nitter'
+  | 'telegram_public'
+  | 'youtube'
+  | 'reddit'
+  | 'newsapi_custom';
 
 export type MonitoringType =
-  | 'news'       // notícia de mídia
-  | 'social'     // post / menção em rede social
-  | 'legal'      // processo, notificação judicial
-  | 'official'   // publicação em Diário Oficial
-  | 'competitor' // inteligência sobre concorrente
-  | 'poll';      // pesquisa de intenção de voto
+  | 'news'       // notÃ­cia de mÃ­dia
+  | 'social'     // post / menÃ§Ã£o em rede social
+  | 'legal'      // processo, notificaÃ§Ã£o judicial
+  | 'official'   // publicaÃ§Ã£o em DiÃ¡rio Oficial
+  | 'competitor' // inteligÃªncia sobre concorrente
+  | 'poll';      // pesquisa de intenÃ§Ã£o de voto
 
 export type MonitoringSubject = 'candidate' | 'competitor' | 'party' | 'campaign';
 
@@ -297,11 +303,11 @@ export interface MonitoringItem {
   relatedPerson?: string;
   rawData?: Record<string, unknown>;
   fetchedAt: Date;
-  /** Se IA já processou e classificou este item */
+  /** Se IA jÃ¡ processou e classificou este item */
   processed?: boolean;
 }
 
-/** Fonte de RSS configurável pelo usuário */
+/** Fonte de RSS configurÃ¡vel pelo usuÃ¡rio */
 export interface RSSFeedConfig {
   id: string;
   campaign_id: string;
@@ -312,24 +318,24 @@ export interface RSSFeedConfig {
   createdAt: Date;
 }
 
-/** IA adicional configurável pelo usuário */
+/** IA adicional configurÃ¡vel pelo usuÃ¡rio */
 export interface ExtraAIConfig {
   id: 'openai' | 'perplexity' | 'groq' | 'anthropic';
   name: string;
   apiKey: string;
   model: string;
   active: boolean;
-  /** Tier gratuito disponível */
+  /** Tier gratuito disponÃ­vel */
   freeTier: boolean;
   freeTierNote?: string;
 }
 
-/** Configuração global dos mecanismos de busca para a campanha */
+/** ConfiguraÃ§Ã£o global dos mecanismos de busca para a campanha */
 export interface SearchEngineConfig {
   campaign_id: string;
   /** Keywords extras aplicadas a todos os mecanismos */
   globalKeywords: string[];
-  /** Quais mecanismos estão habilitados no ciclo de monitoramento */
+  /** Quais mecanismos estÃ£o habilitados no ciclo de monitoramento */
   activeEngines: {
     rss: boolean;
     gemini: boolean;
@@ -350,3 +356,4 @@ export interface SearchEngineConfig {
   extraAIs: ExtraAIConfig[];
   updatedAt: Date;
 }
+

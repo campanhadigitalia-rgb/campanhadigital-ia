@@ -1,4 +1,4 @@
-import { useState } from 'react';
+﻿import { useState } from 'react';
 import { PollsOracle } from '../../components/ui/PollsOracle';
 import { useCampaign } from '../../context/CampaignContext';
 import { runMonitoringCycle } from '../../services/monitorService';
@@ -6,12 +6,13 @@ import { useNewsItems, useLegalItems, useOfficialItems } from '../../hooks/useMo
 import { RefreshCw, Newspaper, Scale, BookOpen, ExternalLink, ShieldCheck } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { ScenarioAnalysis } from '../../components/ui/ScenarioAnalysis';
+import SearchEngineSelector, { type SearchEngineId, ALL_ENGINES } from '../../components/ui/SearchEngineSelector';
 
 export default function OraclePage() {
   const { activeCampaign } = useCampaign();
   const [syncing, setSyncing] = useState(false);
   const [lastSync, setLastSync] = useState<Date | null>(null);
-  const [activeTab, setActiveTab] = useState<'oracle' | 'news' | 'legal' | 'análise'>('oracle');
+  const [activeTab, setActiveTab] = useState<'oracle' | 'news' | 'legal' | 'anÃ¡lise'>('oracle');
 
   const campaignId = activeCampaign?.id ?? '';
   const { items: newsItems,    loading: newsLoading    } = useNewsItems(campaignId, 15);
@@ -41,16 +42,16 @@ export default function OraclePage() {
 
   const tabs = [
     { id: 'oracle', label: 'Oracle',   icon: <BookOpen size={14} /> },
-    { id: 'news',   label: `Notícias ${newsItems.length > 0 ? `(${newsItems.length})` : ''}`, icon: <Newspaper size={14} /> },
-    { id: 'legal',  label: `Jurídico ${(legalItems.length + officialItems.length) > 0 ? `(${legalItems.length + officialItems.length})` : ''}`, icon: <Scale size={14} /> },
-    { id: 'análise', label: 'Análise IA', icon: <ShieldCheck size={14} /> },
+    { id: 'news',   label: `NotÃ­cias ${newsItems.length > 0 ? `(${newsItems.length})` : ''}`, icon: <Newspaper size={14} /> },
+    { id: 'legal',  label: `JurÃ­dico ${(legalItems.length + officialItems.length) > 0 ? `(${legalItems.length + officialItems.length})` : ''}`, icon: <Scale size={14} /> },
+    { id: 'anÃ¡lise', label: 'AnÃ¡lise IA', icon: <ShieldCheck size={14} /> },
   ] as const;
 
   const allMonitoringItems = [...newsItems, ...legalItems, ...officialItems];
 
   return (
     <div className="flex flex-col gap-4 w-full h-full">
-      {/* Header com botão de sync */}
+      {/* Header com botÃ£o de sync */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
         <div className="flex flex-wrap gap-1 p-1 rounded-lg bg-slate-800/60 border border-white/5 w-full sm:w-auto">
           {tabs.map(tab => (
@@ -78,23 +79,23 @@ export default function OraclePage() {
           } disabled:opacity-50 disabled:cursor-not-allowed`}
         >
           <RefreshCw size={14} className={syncing ? 'animate-spin' : ''} />
-          {syncing ? 'Atualizando...' : 'Sincronizar Inteligência'}
+          {syncing ? 'Atualizando...' : 'Sincronizar InteligÃªncia'}
         </button>
       </div>
 
       {lastSync && !syncing && (
         <div className="flex items-center justify-between text-[11px] text-slate-500">
-          <p className="m-0">Última sincronização: {lastSync.toLocaleTimeString('pt-BR')}</p>
+          <p className="m-0">Ãšltima sincronizaÃ§Ã£o: {lastSync.toLocaleTimeString('pt-BR')}</p>
           {syncResult && (
             <div className="flex items-center gap-3">
-              <span className="text-emerald-400 font-bold">+{syncResult.news} Notícias</span>
-              <span className="text-amber-400 font-bold">+{syncResult.legal} Jurídico</span>
+              <span className="text-emerald-400 font-bold">+{syncResult.news} NotÃ­cias</span>
+              <span className="text-amber-400 font-bold">+{syncResult.legal} JurÃ­dico</span>
             </div>
           )}
         </div>
       )}
 
-      {/* Conteúdo das abas */}
+      {/* ConteÃºdo das abas */}
       <AnimatePresence mode="wait">
         {activeTab === 'oracle' && (
           <motion.div key="oracle" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
@@ -106,12 +107,12 @@ export default function OraclePage() {
           <motion.div key="news" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="flex flex-col gap-3">
             {newsLoading ? (
               <div className="h-32 flex items-center justify-center text-slate-500">
-                <RefreshCw className="animate-spin mr-2" size={16} /> Carregando notícias...
+                <RefreshCw className="animate-spin mr-2" size={16} /> Carregando notÃ­cias...
               </div>
             ) : newsItems.length === 0 ? (
               <div className="glass-card p-8 text-center text-slate-500">
                 <Newspaper size={32} className="mx-auto mb-3 opacity-30" />
-                <p className="m-0">Nenhuma notícia carregada ainda. Clique em "Sincronizar Inteligência".</p>
+                <p className="m-0">Nenhuma notÃ­cia carregada ainda. Clique em "Sincronizar InteligÃªncia".</p>
               </div>
             ) : (
               newsItems.map(item => (
@@ -156,12 +157,12 @@ export default function OraclePage() {
           <motion.div key="legal" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="flex flex-col gap-3">
             {(legalLoading || officialLoading) ? (
               <div className="h-32 flex items-center justify-center text-slate-500">
-                <RefreshCw className="animate-spin mr-2" size={16} /> Carregando dados jurídicos...
+                <RefreshCw className="animate-spin mr-2" size={16} /> Carregando dados jurÃ­dicos...
               </div>
             ) : (legalItems.length + officialItems.length) === 0 ? (
               <div className="glass-card p-8 text-center text-slate-500">
                 <Scale size={32} className="mx-auto mb-3 opacity-30" />
-                <p className="m-0">Nenhum dado jurídico/oficial carregado. Clique em "Sincronizar Inteligência".</p>
+                <p className="m-0">Nenhum dado jurÃ­dico/oficial carregado. Clique em "Sincronizar InteligÃªncia".</p>
               </div>
             ) : (
               [...legalItems, ...officialItems]
@@ -205,7 +206,7 @@ export default function OraclePage() {
           </motion.div>
         )}
 
-        {activeTab === 'análise' && activeCampaign && (
+        {activeTab === 'anÃ¡lise' && activeCampaign && (
           <motion.div key="analysis" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
             <ScenarioAnalysis activeCampaign={activeCampaign} items={allMonitoringItems} />
           </motion.div>
@@ -214,3 +215,5 @@ export default function OraclePage() {
     </div>
   );
 }
+
+
