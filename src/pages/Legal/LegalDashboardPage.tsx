@@ -14,6 +14,17 @@ interface LegalContract {
   createdAt?: any; // eslint-disable-line @typescript-eslint/no-explicit-any
 }
 
+interface LegalNote {
+  id: string;
+  title: string;
+  type: string;
+  priority: string;
+  date: string;
+  desc: string;
+  done: boolean;
+  createdAt?: any; // eslint-disable-line @typescript-eslint/no-explicit-any
+}
+
 export default function LegalDashboardPage({ onNavigate }: { onNavigate?: (p: string) => void }) {
   const { campaignId, activeCampaign } = useCampaign();
   
@@ -27,9 +38,12 @@ export default function LegalDashboardPage({ onNavigate }: { onNavigate?: (p: st
   const [newContract, setNewContract] = useState({ title: '', type: 'Serviço', status: 'Pendente' });
 
   // States para novos widgets
-  const [legalNotes, setLegalNotes] = useState<{id: string, type: string, priority: string, date: string, desc: string, done: boolean}[]>([]);
+  const [legalNotes, setLegalNotes] = useState<LegalNote[]>([]);
+  const [financeTransactions, setFinanceTransactions] = useState<any[]>([]); // eslint-disable-line @typescript-eslint/no-explicit-any
+  const [legalRequests, setLegalRequests] = useState<any[]>([]); // eslint-disable-line @typescript-eslint/no-explicit-any
+  const [marketingApprovals, setMarketingApprovals] = useState<any[]>([]); // eslint-disable-line @typescript-eslint/no-explicit-any
   const [showAddNote, setShowAddNote] = useState(false);
-  const [newNote, setNewNote] = useState({ type: 'Processo', priority: 'Normal', date: '', desc: '' });
+  const [newNote, setNewNote] = useState({ title: '', type: 'Processo', priority: 'Normal', date: '', desc: '' });
 
   useEffect(() => {
     if (!campaignId) return;
@@ -39,8 +53,24 @@ export default function LegalDashboardPage({ onNavigate }: { onNavigate?: (p: st
       setContracts(snap.docs.map(d => ({ id: d.id, ...d.data() } as LegalContract)));
     });
 
+    const qNotes = query(collection(db, `campaigns/${campaignId}/legal_notes`), orderBy('createdAt', 'desc'));
+    const unsubNotes = onSnapshot(qNotes, snap => setLegalNotes(snap.docs.map(d => ({ id: d.id, ...d.data() } as LegalNote))));
+
+    const qFinance = query(collection(db, `campaigns/${campaignId}/finance_transactions`), orderBy('date', 'desc'), limit(10));
+    const unsubFinance = onSnapshot(qFinance, snap => setFinanceTransactions(snap.docs.map(d => ({ id: d.id, ...d.data() }))));
+
+    const qRequests = query(collection(db, `campaigns/${campaignId}/legal_requests`), orderBy('createdAt', 'desc'), limit(20));
+    const unsubRequests = onSnapshot(qRequests, snap => setLegalRequests(snap.docs.map(d => ({ id: d.id, ...d.data() }))));
+
+    const qApprovals = query(collection(db, `campaigns/${campaignId}/marketing_approvals`), orderBy('createdAt', 'desc'), limit(20));
+    const unsubApprovals = onSnapshot(qApprovals, snap => setMarketingApprovals(snap.docs.map(d => ({ id: d.id, ...d.data() }))));
+
     return () => {
       unsubContracts();
+      unsubNotes();
+      unsubFinance();
+      unsubRequests();
+      unsubApprovals();
     };
   }, [campaignId]);
 
@@ -83,12 +113,22 @@ export default function LegalDashboardPage({ onNavigate }: { onNavigate?: (p: st
     setShowAddContract(false);
   };
 
-  const handleAddNote = (e: React.FormEvent) => {
+  const handleAddNote = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!newNote.desc) return;
-    setLegalNotes([{ id: Math.random().toString(), ...newNote, done: false }, ...legalNotes]);
+    if (!campaignId || !newNote.desc || !newNote.title) return;
+    await addDoc(collection(db, `campaigns/${campaignId}/legal_notes`), {
+      ...newNote,
+      done: false,
+      createdAt: serverTimestamp()
+    });
     setShowAddNote(false);
-    setNewNote({ type: 'Processo', priority: 'Normal', date: '', desc: '' });
+    setNewNote({ title: '', type: 'Processo', priority: 'Normal', date: '', desc: '' });
+  };
+
+  const toggleNoteDone = async (note: LegalNote) => {
+    const { doc, updateDoc } = await import('firebase/firestore');
+    const noteRef = doc(db, `campaigns/${campaignId}/legal_notes/${note.id}`);
+    await updateDoc(noteRef, { done: !note.done });
   };
 
 
@@ -311,11 +351,17 @@ export default function LegalDashboardPage({ onNavigate }: { onNavigate?: (p: st
                   <Activity size={20} className="text-emerald-400" />
                </div>
                <div className="space-y-2">
-                  <p className="text-[10px] font-black text-rose-400 uppercase tracking-widest flex items-center gap-1"><AlertTriangle size={12}/> Transações de Risco</p>
-                  <div className="p-2 border-l-2 border-rose-500 bg-black/20">
-                     <p className="text-[10px] font-bold text-slate-200">Doação atípica de PF</p>
-                     <p className="text-[9px] text-slate-500">R$ 50.000,00 - Pendente de justificação</p>
-                  </div>
+                  <p className="text-[10px] font-black text-amber-400 uppercase tracking-widest flex items-center gap-1"><AlertTriangle size={12}/> Últimas Transações</p>
+                  {financeTransactions.length === 0 ? (
+                    <p className="text-[10px] text-slate-600 font-bold uppercase">Nenhuma transação financeira registrada.</p>
+                  ) : (
+                    financeTransactions.slice(0, 2).map((ft) => (
+                      <div key={ft.id} className="p-2 border-l-2 border-amber-500 bg-black/20">
+                         <p className="text-[10px] font-bold text-slate-200">{ft.description || 'Transação genérica'}</p>
+                         <p className="text-[9px] text-slate-500">R$ {ft.amount ? ft.amount.toLocaleString('pt-BR', { minimumFractionDigits: 2 }) : '0,00'} - {ft.type === 'expense' ? 'Despesa' : 'Receita'}</p>
+                      </div>
+                    ))
+                  )}
                </div>
             </div>
             <div className="p-4 pt-0">
@@ -329,22 +375,20 @@ export default function LegalDashboardPage({ onNavigate }: { onNavigate?: (p: st
                <h3 className="text-xs font-black uppercase tracking-widest text-slate-400 flex items-center gap-2"><MessageCircle size={14} className="text-indigo-400"/> Solicitações Jurídicas</h3>
             </div>
             <div className="p-4 flex-1 space-y-3 overflow-y-auto min-h-[150px] max-h-52 custom-scrollbar">
-               <div className="p-3 bg-black/30 rounded-lg border border-white/5 hover:border-indigo-500/30 transition-all cursor-pointer">
-                  <div className="flex justify-between items-start mb-1">
-                     <span className="px-1.5 py-0.5 rounded text-[7px] font-black uppercase bg-indigo-500/20 text-indigo-400">Marketing</span>
-                     <span className="text-[8px] text-slate-500 font-mono">Hoje</span>
-                  </div>
-                  <p className="text-[10px] font-bold text-slate-200">Dúvida sobre jingle paródia</p>
-                  <p className="text-[9px] text-slate-400 line-clamp-2 mt-1">Podemos usar a melodia daquela música famosa trocando a letra?</p>
-               </div>
-               <div className="p-3 bg-black/30 rounded-lg border border-white/5 hover:border-amber-500/30 transition-all cursor-pointer">
-                  <div className="flex justify-between items-start mb-1">
-                     <span className="px-1.5 py-0.5 rounded text-[7px] font-black uppercase bg-amber-500/20 text-amber-400">Coordenação</span>
-                     <span className="text-[8px] text-slate-500 font-mono">Ontem</span>
-                  </div>
-                  <p className="text-[10px] font-bold text-slate-200">Limite de gastos p/ Carreata</p>
-                  <p className="text-[9px] text-slate-400 line-clamp-2 mt-1">Qual o valor máximo que podemos pagar nos carros de som?</p>
-               </div>
+               {legalRequests.length === 0 ? (
+                 <p className="text-[10px] text-slate-600 font-bold uppercase text-center mt-8">Nenhuma solicitação pendente.</p>
+               ) : (
+                 legalRequests.map(req => (
+                   <div key={req.id} className="p-3 bg-black/30 rounded-lg border border-white/5 hover:border-indigo-500/30 transition-all cursor-pointer">
+                      <div className="flex justify-between items-start mb-1">
+                         <span className="px-1.5 py-0.5 rounded text-[7px] font-black uppercase bg-indigo-500/20 text-indigo-400">{req.department || 'Geral'}</span>
+                         <span className="text-[8px] text-slate-500 font-mono">{req.createdAt ? (req.createdAt as any).toDate?.().toLocaleDateString() : 'Recente'}</span>{/* eslint-disable-line @typescript-eslint/no-explicit-any */}
+                      </div>
+                      <p className="text-[10px] font-bold text-slate-200">{req.title}</p>
+                      {req.desc && <p className="text-[9px] text-slate-400 line-clamp-2 mt-1">{req.desc}</p>}
+                   </div>
+                 ))
+               )}
             </div>
          </div>
 
@@ -354,21 +398,20 @@ export default function LegalDashboardPage({ onNavigate }: { onNavigate?: (p: st
                <h3 className="text-xs font-black uppercase tracking-widest text-slate-400 flex items-center gap-2"><FileBadge size={14} className="text-blue-400"/> Aprovação de Materiais</h3>
             </div>
             <div className="p-4 flex-1 space-y-3 overflow-y-auto min-h-[150px] max-h-52 custom-scrollbar">
-               <div className="p-3 bg-black/30 rounded-lg border border-white/5 hover:border-blue-500/30 transition-all cursor-pointer">
-                  <div className="flex justify-between items-start mb-1">
-                     <span className="px-1.5 py-0.5 rounded text-[7px] font-black uppercase bg-blue-500/20 text-blue-400">Revisão Pendente</span>
-                     <span className="text-[8px] text-slate-500 font-mono">2h atrás</span>
-                  </div>
-                  <p className="text-[10px] font-bold text-slate-200">Spot de Rádio 30s - Ataque</p>
-                  <p className="text-[9px] text-slate-400 line-clamp-2 mt-1">Checar se há risco de direito de resposta no trecho final.</p>
-               </div>
-               <div className="p-3 bg-black/30 rounded-lg border border-white/5 hover:border-emerald-500/30 transition-all cursor-pointer">
-                  <div className="flex justify-between items-start mb-1">
-                     <span className="px-1.5 py-0.5 rounded text-[7px] font-black uppercase bg-emerald-500/20 text-emerald-400">Aprovado</span>
-                     <span className="text-[8px] text-slate-500 font-mono">Ontem</span>
-                  </div>
-                  <p className="text-[10px] font-bold text-slate-200">Panfleto Propostas Bairro A</p>
-               </div>
+               {marketingApprovals.length === 0 ? (
+                 <p className="text-[10px] text-slate-600 font-bold uppercase text-center mt-8">Nenhum material pendente de aprovação.</p>
+               ) : (
+                 marketingApprovals.map(app => (
+                   <div key={app.id} className="p-3 bg-black/30 rounded-lg border border-white/5 hover:border-blue-500/30 transition-all cursor-pointer">
+                      <div className="flex justify-between items-start mb-1">
+                         <span className={`px-1.5 py-0.5 rounded text-[7px] font-black uppercase ${app.status === 'Aprovado' ? 'bg-emerald-500/20 text-emerald-400' : 'bg-blue-500/20 text-blue-400'}`}>{app.status || 'Revisão Pendente'}</span>
+                         <span className="text-[8px] text-slate-500 font-mono">{app.createdAt ? (app.createdAt as any).toDate?.().toLocaleDateString() : 'Recente'}</span>{/* eslint-disable-line @typescript-eslint/no-explicit-any */}
+                      </div>
+                      <p className="text-[10px] font-bold text-slate-200">{app.title}</p>
+                      {app.desc && <p className="text-[9px] text-slate-400 line-clamp-2 mt-1">{app.desc}</p>}
+                   </div>
+                 ))
+               )}
             </div>
          </div>
       </section>
@@ -396,10 +439,11 @@ export default function LegalDashboardPage({ onNavigate }: { onNavigate?: (p: st
                            </span>
                            {note.date && <span className="text-[10px] text-slate-400 font-mono flex items-center gap-1"><Clock size={10}/> {(new Date(note.date)).toLocaleDateString('pt-BR')}</span>}
                         </div>
-                        <p className={`text-xs font-bold mb-2 ${note.done ? 'text-slate-400 line-through' : 'text-slate-200'}`}>{note.desc}</p>
+                        <p className={`text-xs font-bold mb-1 ${note.done ? 'text-slate-400 line-through' : 'text-slate-200'}`}>{note.title}</p>
+                        <p className={`text-[10px] mb-2 ${note.done ? 'text-slate-500 line-through' : 'text-slate-400'}`}>{note.desc}</p>
                         <div className="flex items-center justify-between mt-4">
                            <span className={`text-[8px] font-black uppercase tracking-widest ${note.priority === 'Alta' ? 'text-rose-500' : note.priority === 'Baixa' ? 'text-slate-500' : 'text-amber-500'}`}>Prioridade: {note.priority}</span>
-                           <button onClick={() => setLegalNotes(legalNotes.map(n => n.id === note.id ? {...n, done: !n.done} : n))} className={`p-1.5 rounded-md ${note.done ? 'bg-emerald-500 text-white' : 'bg-white/10 text-slate-400 hover:text-emerald-400 hover:bg-emerald-500/20'}`}>
+                           <button onClick={() => toggleNoteDone(note)} className={`p-1.5 rounded-md ${note.done ? 'bg-emerald-500 text-white' : 'bg-white/10 text-slate-400 hover:text-emerald-400 hover:bg-emerald-500/20'}`}>
                               <CheckCircle size={14} />
                            </button>
                         </div>
@@ -458,6 +502,7 @@ export default function LegalDashboardPage({ onNavigate }: { onNavigate?: (p: st
            <form onSubmit={handleAddNote} className="bg-slate-900 border border-indigo-500/30 p-6 rounded-2xl w-full max-w-md space-y-4">
              <h3 className="text-sm font-black text-indigo-400 uppercase tracking-widest">Nova Anotação Jurídica</h3>
              <div className="space-y-3">
+               <input required value={newNote.title} onChange={e => setNewNote({...newNote, title: e.target.value})} placeholder="Título da Anotação..." className="w-full bg-black/40 border border-white/10 rounded-lg p-3 text-xs text-white" />
                <textarea required value={newNote.desc} onChange={e => setNewNote({...newNote, desc: e.target.value})} placeholder="Descreva o andamento, prazo ou observação..." className="w-full bg-black/40 border border-white/10 rounded-lg p-3 text-xs text-white min-h-[100px] resize-none"></textarea>
                <div className="grid grid-cols-2 gap-3">
                   <select value={newNote.type} onChange={e => setNewNote({...newNote, type: e.target.value})} className="w-full bg-black/40 border border-white/10 rounded-lg p-2.5 text-xs text-white">
