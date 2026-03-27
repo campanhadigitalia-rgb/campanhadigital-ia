@@ -33,9 +33,7 @@ export default function LegalDashboardPage({ onNavigate }: { onNavigate?: (p: st
 
   const [contracts, setContracts] = useState<LegalContract[]>([]);
   const [showAddNews, setShowAddNews] = useState(false);
-  const [showAddContract, setShowAddContract] = useState(false);
   const [newNews, setNewNews] = useState({ title: '', tag: 'Geral' });
-  const [newContract, setNewContract] = useState({ title: '', type: 'Serviço', status: 'Pendente' });
 
   // States para novos widgets
   const [legalNotes, setLegalNotes] = useState<LegalNote[]>([]);
@@ -102,16 +100,7 @@ export default function LegalDashboardPage({ onNavigate }: { onNavigate?: (p: st
     setShowAddNews(false);
   };
 
-  const handleAddContract = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!campaignId || !newContract.title) return;
-    await addDoc(collection(db, `campaigns/${campaignId}/legal_contracts`), {
-      ...newContract,
-      createdAt: serverTimestamp()
-    });
-    setNewContract({ title: '', type: 'Serviço', status: 'Pendente' });
-    setShowAddContract(false);
-  };
+
 
   const handleAddNote = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -161,16 +150,19 @@ export default function LegalDashboardPage({ onNavigate }: { onNavigate?: (p: st
                 {identity?.candidateNumber && (
                    <span className="px-2 py-1 bg-indigo-500/20 text-indigo-400 rounded-lg text-sm font-mono tracking-widest">{identity.candidateNumber}</span>
                 )}
-                {identity?.urnName || identity?.name || 'Candidato s/ nome'}
+                {identity?.urnName || 'Candidato s/ nome de urna'}
                 <CheckCircle size={18} className="text-emerald-400" />
               </h2>
               <p className="text-xs text-slate-400 font-bold uppercase tracking-tight mt-1">
-                {[identity?.party, identity?.coalition, identity?.location ? `${identity.location} / ${identity.state}` : null].filter(Boolean).join(' • ')}
-                {identity?.electionScope && <span className="ml-2 px-1.5 py-0.5 bg-slate-800 text-slate-300 rounded text-[9px] border border-slate-700">{identity.electionScope}</span>}
+                {identity?.name || '(Nome Civil não preenchido)'}
               </p>
-              <p className="text-[10px] text-slate-500 font-mono mt-1 tracking-tight">
-                {identity?.cpf && <span>CPF: {identity.cpf}  </span>}
-                {identity?.whatsappOfficial && <span>WPP: {identity.whatsappOfficial}</span>}
+              <p className="text-[10px] text-slate-500 font-bold uppercase tracking-tight mt-2 flex gap-2">
+                <span className="px-2 py-0.5 bg-black/30 rounded border border-white/5">{[identity?.party, identity?.coalition].filter(Boolean).join(' • ') || 'SEM PARTIDO'}</span>
+                <span className="px-2 py-0.5 bg-black/30 rounded border border-white/5">{identity?.location ? `${identity.location} / ${identity.state}` : 'SEM LOCAL'} {identity?.electionScope ? `(${identity.electionScope})` : ''}</span>
+              </p>
+              <p className="text-[10px] text-slate-500 font-mono mt-2 tracking-tight flex gap-4">
+                <span>CPF: {identity?.cpf || <span className="text-amber-500/80">Omitido</span>}</span>
+                <span>WPP: {identity?.whatsappOfficial || <span className="text-amber-500/80">Omitido</span>}</span>
               </p>
             </div>
 
@@ -301,7 +293,6 @@ export default function LegalDashboardPage({ onNavigate }: { onNavigate?: (p: st
            <div className="glass-card border border-white/5 overflow-hidden flex flex-col">
               <div className="p-4 bg-black/20 border-b border-white/5 flex justify-between items-center">
                  <h3 className="text-xs font-black uppercase tracking-widest text-slate-400 flex items-center gap-2"><FileText size={14} className="text-amber-400"/> Validação de Contratos</h3>
-                 <button onClick={() => setShowAddContract(true)} className="px-2 py-0.5 bg-indigo-500/20 text-indigo-400 rounded text-[8px] font-black uppercase hover:bg-indigo-500/40 transition-colors">+ Novo</button>
               </div>
               <div className="p-4 space-y-3 flex-1 overflow-y-auto min-h-[250px] max-h-[400px] custom-scrollbar">
                  {contracts.length === 0 ? (
@@ -327,9 +318,6 @@ export default function LegalDashboardPage({ onNavigate }: { onNavigate?: (p: st
                      </div>
                    ))
                  )}
-              </div>
-              <div className="p-4 pt-0">
-                 <button onClick={() => onNavigate?.('legal_financeiro')} className="w-full py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-lg text-[9px] font-black uppercase tracking-widest transition-all">Ver Auditoria Financeira</button>
               </div>
            </div>
         </div>
@@ -476,26 +464,7 @@ export default function LegalDashboardPage({ onNavigate }: { onNavigate?: (p: st
          </div>
        )}
 
-       {showAddContract && (
-         <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4">
-           <form onSubmit={handleAddContract} className="bg-slate-900 border border-amber-500/30 p-6 rounded-2xl w-full max-w-md space-y-4">
-             <h3 className="text-sm font-black text-amber-400 uppercase tracking-widest">Nova Pasta de Contrato</h3>
-             <div className="space-y-3">
-               <input required value={newContract.title} onChange={e => setNewContract({...newContract, title: e.target.value})} placeholder="Nome do Objeto (Ex: Locação de Vans)" className="w-full bg-black/40 border border-white/10 rounded-lg p-3 text-xs text-white" />
-               <select value={newContract.type} onChange={e => setNewContract({...newContract, type: e.target.value})} className="w-full bg-black/40 border border-white/10 rounded-lg p-3 text-xs text-white">
-                 <option value="Locação">Locação</option>
-                 <option value="Pessoal">Pessoal</option>
-                 <option value="Marketing">Marketing</option>
-                 <option value="Outros">Outros</option>
-               </select>
-             </div>
-             <div className="flex justify-end gap-3 pt-2">
-               <button type="button" onClick={() => setShowAddContract(false)} className="text-xs text-slate-500 font-bold uppercase tracking-widest hover:text-white">Cancelar</button>
-               <button type="submit" className="px-6 py-2 bg-amber-600 text-white text-[10px] font-black uppercase tracking-widest rounded-lg shadow-lg">Registrar Autoria</button>
-             </div>
-           </form>
-         </div>
-       )}
+
 
        {showAddNote && (
          <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4">
