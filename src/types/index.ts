@@ -311,3 +311,42 @@ export interface RSSFeedConfig {
   active: boolean;
   createdAt: Date;
 }
+
+/** IA adicional configurável pelo usuário */
+export interface ExtraAIConfig {
+  id: 'openai' | 'perplexity' | 'groq' | 'anthropic';
+  name: string;
+  apiKey: string;
+  model: string;
+  active: boolean;
+  /** Tier gratuito disponível */
+  freeTier: boolean;
+  freeTierNote?: string;
+}
+
+/** Configuração global dos mecanismos de busca para a campanha */
+export interface SearchEngineConfig {
+  campaign_id: string;
+  /** Keywords extras aplicadas a todos os mecanismos */
+  globalKeywords: string[];
+  /** Quais mecanismos estão habilitados no ciclo de monitoramento */
+  activeEngines: {
+    rss: boolean;
+    gemini: boolean;
+    manus: boolean;
+    tse: boolean;
+    tre: boolean;
+    extraAIs: string[]; // IDs das ExtraAIConfig ativas
+  };
+  /** Modelo Gemini preferido */
+  geminiModel: string;
+  /** Diretrizes globais adicionadas a todos prompts Gemini */
+  geminiGlobalDirective: string;
+  /** Token/API key do Manus IA */
+  manusToken: string;
+  /** UF para busca TRE */
+  treUF: string;
+  /** IAs extras configuradas */
+  extraAIs: ExtraAIConfig[];
+  updatedAt: Date;
+}

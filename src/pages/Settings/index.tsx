@@ -1,18 +1,19 @@
 import { useState } from 'react';
 import { useCampaign } from '../../context/CampaignContext';
 import { useAuth } from '../../context/AuthContext';
-import { Save, AlertCircle, DatabaseZap, Loader2, Settings2, ShieldCheck, Zap } from 'lucide-react';
+import { Save, AlertCircle, DatabaseZap, Loader2, Settings2, ShieldCheck, Zap, Search } from 'lucide-react';
 import { doc, updateDoc } from 'firebase/firestore';
 import { db, COLLECTIONS } from '../../services/firebase';
 import { seedRSRegions } from '../../utils/seedRS';
 import IdentitySettings from './IdentitySettings';
 import IntegrationDashboard from '../../components/ui/IntegrationDashboard';
+import SearchEnginesSettings from './SearchEnginesSettings';
 
 export default function Settings() {
   const { activeCampaign } = useCampaign();
   const { profile } = useAuth();
   const [seeding, setSeeding] = useState(false);
-  const [activeTab, setActiveTab] = useState<'general' | 'identity' | 'integrations'>('general');
+  const [activeTab, setActiveTab] = useState<'general' | 'identity' | 'integrations' | 'search'>('general');
   
   // Basic states for campaign profile management
   const [name, setName] = useState(activeCampaign?.name || '');
@@ -82,6 +83,14 @@ export default function Settings() {
         >
           <div className="flex items-center gap-2 text-amber-500">
             <Zap size={16} /> Integrações
+          </div>
+        </button>
+        <button 
+          onClick={() => setActiveTab('search')}
+          className={`px-4 py-2 text-sm font-bold transition-all border-b-2 ${activeTab === 'search' ? 'border-indigo-500 text-indigo-400' : 'border-transparent text-slate-500 hover:text-slate-300'}`}
+        >
+          <div className="flex items-center gap-2">
+            <Search size={16} /> Mecanismos de Busca
           </div>
         </button>
       </div>
@@ -223,6 +232,8 @@ export default function Settings() {
           </div>
         ) : activeTab === 'identity' ? (
           <IdentitySettings />
+        ) : activeTab === 'search' ? (
+          <SearchEnginesSettings />
         ) : (
           <IntegrationDashboard />
         )}
