@@ -25,6 +25,7 @@ import LegalDashboardPage from './pages/Legal/LegalDashboardPage';
 import LegalCompliancePage from './pages/Legal/LegalCompliancePage';
 import LegalMonitorPage from './pages/Legal/LegalMonitorPage';
 import LegalFinanceiroPage from './pages/Legal/LegalFinanceiroPage';
+import LegalTemplatesPage from './pages/Legal/LegalTemplatesPage';
 import SettingsPage from './pages/Settings';
 import MCPAgents from './pages/MCPAgents';
 import MonitorGeral from './pages/MonitorGeral';
@@ -148,7 +149,7 @@ function LoginScreen() {
   );
 }
 
-export type NavId = 'dashboard' | 'legal_dashboard' | 'legal_compliance' | 'legal_monitor' | 'legal_financeiro' | 'legal_docs' | 'finance_dashboard' | 'finance_caixa' | 'finance_suppliers' | 'finance_vaquinha' | 'admin' | 'pessoas' | 'studio' | 'whatsapp' | 'oracle' | 'contacts' | 'messaging' | 'mcp' | 'settings' | 'agenda' | 'owner' | 'monitor';
+export type NavId = 'dashboard' | 'legal_dashboard' | 'legal_compliance' | 'legal_monitor' | 'legal_financeiro' | 'legal_docs' | 'legal_templates' | 'finance_dashboard' | 'finance_caixa' | 'finance_suppliers' | 'finance_vaquinha' | 'admin' | 'pessoas' | 'studio' | 'whatsapp' | 'oracle' | 'contacts' | 'messaging' | 'mcp' | 'settings' | 'agenda' | 'owner' | 'monitor';
 
 interface NavItem {
   id: string;
@@ -171,6 +172,7 @@ const NAV_ITEMS: NavItem[] = [
       { id: 'legal_monitor',     label: '🎯 Monitor de Adversários' },
       { id: 'legal_financeiro',  label: '📊 Prestação de Contas' },
       { id: 'legal_docs',        label: '🗂️ Dossiê de Registro' },
+      { id: 'legal_templates',   label: '📝 Gestão de Minutas' },
     ]
   },
   {
@@ -273,6 +275,7 @@ export default function App() {
     legal_monitor:        <LegalMonitorPage />,
     legal_financeiro:     <LegalFinanceiroPage onNavigate={setPage} />,
     legal_docs:           <LegalDocsPage />,
+    legal_templates:      <LegalTemplatesPage />,
     finance_dashboard:    <FinancePage activeTab="dashboard" />,
     finance_caixa:        <FinancePage activeTab="caixa" />,
     finance_suppliers:    <FinancePage activeTab="suppliers" />,

@@ -293,6 +293,7 @@ export default function LegalDashboardPage({ onNavigate }: { onNavigate?: (p: st
            <div className="glass-card border border-white/5 overflow-hidden flex flex-col">
               <div className="p-4 bg-black/20 border-b border-white/5 flex justify-between items-center">
                  <h3 className="text-xs font-black uppercase tracking-widest text-slate-400 flex items-center gap-2"><FileText size={14} className="text-amber-400"/> Validação de Contratos</h3>
+                 <button onClick={() => onNavigate?.('legal_templates')} className="px-2 py-0.5 bg-amber-500/20 text-amber-400 rounded text-[8px] font-black uppercase hover:bg-amber-500/40 transition-colors">Gerenciar Minutas</button>
               </div>
               <div className="p-4 space-y-3 flex-1 overflow-y-auto min-h-[250px] max-h-[400px] custom-scrollbar">
                  {contracts.length === 0 ? (
