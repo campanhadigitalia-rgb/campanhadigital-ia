@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Shield, AlertTriangle, CheckCircle, Gavel, Clock, Activity, CreditCard, User, Users, FileText, Globe, MessageSquare } from 'lucide-react';
+import { Shield, CheckCircle, Gavel, Clock, Activity, CreditCard, User, Users, FileText, Globe, AlertTriangle, FileBadge, CheckSquare, MessageCircle, DollarSign, PlusCircle } from 'lucide-react';
 import { useCampaign } from '../../context/CampaignContext';
 import { collection, onSnapshot, query, orderBy, limit, addDoc, serverTimestamp } from 'firebase/firestore';
 import { db } from '../../services/firebase';
@@ -11,6 +11,7 @@ interface LegalContract {
   name?: string;
   type: string;
   status: string;
+  createdAt?: any; // eslint-disable-line @typescript-eslint/no-explicit-any
 }
 
 export default function LegalDashboardPage({ onNavigate }: { onNavigate?: (p: string) => void }) {
@@ -20,32 +21,26 @@ export default function LegalDashboardPage({ onNavigate }: { onNavigate?: (p: st
   const { items: alerts } = useLegalItems(campaignId || '', 10);
 
   const [contracts, setContracts] = useState<LegalContract[]>([]);
-  const [complianceStats, setComplianceStats] = useState({ approved: 0, rejected: 0 });
   const [showAddNews, setShowAddNews] = useState(false);
   const [showAddContract, setShowAddContract] = useState(false);
   const [newNews, setNewNews] = useState({ title: '', tag: 'Geral' });
   const [newContract, setNewContract] = useState({ title: '', type: 'Serviço', status: 'Pendente' });
 
+  // States para novos widgets
+  const [legalNotes, setLegalNotes] = useState<{id: string, type: string, priority: string, date: string, desc: string, done: boolean}[]>([]);
+  const [showAddNote, setShowAddNote] = useState(false);
+  const [newNote, setNewNote] = useState({ type: 'Processo', priority: 'Normal', date: '', desc: '' });
+
   useEffect(() => {
     if (!campaignId) return;
 
-    const qContracts = query(collection(db, `campaigns/${campaignId}/legal_contracts`), orderBy('createdAt', 'desc'), limit(5));
+    const qContracts = query(collection(db, `campaigns/${campaignId}/legal_contracts`), orderBy('createdAt', 'desc'), limit(50));
     const unsubContracts = onSnapshot(qContracts, snap => {
       setContracts(snap.docs.map(d => ({ id: d.id, ...d.data() } as LegalContract)));
     });
 
-    const qCompliance = query(collection(db, `campaigns/${campaignId}/legal_compliance`));
-    const unsubCompliance = onSnapshot(qCompliance, snap => {
-      const docs = snap.docs.map(d => d.data());
-      setComplianceStats({
-        approved: docs.filter(d => d.status === 'Aprovado').length,
-        rejected: docs.filter(d => d.status === 'Risco').length
-      });
-    });
-
     return () => {
       unsubContracts();
-      unsubCompliance();
     };
   }, [campaignId]);
 
@@ -88,6 +83,14 @@ export default function LegalDashboardPage({ onNavigate }: { onNavigate?: (p: st
     setShowAddContract(false);
   };
 
+  const handleAddNote = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newNote.desc) return;
+    setLegalNotes([{ id: Math.random().toString(), ...newNote, done: false }, ...legalNotes]);
+    setShowAddNote(false);
+    setNewNote({ type: 'Processo', priority: 'Normal', date: '', desc: '' });
+  };
+
 
   return (
     <div className="flex flex-col gap-6 w-full animate-in fade-in duration-700">
@@ -101,8 +104,8 @@ export default function LegalDashboardPage({ onNavigate }: { onNavigate?: (p: st
           {/* Foto e Perfil */}
           <div className="relative z-10 flex flex-col items-center gap-3">
             <div className="w-24 h-24 rounded-full border-4 border-indigo-500/30 overflow-hidden bg-slate-800 shadow-xl">
-              {identity?.photoOfficial ? (
-                <img src={identity.photoOfficial} alt="Avatar" className="w-full h-full object-cover" />
+              {identity?.photoOfficial || (activeCampaign as any)?.photoURL ? ( // eslint-disable-line @typescript-eslint/no-explicit-any
+                <img src={identity?.photoOfficial || (activeCampaign as any)?.photoURL} alt="Avatar" className="w-full h-full object-cover" /> // eslint-disable-line @typescript-eslint/no-explicit-any
               ) : (
                 <div className="w-full h-full flex items-center justify-center text-slate-600"><User size={40}/></div>
               )}
@@ -176,9 +179,9 @@ export default function LegalDashboardPage({ onNavigate }: { onNavigate?: (p: st
           </div>
         </div>
 
-        <div className="glass-card p-6 border-rose-500/20 flex flex-col justify-center items-center text-center gap-4 bg-rose-500/5">
-           <div className={`p-4 rounded-2xl bg-black/20 ${!identity?.cpf && !legalConfig?.cnpj ? 'text-amber-500/50' : activeProcessCount > 0 ? 'text-rose-400 animate-pulse' : 'text-slate-600'}`}>
-              <Gavel size={32} />
+        <div className={`glass-card p-6 flex flex-col justify-center items-center text-center gap-4 ${activeProcessCount > 0 ? 'bg-rose-500/5 border-rose-500/20' : 'bg-emerald-500/5 border-emerald-500/20'}`}>
+           <div className={`p-4 rounded-full ${!identity?.cpf && !legalConfig?.cnpj ? 'bg-amber-500/10 text-amber-500/50' : activeProcessCount > 0 ? 'bg-rose-500/20 text-rose-400 animate-pulse' : 'bg-emerald-500/20 text-emerald-400 shadow-[0_0_30px_rgba(16,185,129,0.3)]'}`}>
+              {(!identity?.cpf && !legalConfig?.cnpj) ? <Activity size={32} /> : activeProcessCount > 0 ? <Gavel size={32} /> : <Shield size={32} />}
            </div>
            <div>
               <p className="text-[10px] font-black uppercase text-slate-500 tracking-widest leading-none mb-1">Status Processual</p>
@@ -226,7 +229,7 @@ export default function LegalDashboardPage({ onNavigate }: { onNavigate?: (p: st
               <div className="p-4 bg-black/20 border-b border-white/5 flex justify-between items-center">
                   <h3 className="text-xs font-black uppercase tracking-widest text-slate-400 flex items-center gap-2"><Globe size={14} className="text-indigo-400"/> Jurisprudência (TSE/Diário)</h3>
               </div>
-              <div className="p-4 space-y-3 flex-1 overflow-y-auto max-h-52 custom-scrollbar">
+              <div className="p-4 space-y-3 flex-1 overflow-y-auto min-h-[250px] max-h-[400px] custom-scrollbar">
                  {alerts.length === 0 ? (
                     <div className="h-full flex flex-col items-center justify-center text-center p-4">
                       <Globe size={24} className="text-slate-700 mb-2 opacity-20" />
@@ -234,13 +237,15 @@ export default function LegalDashboardPage({ onNavigate }: { onNavigate?: (p: st
                     </div>
                  ) : (
                      alerts.map(n => (
-                      <div key={n.id} className="p-3 bg-indigo-500/5 rounded-lg border border-indigo-500/10 space-y-1">
+                      <div key={n.id} className="p-3 bg-indigo-500/5 rounded-lg border border-indigo-500/10 space-y-1 hover:bg-indigo-500/10 transition-colors">
                         <div className="flex justify-between items-start">
                           <span className="px-1.5 py-0.5 bg-indigo-500/20 text-indigo-400 rounded text-[7px] font-black uppercase">{n.subject || 'Diário Oficial'}</span>
                           <span className="text-[8px] text-slate-500 font-mono">{n.fetchedAt ? new Date(n.fetchedAt).toLocaleDateString() : ''}</span>
                         </div>
-                        <p className="text-[10px] font-bold text-slate-200 leading-snug">{n.title}</p>
-                        {n.summary && <p className="text-[9px] text-slate-400 line-clamp-2 leading-tight">{n.summary}</p>}
+                        <a href={n.url || '#'} target="_blank" rel="noopener noreferrer" className="block mt-1 group">
+                           <p className="text-[10px] font-bold text-slate-200 leading-snug group-hover:text-indigo-300 group-hover:underline">{n.title}</p>
+                           {n.summary && <p className="text-[9px] text-slate-400 line-clamp-4 leading-tight mt-1 group-hover:text-slate-300">{n.summary}</p>}
+                        </a>
                       </div>
                     ))
                  )}
@@ -258,7 +263,7 @@ export default function LegalDashboardPage({ onNavigate }: { onNavigate?: (p: st
                  <h3 className="text-xs font-black uppercase tracking-widest text-slate-400 flex items-center gap-2"><FileText size={14} className="text-amber-400"/> Validação de Contratos</h3>
                  <button onClick={() => setShowAddContract(true)} className="px-2 py-0.5 bg-indigo-500/20 text-indigo-400 rounded text-[8px] font-black uppercase hover:bg-indigo-500/40 transition-colors">+ Novo</button>
               </div>
-              <div className="p-4 space-y-3 flex-1">
+              <div className="p-4 space-y-3 flex-1 overflow-y-auto min-h-[250px] max-h-[400px] custom-scrollbar">
                  {contracts.length === 0 ? (
                    <div className="h-full flex flex-col items-center justify-center text-center p-4">
                       <FileText size={24} className="text-slate-700 mb-2 opacity-20" />
@@ -266,12 +271,19 @@ export default function LegalDashboardPage({ onNavigate }: { onNavigate?: (p: st
                    </div>
                  ) : (
                    contracts.map(c => (
-                     <div key={c.id} className="p-3 bg-black/30 rounded-lg border border-white/5 flex items-center justify-between group cursor-pointer hover:border-amber-500/30 transition-all">
-                        <div>
-                          <p className="text-xs font-bold text-slate-200">{c.title || c.name}</p>
-                          <p className="text-[9px] text-slate-500 uppercase font-black">{c.type || 'Contrato'} • {c.status || 'Pendente'}</p>
+                     <div key={c.id} onClick={() => alert('Abrindo detalhes do contrato...')} className="p-3 bg-black/30 rounded-lg border border-white/5 flex items-center justify-between group cursor-pointer hover:border-amber-500/50 hover:bg-black/40 transition-all">
+                        <div className="flex-1">
+                          <p className="text-xs font-bold text-slate-200 group-hover:text-amber-400">{c.title || c.name}</p>
+                          <div className="flex items-center gap-2 mt-1">
+                             <span className="text-[8px] text-slate-400 font-mono">{c.createdAt ? (c.createdAt as any).toDate?.().toLocaleDateString() || 'Recente' : 'Recente'}</span>{/* eslint-disable-line @typescript-eslint/no-explicit-any */}
+                             <span className="text-[9px] text-slate-500 uppercase font-black tracking-tighter">{c.type || 'Contrato'}</span>
+                          </div>
                         </div>
-                        {c.status === 'Aprovado' ? <CheckCircle size={14} className="text-emerald-500" /> : <AlertTriangle size={14} className="text-rose-500" />}
+                        <div className="flex flex-col items-end justify-center gap-1">
+                           {c.status === 'Aprovado' ? <span className="px-1.5 py-0.5 rounded text-[8px] font-black uppercase bg-emerald-500/20 text-emerald-400">Aprovado</span> 
+                           : c.status === 'Recusado' ? <span className="px-1.5 py-0.5 rounded text-[8px] font-black uppercase bg-rose-500/20 text-rose-400">Recusado</span>
+                           : <span className="px-1.5 py-0.5 rounded text-[8px] font-black uppercase bg-amber-500/20 text-amber-400">Pendente</span>}
+                        </div>
                      </div>
                    ))
                  )}
@@ -283,60 +295,119 @@ export default function LegalDashboardPage({ onNavigate }: { onNavigate?: (p: st
         </div>
       </div>
 
-      {/* 3. Footer: Acompanhamento Estratégico & Compliance */}
-      <section className="glass-card p-6 border-indigo-500/10 bg-indigo-500/5">
-         <div className="flex flex-col md:flex-row justify-between items-center gap-4 mb-6">
-            <div className="flex items-center gap-3">
-               <div className="p-3 bg-indigo-500/20 text-indigo-400 rounded-xl">
-                  <MessageSquare size={24} />
+      {/* 3. Fila de Trabalho (3 cards) */}
+      <section className="grid grid-cols-1 md:grid-cols-3 gap-6">
+         {/* Card 1: Auditoria Financeira */}
+         <div className="glass-card border border-white/5 overflow-hidden flex flex-col">
+            <div className="p-4 bg-black/20 border-b border-white/5 flex justify-between items-center">
+               <h3 className="text-xs font-black uppercase tracking-widest text-slate-400 flex items-center gap-2"><DollarSign size={14} className="text-emerald-400"/> Auditoria Financeira</h3>
+            </div>
+            <div className="p-4 flex-1 space-y-4">
+               <div className="flex items-center justify-between p-3 bg-emerald-500/10 rounded-lg border border-emerald-500/20">
+                  <div>
+                    <p className="text-[9px] font-black uppercase text-emerald-500 tracking-tight">Status do Caixa</p>
+                    <p className="text-sm font-bold text-slate-200">Regular</p>
+                  </div>
+                  <Activity size={20} className="text-emerald-400" />
                </div>
-               <div>
-                  <h3 className="text-lg font-black text-slate-100">Compliance & Monitoramento de Conteúdo</h3>
-                  <p className="text-xs text-slate-500">Acompanhamento síncrono de ataques, repercussões e validade de mídia.</p>
+               <div className="space-y-2">
+                  <p className="text-[10px] font-black text-rose-400 uppercase tracking-widest flex items-center gap-1"><AlertTriangle size={12}/> Transações de Risco</p>
+                  <div className="p-2 border-l-2 border-rose-500 bg-black/20">
+                     <p className="text-[10px] font-bold text-slate-200">Doação atípica de PF</p>
+                     <p className="text-[9px] text-slate-500">R$ 50.000,00 - Pendente de justificação</p>
+                  </div>
                </div>
             </div>
-            <div className="flex gap-2">
-               <button onClick={() => onNavigate?.('legal_monitor')} className="px-5 py-2.5 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl font-black uppercase text-[10px] tracking-widest shadow-lg shadow-indigo-500/20 transition-all">Abrir Gerador RAG</button>
-               <button onClick={() => onNavigate?.('legal_compliance')} className="px-5 py-2.5 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded-xl font-black uppercase text-[10px] tracking-widest transition-all">Revisar Mídias</button>
+            <div className="p-4 pt-0">
+               <button onClick={() => onNavigate?.('finance_dashboard')} className="w-full py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-lg text-[9px] font-black uppercase tracking-widest transition-all">Abrir Financeiro</button>
             </div>
          </div>
 
-         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-             <div className="p-4 bg-black/20 rounded-xl border border-rose-500/10">
-                <p className="text-[10px] font-black text-rose-400 uppercase tracking-widest mb-3">Últimas Ocorrências Registradas</p>
-                <div className="space-y-3">
-                  {alerts.slice(0, 2).length === 0 ? (
-                    <p className="text-[10px] text-slate-600 font-bold uppercase">Nenhum evento jurídico registrado.</p>
-                  ) : alerts.slice(0, 2).map((alert) => (
-                    <div key={alert.id} className={`p-2 border-l-2 bg-black/20 ${alert.sentiment === 'critico' ? 'border-rose-500' : 'border-amber-500'}`}>
-                      <p className="text-[10px] font-bold text-slate-200 line-clamp-1">{alert.title}</p>
-                      <p className="text-[9px] text-slate-500 line-clamp-2 mt-0.5">{alert.summary || 'Sem descrição.'}</p>
-                    </div>
-                  ))}
-                  <button onClick={() => onNavigate?.('legal_monitor')} className="text-[9px] font-black text-indigo-400 uppercase tracking-tighter hover:underline">Ver todas no Monitor →</button>
-                </div>
-             </div>
-             <div className="p-4 bg-black/20 rounded-xl border border-emerald-500/10">
-                <p className="text-[10px] font-black text-emerald-400 uppercase tracking-widest mb-3">Compliance de Peças</p>
-                <div className="flex items-center gap-4">
-                   <div className="flex-1 text-center border-r border-white/5">
-                     <p className="text-xl font-black text-slate-100">{complianceStats.approved}</p>
-                   </div>
-                   <div className="flex-1 text-center">
-                     <p className="text-xl font-black text-rose-500">{complianceStats.rejected}</p>
-                     <p className="text-[9px] text-slate-500 uppercase font-black">Rejeitada</p>
-                   </div>
-                </div>
-             </div>
-            <div className="p-4 bg-black/20 rounded-xl border border-white/5 space-y-3 text-center flex flex-col justify-center">
-               <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Prestação de Contas</p>
-               <div className="flex items-center justify-center gap-2 text-emerald-400">
-                  <Shield size={20} />
-                  <span className="text-sm font-black uppercase">{complianceStats.approved > 0 || complianceStats.rejected > 0 ? `${Math.round((complianceStats.approved / (complianceStats.approved + complianceStats.rejected)) * 100)}% Aprovadas` : 'Sem dados'}</span>
+         {/* Card 2: Solicitações de Informação */}
+         <div className="glass-card border border-white/5 overflow-hidden flex flex-col">
+            <div className="p-4 bg-black/20 border-b border-white/5 flex justify-between items-center">
+               <h3 className="text-xs font-black uppercase tracking-widest text-slate-400 flex items-center gap-2"><MessageCircle size={14} className="text-indigo-400"/> Solicitações Jurídicas</h3>
+            </div>
+            <div className="p-4 flex-1 space-y-3 overflow-y-auto min-h-[150px] max-h-52 custom-scrollbar">
+               <div className="p-3 bg-black/30 rounded-lg border border-white/5 hover:border-indigo-500/30 transition-all cursor-pointer">
+                  <div className="flex justify-between items-start mb-1">
+                     <span className="px-1.5 py-0.5 rounded text-[7px] font-black uppercase bg-indigo-500/20 text-indigo-400">Marketing</span>
+                     <span className="text-[8px] text-slate-500 font-mono">Hoje</span>
+                  </div>
+                  <p className="text-[10px] font-bold text-slate-200">Dúvida sobre jingle paródia</p>
+                  <p className="text-[9px] text-slate-400 line-clamp-2 mt-1">Podemos usar a melodia daquela música famosa trocando a letra?</p>
                </div>
-               <p className="text-[10px] text-slate-500 leading-tight">Proporção de peças aprovadas pelo Sentinel IA.</p>
+               <div className="p-3 bg-black/30 rounded-lg border border-white/5 hover:border-amber-500/30 transition-all cursor-pointer">
+                  <div className="flex justify-between items-start mb-1">
+                     <span className="px-1.5 py-0.5 rounded text-[7px] font-black uppercase bg-amber-500/20 text-amber-400">Coordenação</span>
+                     <span className="text-[8px] text-slate-500 font-mono">Ontem</span>
+                  </div>
+                  <p className="text-[10px] font-bold text-slate-200">Limite de gastos p/ Carreata</p>
+                  <p className="text-[9px] text-slate-400 line-clamp-2 mt-1">Qual o valor máximo que podemos pagar nos carros de som?</p>
+               </div>
             </div>
          </div>
+
+         {/* Card 3: Aprovação de Materiais */}
+         <div className="glass-card border border-white/5 overflow-hidden flex flex-col">
+            <div className="p-4 bg-black/20 border-b border-white/5 flex justify-between items-center">
+               <h3 className="text-xs font-black uppercase tracking-widest text-slate-400 flex items-center gap-2"><FileBadge size={14} className="text-blue-400"/> Aprovação de Materiais</h3>
+            </div>
+            <div className="p-4 flex-1 space-y-3 overflow-y-auto min-h-[150px] max-h-52 custom-scrollbar">
+               <div className="p-3 bg-black/30 rounded-lg border border-white/5 hover:border-blue-500/30 transition-all cursor-pointer">
+                  <div className="flex justify-between items-start mb-1">
+                     <span className="px-1.5 py-0.5 rounded text-[7px] font-black uppercase bg-blue-500/20 text-blue-400">Revisão Pendente</span>
+                     <span className="text-[8px] text-slate-500 font-mono">2h atrás</span>
+                  </div>
+                  <p className="text-[10px] font-bold text-slate-200">Spot de Rádio 30s - Ataque</p>
+                  <p className="text-[9px] text-slate-400 line-clamp-2 mt-1">Checar se há risco de direito de resposta no trecho final.</p>
+               </div>
+               <div className="p-3 bg-black/30 rounded-lg border border-white/5 hover:border-emerald-500/30 transition-all cursor-pointer">
+                  <div className="flex justify-between items-start mb-1">
+                     <span className="px-1.5 py-0.5 rounded text-[7px] font-black uppercase bg-emerald-500/20 text-emerald-400">Aprovado</span>
+                     <span className="text-[8px] text-slate-500 font-mono">Ontem</span>
+                  </div>
+                  <p className="text-[10px] font-bold text-slate-200">Panfleto Propostas Bairro A</p>
+               </div>
+            </div>
+         </div>
+      </section>
+
+      {/* 4. Anotações do Jurídico */}
+      <section className="glass-card border border-white/5 overflow-hidden flex flex-col">
+          <div className="p-4 bg-black/20 border-b border-white/5 flex justify-between items-center">
+              <h3 className="text-sm font-black uppercase tracking-widest text-slate-200 flex items-center gap-2"><CheckSquare size={16} className="text-indigo-400"/> Anotações e Prazos do Jurídico</h3>
+              <button onClick={() => setShowAddNote(true)} className="flex items-center gap-1 px-3 py-1.5 bg-indigo-600 hover:bg-indigo-500 text-white rounded-lg text-[10px] font-black uppercase shadow-lg shadow-indigo-500/20 transition-all"><PlusCircle size={14}/> Nova Nota</button>
+          </div>
+          <div className="p-4 space-y-3 min-h-[150px]">
+             {legalNotes.length === 0 ? (
+                <div className="flex flex-col items-center justify-center text-center p-8 opacity-50">
+                   <FileText size={32} className="text-slate-600 mb-3" />
+                   <p className="text-xs font-bold text-slate-400 uppercase tracking-widest">Nenhuma anotação ou prazo ativo</p>
+                   <p className="text-[10px] text-slate-500 mt-1">Use este espaço para registrar andamentos, pautas e datas importantes.</p>
+                </div>
+             ) : (
+                <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+                   {legalNotes.map(note => (
+                     <div key={note.id} className={`p-4 rounded-xl border transition-all ${note.done ? 'bg-emerald-500/5 border-emerald-500/20 opacity-60' : 'bg-black/30 border-white/10 hover:border-indigo-500/50'}`}>
+                        <div className="flex justify-between items-start mb-2">
+                           <span className={`px-2 py-0.5 rounded text-[9px] font-black uppercase ${note.type === 'Processo' ? 'bg-rose-500/20 text-rose-400' : note.type === 'Requerimento' ? 'bg-amber-500/20 text-amber-400' : 'bg-indigo-500/20 text-indigo-400'}`}>
+                              {note.type}
+                           </span>
+                           {note.date && <span className="text-[10px] text-slate-400 font-mono flex items-center gap-1"><Clock size={10}/> {(new Date(note.date)).toLocaleDateString('pt-BR')}</span>}
+                        </div>
+                        <p className={`text-xs font-bold mb-2 ${note.done ? 'text-slate-400 line-through' : 'text-slate-200'}`}>{note.desc}</p>
+                        <div className="flex items-center justify-between mt-4">
+                           <span className={`text-[8px] font-black uppercase tracking-widest ${note.priority === 'Alta' ? 'text-rose-500' : note.priority === 'Baixa' ? 'text-slate-500' : 'text-amber-500'}`}>Prioridade: {note.priority}</span>
+                           <button onClick={() => setLegalNotes(legalNotes.map(n => n.id === note.id ? {...n, done: !n.done} : n))} className={`p-1.5 rounded-md ${note.done ? 'bg-emerald-500 text-white' : 'bg-white/10 text-slate-400 hover:text-emerald-400 hover:bg-emerald-500/20'}`}>
+                              <CheckCircle size={14} />
+                           </button>
+                        </div>
+                     </div>
+                   ))}
+                </div>
+             )}
+          </div>
       </section>
 
        {/* Modais de Entrada de Dados (No Mocks Policy) */}
@@ -377,6 +448,35 @@ export default function LegalDashboardPage({ onNavigate }: { onNavigate?: (p: st
              <div className="flex justify-end gap-3 pt-2">
                <button type="button" onClick={() => setShowAddContract(false)} className="text-xs text-slate-500 font-bold uppercase tracking-widest hover:text-white">Cancelar</button>
                <button type="submit" className="px-6 py-2 bg-amber-600 text-white text-[10px] font-black uppercase tracking-widest rounded-lg shadow-lg">Registrar Autoria</button>
+             </div>
+           </form>
+         </div>
+       )}
+
+       {showAddNote && (
+         <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4">
+           <form onSubmit={handleAddNote} className="bg-slate-900 border border-indigo-500/30 p-6 rounded-2xl w-full max-w-md space-y-4">
+             <h3 className="text-sm font-black text-indigo-400 uppercase tracking-widest">Nova Anotação Jurídica</h3>
+             <div className="space-y-3">
+               <textarea required value={newNote.desc} onChange={e => setNewNote({...newNote, desc: e.target.value})} placeholder="Descreva o andamento, prazo ou observação..." className="w-full bg-black/40 border border-white/10 rounded-lg p-3 text-xs text-white min-h-[100px] resize-none"></textarea>
+               <div className="grid grid-cols-2 gap-3">
+                  <select value={newNote.type} onChange={e => setNewNote({...newNote, type: e.target.value})} className="w-full bg-black/40 border border-white/10 rounded-lg p-2.5 text-xs text-white">
+                    <option value="Processo">Processo</option>
+                    <option value="Requerimento">Requerimento</option>
+                    <option value="Prazo">Prazo</option>
+                    <option value="Nota Geral">Nota Geral</option>
+                  </select>
+                  <select value={newNote.priority} onChange={e => setNewNote({...newNote, priority: e.target.value})} className="w-full bg-black/40 border border-white/10 rounded-lg p-2.5 text-xs text-white">
+                    <option value="Baixa">Baixa Prioridade</option>
+                    <option value="Normal">Prioridade Média</option>
+                    <option value="Alta">Alta Prioridade</option>
+                  </select>
+               </div>
+               <input type="date" value={newNote.date} onChange={e => setNewNote({...newNote, date: e.target.value})} className="w-full bg-black/40 border border-white/10 rounded-lg p-3 text-xs text-white" />
+             </div>
+             <div className="flex justify-end gap-3 pt-2">
+               <button type="button" onClick={() => setShowAddNote(false)} className="text-xs text-slate-500 font-bold uppercase tracking-widest hover:text-white">Cancelar</button>
+               <button type="submit" className="px-6 py-2 bg-indigo-600 text-white text-[10px] font-black uppercase tracking-widest rounded-lg shadow-lg">Salvar Nota</button>
              </div>
            </form>
          </div>
