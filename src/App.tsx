@@ -1,7 +1,7 @@
-// ──────────────────────────────────────────────────────────────
-//  CampanhaDigital IA — App.tsx
+﻿// â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+//  CampanhaDigital IA â€” App.tsx
 //  Roteamento + Layout principal
-// ──────────────────────────────────────────────────────────────
+// â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 import { AnimatePresence, motion } from 'framer-motion';
 import { useState } from 'react';
 import {
@@ -27,12 +27,13 @@ import LegalCompliancePage from './pages/Legal/LegalCompliancePage';
 import LegalMonitorPage from './pages/Legal/LegalMonitorPage';
 import LegalFinanceiroPage from './pages/Legal/LegalFinanceiroPage';
 import SettingsPage from './pages/Settings';
+import MonitorGeral from './pages/MonitorGeral';
 import MCPAgents from './pages/MCPAgents';
 import FinancePage from './pages/Finance';
 import AdminPage from './pages/Administrative';
 import { PeopleManager } from './components/ui/PeopleManager';
 
-// ── Tela de Login ──────────────────────────────────────────────
+// â”€â”€ Tela de Login â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 function LoginScreen() {
   const { signInWithGoogle, signInWithEmail, signUpWithEmail, loading } = useAuth();
   const [isRegister, setIsRegister] = useState(false);
@@ -141,14 +142,14 @@ function LoginScreen() {
           onClick={() => setIsRegister(!isRegister)}
           className="text-xs text-indigo-400 hover:text-indigo-300 bg-transparent border-none cursor-pointer p-0"
         >
-          {isRegister ? 'Já tenho conta, fazer login' : 'Não tem conta? Criar acesso'}
+          {isRegister ? 'JÃ¡ tenho conta, fazer login' : 'NÃ£o tem conta? Criar acesso'}
         </button>
       </motion.div>
     </div>
   );
 }
 
-export type NavId = 'dashboard' | 'legal_dashboard' | 'legal_compliance' | 'legal_monitor' | 'legal_financeiro' | 'legal_docs' | 'finance_dashboard' | 'finance_caixa' | 'finance_suppliers' | 'finance_vaquinha' | 'admin' | 'pessoas' | 'studio' | 'whatsapp' | 'oracle' | 'contacts' | 'messaging' | 'mcp' | 'settings' | 'agenda' | 'owner';
+export type NavId = 'dashboard' | 'legal_dashboard' | 'legal_compliance' | 'legal_monitor' | 'legal_financeiro' | 'legal_docs' | 'finance_dashboard' | 'finance_caixa' | 'finance_suppliers' | 'finance_vaquinha' | 'admin' | 'pessoas' | 'studio' | 'whatsapp' | 'oracle' | 'contacts' | 'messaging' | 'mcp' | 'settings' | 'agenda' | 'owner' | 'monitor';
 
 interface NavItem {
   id: string;
@@ -164,13 +165,13 @@ interface NavItem {
 
 const NAV_ITEMS: NavItem[] = [
   {
-    id: 'grp_juridico', label: '1. Jurídico', Icon: Scale,
+    id: 'grp_juridico', label: '1. JurÃ­dico', Icon: Scale,
     subItems: [
-      { id: 'legal_dashboard',   label: '⚖️ Central Jurídica' },
-      { id: 'legal_compliance',  label: '🔍 Compliance de Conteúdo' },
-      { id: 'legal_monitor',     label: '🎯 Monitor de Adversários' },
-      { id: 'legal_financeiro',  label: '📊 Prestação de Contas' },
-      { id: 'legal_docs',        label: '🗂️ Dossiê de Registro' },
+      { id: 'legal_dashboard',   label: 'âš–ï¸ Central JurÃ­dica' },
+      { id: 'legal_compliance',  label: 'ðŸ” Compliance de ConteÃºdo' },
+      { id: 'legal_monitor',     label: 'ðŸŽ¯ Monitor de AdversÃ¡rios' },
+      { id: 'legal_financeiro',  label: 'ðŸ“Š PrestaÃ§Ã£o de Contas' },
+      { id: 'legal_docs',        label: 'ðŸ—‚ï¸ DossiÃª de Registro' },
     ]
   },
   {
@@ -185,13 +186,13 @@ const NAV_ITEMS: NavItem[] = [
   {
     id: 'grp_admin', label: '3. Administrativo', Icon: ClipboardList,
     subItems: [
-      { id: 'admin', label: 'Frota, Logística & Estoque' }
+      { id: 'admin', label: 'Frota, LogÃ­stica & Estoque' }
     ]
   },
   {
-    id: 'grp_comunicacao', label: '4. Comunicação', Icon: MessageCircle,
+    id: 'grp_comunicacao', label: '4. ComunicaÃ§Ã£o', Icon: MessageCircle,
     subItems: [
-      { id: 'studio', label: 'Estúdio de Criação IA' },
+      { id: 'studio', label: 'EstÃºdio de CriaÃ§Ã£o IA' },
       { id: 'whatsapp', label: 'Monitoramento & Whats' }
     ]
   },
@@ -202,7 +203,7 @@ const NAV_ITEMS: NavItem[] = [
     ]
   },
   {
-    id: 'grp_rua_mobi', label: '6. Rua (Mobilização)', Icon: MapPin,
+    id: 'grp_rua_mobi', label: '6. Rua (MobilizaÃ§Ã£o)', Icon: MapPin,
     subItems: [
       { id: 'contacts', label: 'Multiplicadores & CRM' }
     ]
@@ -214,28 +215,28 @@ const NAV_ITEMS: NavItem[] = [
     ]
   },
   {
-    id: 'grp_estrategia', label: '8. Estratégia', Icon: Brain,
+    id: 'grp_estrategia', label: '8. EstratÃ©gia', Icon: Brain,
     subItems: [
-      { id: 'oracle', label: 'O Oráculo (Cérebro IA)', volunteerHidden: true }
+      { id: 'oracle', label: 'O OrÃ¡culo (CÃ©rebro IA)', volunteerHidden: true }
     ]
   },
   {
     id: 'grp_tec', label: '9. Tecnologia', Icon: Bot,
     subItems: [
       { id: 'mcp', label: 'Painel de Agentes (MCP)' },
-      { id: 'settings', label: 'Chaves de API & Conexões', volunteerHidden: true }
+      { id: 'settings', label: 'Chaves de API & ConexÃµes', volunteerHidden: true }
     ]
   },
   {
-    id: 'grp_gestao', label: '10. Gestão', Icon: Zap,
+    id: 'grp_gestao', label: '10. GestÃ£o', Icon: Zap,
     subItems: [
       { id: 'owner', label: 'Master (Owner Portal)', proprietorOnly: true },
-      { id: 'agenda', label: 'Agenda Pessoal & Pública' }
+      { id: 'agenda', label: 'Agenda Pessoal & PÃºblica' }
     ]
   }
 ];
 
-// ── App Principal ──────────────────────────────────────────────
+// â”€â”€ App Principal â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 export default function App() {
   const { user, profile, loading, logout } = useAuth();
   const { activeCampaign, viewMode }       = useCampaign();
@@ -286,6 +287,7 @@ export default function App() {
     mcp:                  <MCPAgents />,
     settings:             <SettingsPage />,
     agenda:               <CampaignCalendar />,
+    monitor:              <MonitorGeral />,
     owner:                <div className="p-6 text-white">Owner Portal under construction.</div>
   };
 
@@ -324,7 +326,7 @@ export default function App() {
                     CampanhaDigital IA
                   </p>
                   <p style={{ margin: 0, fontSize: 10, color: '#6366f1' }}>
-                    {viewMode === 'active' ? '● Campanha Ativa' : '◎ Histórico'}
+                    {viewMode === 'active' ? 'â— Campanha Ativa' : 'â—Ž HistÃ³rico'}
                   </p>
                 </div>
               </div>
@@ -340,7 +342,7 @@ export default function App() {
               >
                 <div className="flex items-center gap-3">
                   <Target size={18} className={page === 'dashboard' ? 'text-indigo-400' : 'text-slate-400'} />
-                  <span className="text-[13px] font-black uppercase tracking-widest bg-clip-text text-transparent bg-linear-to-r from-white to-slate-400">Página Inicial</span>
+                  <span className="text-[13px] font-black uppercase tracking-widest bg-clip-text text-transparent bg-linear-to-r from-white to-slate-400">PÃ¡gina Inicial</span>
                 </div>
               </button>
             </div>
@@ -468,7 +470,7 @@ export default function App() {
 
           {/* Breadcrumb */}
           <span style={{ fontSize: 15, fontWeight: 600, color: '#f1f5f9' }}>
-            {page === 'dashboard' ? 'Página Inicial (Dashboard Geral)' : NAV_ITEMS.flatMap(g => g.subItems).find(sub => sub.id === page)?.label}
+            {page === 'dashboard' ? 'PÃ¡gina Inicial (Dashboard Geral)' : NAV_ITEMS.flatMap(g => g.subItems).find(sub => sub.id === page)?.label}
           </span>
 
           {/* Campaign indicator */}
@@ -479,7 +481,7 @@ export default function App() {
               padding: '3px 10px', borderRadius: 20,
               border: '1px solid rgba(99,102,241,0.2)',
             }}>
-              {activeCampaign.name} · {activeCampaign.year}
+              {activeCampaign.name} Â· {activeCampaign.year}
             </div>
           )}
 
@@ -509,3 +511,4 @@ export default function App() {
     </div>
   );
 }
+

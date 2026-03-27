@@ -304,8 +304,7 @@ export interface MonitoringItem {
   rawData?: Record<string, unknown>;
   fetchedAt: Date;
   /** Se IA jÃ¡ processou e classificou este item */
-  processed?: boolean;
-}
+  processed?: boolean;\r\n  /** Item salvo/bookmarkado pelo usuario */\r\n  saved?: boolean;\r\n  savedAt?: Date;\r\n  savedNotes?: string;\r\n  /** Score de importancia 1-10 atribuido pela IA */\r\n  importance?: number;\r\n  /** Sentimento geral do item */\r\n  aiSentiment?: 'positive' | 'negative' | 'neutral';\r\n  /** Quando a IA classificou */\r\n  aiClassifiedAt?: Date;\r\n  /** Canal especifico de origem (ex: 'Globo News', '@canal', 'r/brasil') */\r\n  sourceChannel?: string;\r\n}
 
 /** Fonte de RSS configurÃ¡vel pelo usuÃ¡rio */
 export interface RSSFeedConfig {
@@ -356,4 +355,5 @@ export interface SearchEngineConfig {
   extraAIs: ExtraAIConfig[];
   updatedAt: Date;
 }
+
 
