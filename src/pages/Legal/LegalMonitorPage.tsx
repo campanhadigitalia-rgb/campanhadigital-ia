@@ -1,4 +1,4 @@
-import { Gavel, Scale, AlertCircle, Zap, Clock, CheckCircle2, Bookmark, BookmarkCheck } from 'lucide-react';
+import { Gavel, Scale, AlertCircle, Zap, CheckCircle2, Bookmark, BookmarkCheck } from 'lucide-react';
 import { useState, useEffect } from 'react';
 import { useCampaign } from '../../context/CampaignContext';
 import { collection, onSnapshot, query, orderBy, addDoc, serverTimestamp, where, limit } from 'firebase/firestore';

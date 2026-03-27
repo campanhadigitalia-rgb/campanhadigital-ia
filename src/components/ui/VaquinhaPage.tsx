@@ -1,10 +1,10 @@
 import { useState, useEffect, useCallback } from 'react';
-import { collection, addDoc, deleteDoc, doc, onSnapshot, serverTimestamp, updateDoc } from 'firebase/firestore';
+import { collection, addDoc, deleteDoc, doc, onSnapshot, serverTimestamp, updateDoc, query, where } from 'firebase/firestore';
 import { db } from '../../services/firebase';
 import { useCampaign } from '../../context/CampaignContext';
 import {
   Heart, Plus, Trash2, Share2, CheckCircle2,
-  Calendar, Target, Banknote, Globe, Info, Percent, QrCode
+  Calendar, Target, Banknote, Globe, Info, Percent, QrCode, Edit2, Users
 } from 'lucide-react';
 import type { FundraisingCampaign } from '../../types';
 
@@ -16,8 +16,11 @@ const fmt = (v: number) => new Intl.NumberFormat('pt-BR', { style: 'currency', c
 export function VaquinhaPage() {
   const { campaignId, activeCampaign } = useCampaign();
   const [campaigns, setCampaigns] = useState<FundraisingCampaign[]>([]);
+  const [rsvps, setRsvps] = useState<Record<string, number>>({});
   const [adding, setAdding] = useState(false);
   const [copiedId, setCopiedId] = useState<string | null>(null);
+  const [editingId, setEditingId] = useState<string | null>(null);
+  
   const [form, setForm] = useState<Omit<FundraisingCampaign, 'id' | 'createdAt' | 'updatedAt' | 'campaign_id' | 'createdBy'>>({
     type: 'vaquinha', title: '', description: '',
     goal: 0, raised: 0, pixKey: activeCampaign?.legalConfig?.pix || '',
@@ -30,11 +33,11 @@ export function VaquinhaPage() {
     [campaignId]);
 
   useEffect(() => {
-    if (activeCampaign?.legalConfig?.pix) {
+    if (activeCampaign?.legalConfig?.pix && !editingId) {
       const pix = activeCampaign.legalConfig.pix;
       setForm(f => ({ ...f, pixKey: pix }));
     }
-  }, [activeCampaign?.legalConfig?.pix]);
+  }, [activeCampaign?.legalConfig?.pix, editingId]);
 
   useEffect(() => {
     const p = getPath();
@@ -53,6 +56,19 @@ export function VaquinhaPage() {
       setCampaigns(data);
     });
   }, [getPath]);
+
+  useEffect(() => {
+    if (!campaignId) return;
+    const qRsvps = query(collection(db, 'event_rsvps'), where('campaign_id', '==', campaignId));
+    return onSnapshot(qRsvps, snap => {
+      const counts: Record<string, number> = {};
+      snap.docs.forEach(d => {
+        const evId = d.data().event_id;
+        counts[evId] = (counts[evId] || 0) + 1;
+      });
+      setRsvps(counts);
+    });
+  }, [campaignId]);
 
   const handleUpdateStatus = async (id: string, status: CampaignStatus) => {
     const p = getPath();
@@ -73,26 +89,57 @@ export function VaquinhaPage() {
     
     setAdding(true);
     try { 
-      await addDoc(collection(db, p), { ...form, raised: 0, createdAt: serverTimestamp() }); 
+      if (editingId) {
+         await updateDoc(doc(db, p, editingId), { ...form, updatedAt: serverTimestamp() });
+         setEditingId(null);
+         alert('Campanha/Evento atualizado!');
+      } else {
+         await addDoc(collection(db, p), { ...form, raised: 0, createdAt: serverTimestamp() }); 
+         alert('Criado com sucesso!');
+      }
       setForm(f => ({ ...f, title: '', description: '', goal: 0, eventDate: '', eventLocation: '', shareLink: '', feePercentage: 0 }));
-      alert('Campanha criada com sucesso!');
     } catch (err) {
       console.error(err);
-      alert('Erro ao criar campanha.');
+      alert('Erro ao salvar.');
     } finally { 
       setAdding(false); 
     }
   };
 
+  const handleEdit = (c: FundraisingCampaign) => {
+    if (!c.id) return;
+    setEditingId(c.id);
+    setForm({
+      type: c.type || 'vaquinha',
+      title: c.title || '',
+      description: c.description || '',
+      goal: c.goal || 0,
+      raised: c.raised || 0,
+      pixKey: c.pixKey || '',
+      eventDate: c.eventDate || '',
+      eventLocation: c.eventLocation || '',
+      status: c.status || 'Ativa',
+      shareLink: c.shareLink || '',
+      feePercentage: c.feePercentage || 0
+    });
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
   const handleDelete = async (id: string) => {
     const p = getPath();
     if (!p) return;
-    if (confirm('Deseja excluir esta campanha?')) await deleteDoc(doc(db, p, id));
+    if (confirm('Deseja excluir?')) await deleteDoc(doc(db, p, id));
   };
 
   const handleCopyPix = async (id: string, pixKey: string) => {
     await navigator.clipboard.writeText(pixKey);
-    setCopiedId(id);
+    setCopiedId(`pix_${id}`);
+    setTimeout(() => setCopiedId(null), 2000);
+  };
+  
+  const handleCopyLink = async (id: string, link: string) => {
+    await navigator.clipboard.writeText(link);
+    setCopiedId(`link_${id}`);
     setTimeout(() => setCopiedId(null), 2000);
   };
 
@@ -115,11 +162,12 @@ export function VaquinhaPage() {
         <p>Atenção: Seguindo as normas do TSE, toda arrecadação coletiva (crowdfunding) deve ser realizada por empresas cadastradas e homologadas. O registro dessas transações no Livro Caixa é obrigatório.</p>
       </div>
 
-      <div className="glass-card border border-rose-500/15 p-5">
-        <div className="grid grid-cols-2 lg:grid-cols-6 gap-3">
+      <div className="glass-card border border-rose-500/15 p-5 relative overflow-hidden">
+        {editingId && <div className="absolute top-0 left-0 bg-amber-500 text-black px-3 py-0.5 text-[9px] font-black uppercase tracking-widest rounded-br-lg z-10">Modo de Edição</div>}
+        <div className="grid grid-cols-2 lg:grid-cols-6 gap-3 mt-2">
           <select value={form.type} onChange={e => setForm(f => ({ ...f, type: e.target.value as CampaignType }))} className={inp}>
             <option value="vaquinha">Vaquinha</option>
-            <option value="evento">Evento</option>
+            <option value="evento">Evento c/ RSVP</option>
           </select>
           <input placeholder="Título *" value={form.title} onChange={e => setForm(f => ({ ...f, title: e.target.value }))} className={`${inp} sm:col-span-2`} />
           <div className="relative">
@@ -134,27 +182,37 @@ export function VaquinhaPage() {
               onChange={e => setForm(f => ({ ...f, feePercentage: Number(e.target.value) }))}
               className={`${inp} pl-8`} title="Taxa cobrada pela plataforma" />
           </div>
-          <input placeholder="Chave PIX" value={form.pixKey} onChange={e => setForm(f => ({ ...f, pixKey: e.target.value }))} className={inp} />
+          <input placeholder="Chave PIX Eleitoral" value={form.pixKey} onChange={e => setForm(f => ({ ...f, pixKey: e.target.value }))} className={inp} />
           <select value={form.status} onChange={e => setForm(f => ({ ...f, status: e.target.value as CampaignStatus }))} className={inp}>
             {['Ativa', 'Rascunho', 'Encerrada'].map(s => <option key={s}>{s}</option>)}
           </select>
-          <textarea placeholder="Descrição / mensagem para doadores"
+          <textarea placeholder="Descrição / Mensagem Pública..."
             value={form.description} onChange={e => setForm(f => ({ ...f, description: e.target.value }))}
             className={`${inp} sm:col-span-3 lg:col-span-3 resize-none h-10`} />
           {form.type === 'evento' && (
             <>
               <input type="date" value={form.eventDate}
                 onChange={e => setForm(f => ({ ...f, eventDate: e.target.value }))} className={inp} />
-              <input placeholder="Local do evento" value={form.eventLocation}
+              <input placeholder="Local/Endereço do Evento" value={form.eventLocation}
                 onChange={e => setForm(f => ({ ...f, eventLocation: e.target.value }))} className={`${inp} sm:col-span-2`} />
             </>
           )}
-          <input placeholder="Link de divulgação" value={form.shareLink}
-            onChange={e => setForm(f => ({ ...f, shareLink: e.target.value }))} className={`${inp} sm:col-span-2 lg:col-span-2`} />
-          <button onClick={handleAdd} disabled={adding || !form.title.trim()}
-            className="bg-rose-600 hover:bg-rose-500 disabled:opacity-40 text-white px-4 rounded-lg font-bold flex items-center justify-center gap-1 text-xs transition-colors">
-            {adding ? '...' : <><Plus size={14} /> Criar</>}
-          </button>
+          {form.type !== 'evento' && (
+             <input placeholder="Link da Plataforma de Vaquinha" value={form.shareLink}
+               onChange={e => setForm(f => ({ ...f, shareLink: e.target.value }))} className={`${inp} sm:col-span-2 lg:col-span-2`} />
+          )}
+          
+          <div className="col-span-2 lg:col-span-6 flex justify-end gap-2 mt-2 border-t border-white/5 pt-3">
+             {editingId && (
+                <button onClick={() => { setEditingId(null); setForm(f => ({...f, title: ''})); }} className="text-xs px-4 py-2 font-black uppercase text-slate-400 hover:text-white transition-colors">
+                  Cancelar Edição
+                </button>
+             )}
+             <button onClick={handleAdd} disabled={adding || !form.title.trim()}
+               className={`px-6 py-2 rounded-lg font-black uppercase text-xs transition-all shadow-lg shadow-rose-500/20 disabled:opacity-40 flex items-center gap-1 ${editingId ? 'bg-amber-600 hover:bg-amber-500 text-white' : 'bg-rose-600 hover:bg-rose-500 text-white'}`}>
+               {adding ? '...' : editingId ? <><Edit2 size={14} /> Atualizar</> : <><Plus size={14} /> Criar</>}
+             </button>
+          </div>
         </div>
       </div>
 
@@ -167,6 +225,9 @@ export function VaquinhaPage() {
         <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
           {campaigns.map(c => {
             const progress = c.goal > 0 ? Math.min(((c.raised ?? 0) / c.goal) * 100, 100) : 0;
+            const rsvpCount = c.id ? rsvps[c.id] || 0 : 0;
+            const publicLink = c.type === 'evento' && c.id ? `${window.location.origin}/e/${campaignId}/${c.id}` : c.shareLink || '';
+
             return (
               <div key={c.id} className={`glass-card border p-5 flex flex-col gap-3 ${
                 c.status === 'Encerrada' ? 'border-slate-700/20 opacity-60' :
@@ -180,8 +241,8 @@ export function VaquinhaPage() {
                     </span>
                     <h3 className="font-bold text-slate-100 text-sm mt-0.5 leading-tight">{c.title}</h3>
                   </div>
-                  <select value={c.status} onChange={e => handleUpdateStatus(c.id, e.target.value as CampaignStatus)}
-                    className={`text-[10px] font-bold rounded px-2 py-1 border bg-slate-900 shrink-0 ${
+                  <select value={c.status} onChange={e => handleUpdateStatus(c.id!, e.target.value as CampaignStatus)}
+                    className={`text-[10px] font-bold rounded px-2 py-1 border bg-slate-900 shrink-0 outline-none ${
                       c.status === 'Ativa' ? 'text-emerald-400 border-emerald-500/30 bg-emerald-500/10' :
                       c.status === 'Rascunho' ? 'text-slate-400 border-slate-600/30 bg-slate-800' :
                       'text-slate-500 border-slate-700/30 bg-slate-900'
@@ -190,12 +251,20 @@ export function VaquinhaPage() {
                   </select>
                 </div>
 
-                {c.description && <p className="text-xs text-slate-400 leading-relaxed">{c.description}</p>}
+                {c.description && <p className="text-xs text-slate-400 leading-relaxed max-h-16 overflow-y-auto">{c.description}</p>}
 
-                {c.type === 'evento' && c.eventDate && (
-                  <div className="flex items-center gap-4 text-xs text-amber-400/80">
-                    <span className="flex items-center gap-1"><Calendar size={11} /> {c.eventDate}</span>
-                    {c.eventLocation && <span className="flex items-center gap-1"><Globe size={11} /> {c.eventLocation}</span>}
+                {c.type === 'evento' && (
+                  <div className="flex flex-col gap-2">
+                    {c.eventDate && (
+                      <div className="flex items-center gap-3 text-[11px] font-bold text-amber-500/90 bg-amber-500/5 p-2 rounded-lg border border-amber-500/10">
+                        <span className="flex items-center gap-1"><Calendar size={13} /> {c.eventDate}</span>
+                        {c.eventLocation && <span className="flex items-center gap-1 truncate" title={c.eventLocation}><Globe size={13} /> {c.eventLocation}</span>}
+                      </div>
+                    )}
+                    <div className="flex items-center justify-between text-[11px] font-bold text-indigo-400 bg-indigo-500/5 p-2 rounded-lg border border-indigo-500/10">
+                      <span className="flex items-center gap-1.5"><Users size={14} /> Confirmações (RSVP):</span>
+                      <span className="text-sm font-black px-2 bg-indigo-500/20 rounded">{rsvpCount}</span>
+                    </div>
                   </div>
                 )}
 
@@ -214,25 +283,34 @@ export function VaquinhaPage() {
                   </div>
                 )}
 
-                <div className="pt-2 border-t border-white/5 flex items-center gap-2 flex-wrap">
-                  <button onClick={() => handleCopyPix(c.id, c.pixKey)}
-                    className={`flex-1 flex items-center justify-center gap-1.5 py-2 rounded-lg text-[11px] font-bold border transition-colors ${
-                      copiedId === c.id
+                <div className="pt-2 border-t border-white/5 flex items-center gap-1.5 flex-wrap">
+                  <button onClick={() => c.pixKey && handleCopyPix(c.id!, c.pixKey)}
+                    className={`flex-1 flex items-center justify-center gap-1.5 py-1.5 rounded text-[10px] font-bold border transition-colors ${
+                      copiedId === `pix_${c.id}`
                         ? 'bg-emerald-500/15 text-emerald-400 border-emerald-500/30'
                         : 'bg-slate-800 text-slate-400 border-slate-700 hover:bg-slate-700'
                     }`}>
-                    {copiedId === c.id ? <CheckCircle2 size={11} /> : <QrCode size={11} />}
-                    {copiedId === c.id ? 'PIX Copiado!' : 'Link de Doação'}
+                    {copiedId === `pix_${c.id}` ? <CheckCircle2 size={11} /> : <QrCode size={11} />}
+                    {copiedId === `pix_${c.id}` ? 'Pix Copiado' : 'Copiar PIX'}
                   </button>
-                  {c.shareLink && (
-                    <a href={c.shareLink} target="_blank" rel="noreferrer"
-                      className="flex-1 flex items-center justify-center gap-1.5 py-2 rounded-lg text-[11px] font-bold bg-rose-500/10 hover:bg-rose-500/20 text-rose-400 border border-rose-500/20 transition-colors">
-                      <Share2 size={11} /> Share
-                    </a>
+                  {publicLink && (
+                     <button onClick={() => handleCopyLink(c.id!, publicLink)}
+                     className={`flex-1 flex items-center justify-center gap-1.5 py-1.5 rounded text-[10px] font-bold border transition-colors ${
+                       copiedId === `link_${c.id}`
+                         ? 'bg-amber-500/15 text-amber-400 border-amber-500/30'
+                         : 'bg-indigo-500/10 hover:bg-indigo-500/20 text-indigo-400 border-indigo-500/20'
+                     }`}>
+                     {copiedId === `link_${c.id}` ? <CheckCircle2 size={11} /> : <Share2 size={11} />}
+                     {copiedId === `link_${c.id}` ? 'Link Copiado' : 'Link RSVP'}
+                   </button>
                   )}
-                  <button onClick={() => handleDelete(c.id)}
-                    className="p-2 text-slate-600 hover:text-red-400 transition-colors rounded">
-                    <Trash2 size={13} />
+                  <button onClick={() => handleEdit(c)}
+                    className="p-1.5 px-2 text-slate-400 hover:text-amber-400 bg-slate-800 hover:bg-slate-700 transition-colors rounded border border-slate-700" title="Editar">
+                    <Edit2 size={12} />
+                  </button>
+                  <button onClick={() => handleDelete(c.id!)}
+                    className="p-1.5 px-2 text-slate-400 hover:text-red-400 bg-slate-800 hover:bg-red-900/30 transition-colors rounded border border-slate-700" title="Excluir">
+                    <Trash2 size={12} />
                   </button>
                 </div>
               </div>

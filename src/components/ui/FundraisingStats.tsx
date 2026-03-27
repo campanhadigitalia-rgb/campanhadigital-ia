@@ -1,6 +1,10 @@
 import { useState, useEffect } from 'react';
-import { PieChart as LucidePieChart, QrCode, HandCoins, X, Download, Target } from 'lucide-react';
-import { BarChart as RechartsBarChart, Bar as RechartsBar, XAxis as RechartsXAxis, YAxis as RechartsYAxis, Tooltip as RechartsTooltip, ResponsiveContainer as RechartsResponsiveContainer, CartesianGrid as RechartsCartesianGrid, Cell as RechartsCell } from 'recharts';
+import { PieChart as LucidePieChart, QrCode, HandCoins, X, Download, Target, Building2 } from 'lucide-react';
+import { 
+  PieChart as RechartsPieChart, Pie as RechartsPie,
+  BarChart as RechartsBarChart, Bar as RechartsBar, XAxis as RechartsXAxis, YAxis as RechartsYAxis,
+  Tooltip as RechartsTooltip, ResponsiveContainer as RechartsResponsiveContainer, CartesianGrid as RechartsCartesianGrid, Cell as RechartsCell, Legend as RechartsLegend
+} from 'recharts';
 import { motion, AnimatePresence } from 'framer-motion';
 import { onSnapshot, collection, query, where } from 'firebase/firestore';
 import { db } from '../../services/firebase';
@@ -23,10 +27,16 @@ const CATEGORY_COLORS: Record<string, string> = {
   outros: '#64748b'          // slate
 };
 
+const SUPPLIER_COLORS = ['#ef4444', '#f97316', '#f59e0b', '#84cc16', '#22c55e', '#06b6d4', '#3b82f6'];
+
 export function FundraisingStats() {
   const { campaignId, activeCampaign } = useCampaign();
   const [stats, setStats] = useState<FinanceStats | null>(null);
   const [showPix, setShowPix] = useState(false);
+  
+  // For Supplier Expenses
+  const [transactions, setTransactions] = useState<any[]>([]);
+  const [suppliers, setSuppliers] = useState<any[]>([]);
 
   useEffect(() => {
     if (!campaignId) return;
@@ -39,13 +49,21 @@ export function FundraisingStats() {
 
     // Listen to manual transactions
     const qT = query(collection(db, 'finance_transactions'), where('campaign_id', '==', campaignId));
-    const unsubT = onSnapshot(qT, updateStats);
+    const unsubT = onSnapshot(qT, (snap) => {
+      setTransactions(snap.docs.map(d => d.data()));
+      updateStats();
+    });
 
     // Listen to vaquinhas/eventos
     const qF = query(collection(db, `campaigns/${campaignId}/fundraisingCampaigns`));
     const unsubF = onSnapshot(qF, updateStats);
 
-    return () => { unsubT(); unsubF(); };
+    // Listen to suppliers
+    const unsubS = onSnapshot(collection(db, `campaigns/${campaignId}/people`), snap => {
+       setSuppliers(snap.docs.map(d => ({ id: d.id, ...d.data() })));
+    });
+
+    return () => { unsubT(); unsubF(); unsubS(); };
   }, [campaignId, activeCampaign?.financeConfig?.monthlyGoal]);
 
   if (!stats) {
@@ -66,24 +84,28 @@ export function FundraisingStats() {
       name: CATEGORY_LABELS[key] || key,
       valor: val,
       color: CATEGORY_COLORS[key] || '#cccccc',
-      type: 'real'
     }));
 
-  const plannedData = activeCampaign?.financeConfig?.categoryGoals 
-    ? Object.entries(activeCampaign.financeConfig.categoryGoals)
-        .filter(([, val]) => val > 0)
-        .map(([key, val]) => ({
-          name: `${CATEGORY_LABELS[key] || key} (Meta)`,
-          valor: val,
-          color: `${CATEGORY_COLORS[key] || '#cccccc'}80`, // 50% opacity for planned
-          type: 'planned'
-        }))
-    : [];
-
-  const chartData = realData.length > 0 ? realData : plannedData;
-  const displayData = chartData.length > 0 ? chartData : [{ name: 'Aguardando Planejamento', valor: 0.01, color: '#1e293b', type: 'none' }];
+  const chartData = realData.length > 0 ? realData : [{ name: 'Sem Receita', valor: 0.1, color: '#1e293b' }];
 
   const formatCurrency = (val: number) => new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(val);
+
+  // Calculate supplier expenses
+  const supplierExpenses = new Map<string, number>();
+  transactions.forEach(t => {
+     if (t.type === 'expense' && t.supplierId) {
+        supplierExpenses.set(t.supplierId, (supplierExpenses.get(t.supplierId) || 0) + (t.amount || t.valor || 0));
+     }
+  });
+  
+  const supplierExpenseData = Array.from(supplierExpenses.entries())
+     .map(([id, sum], idx) => ({
+        name: suppliers.find(s => s.id === id)?.name || 'Fornecedor',
+        valor: sum,
+        color: SUPPLIER_COLORS[idx % SUPPLIER_COLORS.length]
+     }))
+     .sort((a,b) => b.valor - a.valor)
+     .slice(0, 5); // Top 5
 
   return (
     <div className="glass-card flex flex-col h-full border border-emerald-500/10 animate-in fade-in transition-all">
@@ -91,9 +113,9 @@ export function FundraisingStats() {
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           <div>
             <h2 className="text-lg font-bold text-emerald-400 flex items-center gap-2 m-0 leading-tight">
-              <LucidePieChart size={20} /> Mix de Arrecadação Real
+              <LucidePieChart size={20} /> Dashboard Consolidado
             </h2>
-            <p className="text-[10px] text-slate-500 uppercase tracking-widest font-bold m-0 mt-1">Status consolidado por via de entrada</p>
+            <p className="text-[10px] text-slate-500 uppercase tracking-widest font-bold m-0 mt-1">Status de caixa, origens e destinos</p>
           </div>
           
           <button
@@ -106,7 +128,7 @@ export function FundraisingStats() {
       </div>
 
       <div className="grid grid-cols-1 xl:grid-cols-2 gap-8 p-6">
-        {/* Painel Esquerdo */}
+        {/* Painel Esquerdo: KPIs e Progresso */}
         <div className="flex flex-col gap-5">
           <div className="grid grid-cols-2 gap-3">
              <div className="p-4 rounded-xl bg-black/40 border border-white/5">
@@ -119,11 +141,11 @@ export function FundraisingStats() {
              </div>
              
              <div className="p-3 rounded-xl bg-slate-900/40 border border-slate-700/30">
-                <p className="text-[9px] font-black text-slate-500 uppercase flex items-center gap-1.5 mb-1" title="Definido em Configurações -> Financeiro">Teto Oficial TSE</p>
+                <p className="text-[9px] font-black text-slate-500 uppercase flex items-center gap-1.5 mb-1">Teto Oficial TSE</p>
                 <p className="text-sm font-black text-amber-500/80">{formatCurrency(activeCampaign?.financeConfig?.tseSpendingLimit || 0)}</p>
              </div>
              <div className="p-3 rounded-xl bg-slate-900/40 border border-slate-700/30">
-                <p className="text-[9px] font-black text-slate-500 uppercase flex items-center gap-1.5 mb-1" title="Definido em Configurações -> Financeiro">Teto Gastos Interno</p>
+                <p className="text-[9px] font-black text-slate-500 uppercase flex items-center gap-1.5 mb-1">Teto Gastos Interno</p>
                 <p className="text-sm font-black text-emerald-500/80">{formatCurrency(activeCampaign?.financeConfig?.spendingLimit || 0)}</p>
              </div>
           </div>
@@ -142,74 +164,77 @@ export function FundraisingStats() {
             </div>
           </div>
 
-          {/* Breakdown */}
-          <div className="mt-2 space-y-2">
-            <p className="text-[9px] font-black text-slate-500 uppercase tracking-widest pl-1 flex justify-between">
-              <span>Detalhamento por Origem</span>
-              <span>Real / Meta</span>
-            </p>
-            {Object.entries(stats.breakdown).map(([key, val]) => {
-              const perc = stats.raised > 0 ? (val / stats.raised) * 100 : 0;
-              const goal = activeCampaign?.financeConfig?.categoryGoals?.[key as keyof typeof activeCampaign.financeConfig.categoryGoals] || 0;
-              const isSourceActive = activeCampaign?.financeConfig?.sources[key as keyof typeof activeCampaign.financeConfig.sources] ?? true;
-              
-              if (val === 0 && !isSourceActive && goal === 0) return null;
-              
-              return (
-                <div key={key} className="flex items-center justify-between p-2 rounded-lg bg-black/20 border border-white/5 group hover:border-white/10 transition-colors">
-                  <div className="flex items-center gap-2">
-                    <div className="w-2 h-2 rounded-full" style={{ backgroundColor: CATEGORY_COLORS[key] || '#666' }} />
-                    <div className="flex flex-col">
-                      <span className="text-[11px] font-bold text-slate-300">{CATEGORY_LABELS[key] || key}</span>
-                      <span className="text-[9px] font-bold text-slate-600">{perc.toFixed(1)}% do mix atual</span>
-                    </div>
-                  </div>
-                  <div className="text-right">
-                    <p className="text-xs font-black text-slate-100 m-0">{formatCurrency(val)}</p>
-                    <p className="text-[9px] font-bold text-emerald-500/70 m-0">Meta: {formatCurrency(goal)}</p>
-                  </div>
-                </div>
-              );
-            })}
+          {/* Gráfico de Pizza (Receitas) */}
+          <div className="flex flex-col h-[220px] w-full items-center justify-center p-2 rounded-2xl bg-black/20 border border-white/5 relative mt-4">
+             <h3 className="absolute top-3 left-4 text-[10px] uppercase font-black tracking-widest text-emerald-400">Mix de Receitas</h3>
+             <RechartsResponsiveContainer width="100%" height="100%">
+               <RechartsPieChart>
+                 <RechartsTooltip 
+                   formatter={(val: number) => [formatCurrency(val), 'Arrecadado']}
+                   contentStyle={{ backgroundColor: 'rgba(15,23,42,0.95)', border: '1px solid rgba(16,185,129,0.2)', borderRadius: '8px', fontSize: '12px' }}
+                 />
+                 <RechartsLegend iconType="circle" wrapperStyle={{ fontSize: '10px', bottom: 0 }} />
+                 <RechartsPie 
+                   data={chartData} 
+                   dataKey="valor" 
+                   nameKey="name" 
+                   cx="50%" 
+                   cy="50%" 
+                   outerRadius={65} 
+                   innerRadius={45}
+                   paddingAngle={5}
+                 >
+                   {chartData.map((entry, index) => (
+                     <RechartsCell key={`cell-${index}`} fill={entry.color} />
+                   ))}
+                 </RechartsPie>
+               </RechartsPieChart>
+             </RechartsResponsiveContainer>
           </div>
         </div>
 
-        {/* Painel Direito (Gráfico) */}
-        <div className="flex flex-col h-[300px] w-full items-center justify-center p-4 rounded-2xl bg-black/20 border border-white/5 relative">
-          <RechartsResponsiveContainer width="99%" height="100%">
-            <RechartsBarChart layout="vertical" data={displayData} margin={{ top: 5, right: 30, left: 40, bottom: 5 }}>
-              <RechartsCartesianGrid strokeDasharray="3 3" horizontal={false} stroke="rgba(255,255,255,0.05)" />
-              <RechartsXAxis type="number" hide />
-              <RechartsYAxis 
-                type="category" 
-                dataKey="name" 
-                stroke="#94a3b8" 
-                fontSize={10} 
-                tickLine={false} 
-                axisLine={false}
-                width={80}
-              />
-              <RechartsTooltip 
-                cursor={{ fill: 'rgba(255,255,255,0.03)' }}
-                contentStyle={{ backgroundColor: 'rgba(15,23,42,0.95)', border: '1px solid rgba(16,185,129,0.2)', borderRadius: '8px' }}
-                // @ts-expect-error recharts type
-                formatter={(val: number) => [formatCurrency(val), 'Arrecadado']}
-              />
-              <RechartsBar dataKey="valor" radius={[0, 4, 4, 0]} barSize={24}>
-                {displayData.map((_entry: { color: string }, index: number) => (
-                  <RechartsCell key={`cell-${index}`} fill={_entry.color} />
-                ))}
-              </RechartsBar>
-            </RechartsBarChart>
-          </RechartsResponsiveContainer>
-          <div className="mt-4 flex flex-wrap justify-center gap-x-4 gap-y-2">
-             {chartData.map((c: { name: string, color: string }) => (
-               <div key={c.name} className="flex items-center gap-1.5">
-                 <div className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: c.color }} />
-                 <span className="text-[9px] font-bold text-slate-500">{c.name}</span>
-               </div>
-             ))}
+        {/* Painel Direito: Gastos por Fornecedor */}
+        <div className="flex flex-col gap-4">
+          <div className="flex items-center gap-2 p-3 bg-rose-500/5 border border-rose-500/20 rounded-xl">
+            <Building2 size={16} className="text-rose-400" />
+            <h3 className="text-xs font-black uppercase tracking-widest text-rose-400 m-0">Top Gastos por Fornecedor/Contrato</h3>
           </div>
+          
+          {supplierExpenseData.length > 0 ? (
+            <div className="flex flex-col h-[380px] w-full items-center justify-center p-4 rounded-2xl bg-black/20 border border-white/5">
+              <RechartsResponsiveContainer width="100%" height="100%">
+                <RechartsBarChart layout="vertical" data={supplierExpenseData} margin={{ top: 5, right: 30, left: 10, bottom: 5 }}>
+                  <RechartsCartesianGrid strokeDasharray="3 3" horizontal={false} stroke="rgba(255,255,255,0.05)" />
+                  <RechartsXAxis type="number" hide />
+                  <RechartsYAxis 
+                    type="category" 
+                    dataKey="name" 
+                    stroke="#94a3b8" 
+                    fontSize={9} 
+                    tickLine={false} 
+                    axisLine={false}
+                    width={90}
+                  />
+                  <RechartsTooltip 
+                    cursor={{ fill: 'rgba(255,255,255,0.03)' }}
+                    contentStyle={{ backgroundColor: 'rgba(15,23,42,0.95)', border: '1px solid rgba(244,63,94,0.2)', borderRadius: '8px', fontSize: '12px' }}
+                    formatter={(val: number) => [formatCurrency(val), 'Gasto']}
+                  />
+                  <RechartsBar dataKey="valor" radius={[0, 4, 4, 0]} barSize={20}>
+                    {supplierExpenseData.map((entry, index) => (
+                      <RechartsCell key={`cell-${index}`} fill={entry.color} />
+                    ))}
+                  </RechartsBar>
+                </RechartsBarChart>
+              </RechartsResponsiveContainer>
+            </div>
+          ) : (
+             <div className="flex-1 flex flex-col items-center justify-center border border-dashed border-white/10 rounded-2xl p-6 text-center">
+               <Building2 size={32} className="text-slate-700 mb-3" />
+               <p className="text-xs text-slate-500 uppercase font-bold">Nenhum gasto vinculado a fornecedor</p>
+               <p className="text-[10px] text-slate-600 mt-2">DICA: Ao registrar uma saída no "Livro Caixa", selecione um Fornecedor para rankeá-lo aqui.</p>
+             </div>
+          )}
         </div>
       </div>
 

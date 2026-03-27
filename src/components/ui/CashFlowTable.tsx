@@ -445,10 +445,17 @@ export function CashFlowTable() {
                       </span>
                     </td>
                     <td className="p-4 text-center">
-                      {isApproved ? (
+                      {t.type === 'expense' && !t.supplierId ? (
+                         <div className="flex flex-col items-center gap-1" title="Despesa sem lastro contratual!">
+                           <AlertCircle size={16} className="text-rose-500 mx-auto" />
+                           <span className="text-[8px] font-bold text-rose-500 uppercase tracking-tighter">Sem Cadastro</span>
+                         </div>
+                      ) : isApproved ? (
                         <CheckCircle2 size={16} className="text-emerald-500 mx-auto" />
                       ) : (
-                        <AlertCircle size={16} className="text-amber-500 mx-auto" />
+                        <div className="flex flex-col items-center gap-1">
+                          <AlertCircle size={16} className="text-amber-500 mx-auto" />
+                        </div>
                       )}
                     </td>
                     <td className="p-4 text-center">
@@ -510,9 +517,9 @@ export function CashFlowTable() {
 
               {fundCamps.length > 0 && (
                 <div className="space-y-1 animate-in slide-in-from-top-2 duration-300">
-                  <label className="text-[10px] font-bold text-emerald-400 uppercase ml-1">Vincular a uma Vaquinha / Evento</label>
+                  <label className="text-[10px] font-bold text-emerald-400 uppercase ml-1">Vincular a uma Vaquinha / Evento (Opcional)</label>
                   <select value={linkedCampaignId} onChange={e => setLinkedCampaignId(e.target.value)} className="w-full bg-black/50 border border-emerald-500/30 rounded-lg p-3 text-white text-xs outline-none focus:border-emerald-500 shadow-[inset_0_0_10px_rgba(16,185,129,0.1)] [&>option]:bg-slate-900">
-                    <option value="">Nenhum vínculo (Entrada Avulsa)...</option>
+                    <option value="">Nenhum vínculo...</option>
                     {fundCamps.map(c => (
                       <option key={c.id} value={c.id}>
                          {c.type === 'evento' ? '🎪' : '🫶'} {c.title} {c.feePercentage ? `(Taxa: ${c.feePercentage}%)` : ''}
@@ -525,23 +532,24 @@ export function CashFlowTable() {
               <div className="grid grid-cols-2 gap-4">
                  <div className="space-y-1">
                   <label className="text-[10px] font-bold text-slate-500 uppercase ml-1">Categoria de Entrada/Saída</label>
-                  <select value={category} onChange={e => setCategory(e.target.value)} className="w-full bg-black/50 border border-slate-700 rounded-lg p-2.5 text-white text-xs outline-none focus:border-indigo-500/50 [&>option]:bg-slate-900">
+                  <input type="text" list="categories_list" required value={category} onChange={e => setCategory(e.target.value)} className="w-full bg-black/50 border border-slate-700 rounded-lg p-2.5 text-white text-xs outline-none focus:border-indigo-500/50" placeholder="Digite ou selecione..." />
+                  <datalist id="categories_list">
                     {type === 'income' ? (
-                      <optgroup label="Entradas (Receitas)">
-                        <option value="fundoPartidario">Fundo Partidário (FEFC)</option>
-                        <option value="doacaoFisica">Doação Pessoa Física</option>
-                        <option value="vaquinha">Crowdfunding / Vaquinha</option>
-                        <option value="eventos">Eventos Arrecadação</option>
-                      </optgroup>
+                      <>
+                        <option value="Fundo Partidário (FEFC)" />
+                        <option value="Doação Pessoa Física" />
+                        <option value="Vaquinha" />
+                        <option value="Eventos" />
+                      </>
                     ) : (
-                      <optgroup label="Saídas (Despesas)">
-                        <option value="pessoal">Equipe / Cabos Eleitorais</option>
-                        <option value="grafica">Materiais Gráficos</option>
-                        <option value="marketing">Impulsionamento / Digital</option>
-                      </optgroup>
+                      <>
+                        <option value="Equipe / Pessoal" />
+                        <option value="Materiais Gráficos" />
+                        <option value="Marketing Digital" />
+                      </>
                     )}
-                    <option value="outros">Outros / Diversos</option>
-                  </select>
+                    <option value="Outros Diversos" />
+                  </datalist>
                  </div>
                  <div className="space-y-1">
                   <label className="text-[10px] font-bold text-slate-500 uppercase ml-1">Status de Pagamento</label>
@@ -554,17 +562,17 @@ export function CashFlowTable() {
 
               {type === 'expense' && (
                 <div className="space-y-1 animate-in slide-in-from-top-2 duration-300">
-                  <label className="text-[10px] font-bold text-indigo-400 uppercase ml-1">Vincular Fornecedor / Contrato</label>
-                  <select required={type === 'expense'} value={supplierId} onChange={e => setSupplierId(e.target.value)} className="w-full bg-black/50 border border-indigo-500/30 rounded-lg p-3 text-white text-xs outline-none focus:border-indigo-500 shadow-[inset_0_0_10px_rgba(79,70,229,0.1)] [&>option]:bg-slate-900">
-                    <option value="">Selecione um fornecedor validado...</option>
+                  <label className="text-[10px] font-bold text-indigo-400 uppercase ml-1">Vincular Fornecedor / Contrato (Opcional)</label>
+                  <select value={supplierId} onChange={e => setSupplierId(e.target.value)} className="w-full bg-black/50 border border-indigo-500/30 rounded-lg p-3 text-white text-xs outline-none focus:border-indigo-500 shadow-[inset_0_0_10px_rgba(79,70,229,0.1)] [&>option]:bg-slate-900">
+                    <option value="">Registrar sem lastro contratual (Gera Alerta) ⚠️</option>
                     {suppliers.filter((s: {id: string, name: string, type?: string}) => s.type !== 'Doador').map(s => (
                       <option key={s.id} value={s.id}>
-                        {s.legalStatus === 'approved' ? '✅' : '⚠️'} {s.name} - {s.category} ({fmt(s.contractValue || 0)})
+                        {s.legalStatus === 'approved' ? '✅' : '⚠️'} {s.name} - {s.category || 'Fornecedor'} ({fmt(s.contractValue || 0)})
                       </option>
                     ))}
                   </select>
                   <p className="text-[9px] text-slate-500 italic mt-1">
-                    ⚠️ Somente fornecedores com o selo ✅ estão 100% regulares no Jurídico.
+                     Despesas sem lastro constarão como "ausentes" para o monitoramento Jurídico.
                   </p>
                 </div>
               )}
