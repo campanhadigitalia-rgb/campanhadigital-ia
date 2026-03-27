@@ -6,8 +6,7 @@
 import { logger } from '../utils/logger';
 import type { MonitoringItem, Campaign } from '../types';
 import { canCallService, recordCall, type RateLimitMode } from '../utils/billingMonitor';
-
-const CORS_PROXY = 'https://api.allorigins.win/get?url=';
+import { fetchWithProxy } from '../utils/proxyHelper';
 
 // ── NewsAPI ────────────────────────────────────────────────────
 
@@ -48,13 +47,10 @@ export async function searchNewsAPI(
     });
 
     const targetUrl = `https://newsapi.org/v2/everything?${params}`;
-    // NewsAPI não aceita CORS direto no browser — usa proxy
-    const proxyUrl = `${CORS_PROXY}${encodeURIComponent(targetUrl)}`;
-    const res = await fetch(proxyUrl, { signal: AbortSignal.timeout(10000) });
-    if (!res.ok) throw new Error(`HTTP ${res.status}`);
-
-    const wrapper = await res.json() as { contents?: string };
-    const data    = JSON.parse(wrapper.contents ?? '{}') as { articles?: NewsAPIArticle[]; status?: string };
+    
+    // Roteador de proxy lida com os CORS headers e wrappers JSON
+    const rawText = await fetchWithProxy(targetUrl);
+    const data    = JSON.parse(rawText) as { articles?: NewsAPIArticle[]; status?: string };
 
     if (data.status !== 'ok') throw new Error('NewsAPI retornou erro');
 

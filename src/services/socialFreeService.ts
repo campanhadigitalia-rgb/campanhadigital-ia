@@ -6,8 +6,7 @@
 import { logger } from '../utils/logger';
 import type { MonitoringItem, Campaign } from '../types';
 import { recordCall } from '../utils/billingMonitor';
-
-const CORS_PROXY = 'https://api.allorigins.win/get?url=';
+import { fetchWithProxy } from '../utils/proxyHelper';
 
 // Nitter instances (mirrors públicos sem autenticação)
 const NITTER_INSTANCES = [
@@ -65,15 +64,10 @@ export async function searchNitter(
   for (const instance of NITTER_INSTANCES) {
     try {
       const feedUrl = `${instance}/search/rss?q=${encodeURIComponent(keyword)}&f=tweets`;
-      const proxyUrl = `${CORS_PROXY}${encodeURIComponent(feedUrl)}`;
-      const res = await fetch(proxyUrl, { signal: AbortSignal.timeout(8000) });
-      if (!res.ok) continue;
-
-      const wrapper = await res.json() as { contents?: string };
-      if (!wrapper.contents) continue;
-
+      const rawText = await fetchWithProxy(feedUrl);
+      
       const parser = new DOMParser();
-      const xml = parser.parseFromString(wrapper.contents, 'text/xml');
+      const xml = parser.parseFromString(rawText, 'text/xml');
       const items = Array.from(xml.querySelectorAll('item')).slice(0, maxItems);
 
       if (items.length === 0) continue;
@@ -117,15 +111,10 @@ export async function fetchTelegramChannel(
 ): Promise<Omit<MonitoringItem, 'id'>[]> {
   try {
     const targetUrl = `https://t.me/s/${channelUsername.replace('@', '')}`;
-    const proxyUrl  = `${CORS_PROXY}${encodeURIComponent(targetUrl)}`;
-    const res = await fetch(proxyUrl, { signal: AbortSignal.timeout(8000) });
-    if (!res.ok) throw new Error(`HTTP ${res.status}`);
-
-    const wrapper = await res.json() as { contents?: string };
-    if (!wrapper.contents) return [];
+    const rawText = await fetchWithProxy(targetUrl);
 
     const parser = new DOMParser();
-    const doc = parser.parseFromString(wrapper.contents, 'text/html');
+    const doc = parser.parseFromString(rawText, 'text/html');
     const messages = Array.from(doc.querySelectorAll('.tgme_widget_message_text')).slice(0, maxItems);
 
     recordCall('telegram_pub', channelUsername, `${messages.length} msgs`);

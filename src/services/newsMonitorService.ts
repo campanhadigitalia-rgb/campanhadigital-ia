@@ -7,8 +7,7 @@ import { collection, getDocs, query, where, addDoc, serverTimestamp } from 'fire
 import { db, COLLECTIONS } from './firebase';
 import { logger } from '../utils/logger';
 import type { MonitoringItem, RSSFeedConfig, Campaign } from '../types';
-
-const CORS_PROXY = 'https://api.allorigins.win/get?url=';
+import { fetchWithProxy } from '../utils/proxyHelper';
 
 // ── Fontes fixas de política brasileira ───────────────────────
 export const DEFAULT_POLITICAL_FEEDS: Omit<RSSFeedConfig, 'id' | 'campaign_id' | 'createdAt'>[] = [
@@ -39,13 +38,9 @@ async function parseFeed(
   maxItems = 10,
 ): Promise<Array<{ title: string; link: string; pubDate: string; summary: string }>> {
   try {
-    const proxyUrl = `${CORS_PROXY}${encodeURIComponent(feedUrl)}`;
-    const res = await fetch(proxyUrl, { signal: AbortSignal.timeout(10000) });
-    if (!res.ok) throw new Error(`HTTP ${res.status}`);
-
-    const data = await res.json() as { contents: string };
+    const rawText = await fetchWithProxy(feedUrl);
     const parser = new DOMParser();
-    const xml = parser.parseFromString(data.contents, 'text/xml');
+    const xml = parser.parseFromString(rawText, 'text/xml');
     const items = Array.from(xml.querySelectorAll('item')).slice(0, maxItems);
 
     return items.map((item) => ({

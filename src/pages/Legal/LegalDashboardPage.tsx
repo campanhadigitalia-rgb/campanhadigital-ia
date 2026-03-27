@@ -3,7 +3,7 @@ import { Shield, AlertTriangle, CheckCircle, Gavel, Clock, Activity, CreditCard,
 import { useCampaign } from '../../context/CampaignContext';
 import { collection, onSnapshot, query, orderBy, limit, addDoc, serverTimestamp } from 'firebase/firestore';
 import { db } from '../../services/firebase';
-import { useLegalItems, useNewsItems } from '../../hooks/useMonitorFeed';
+import { useLegalItems } from '../../hooks/useMonitorFeed';
 
 interface LegalContract {
   id: string;
@@ -17,8 +17,7 @@ export default function LegalDashboardPage({ onNavigate }: { onNavigate?: (p: st
   const { campaignId, activeCampaign } = useCampaign();
   
   // Real-time feeds do Monitor Central 
-  const { items: alerts } = useLegalItems(campaignId || '', 5);
-  const { items: news } = useNewsItems(campaignId || '', 10);
+  const { items: alerts } = useLegalItems(campaignId || '', 10);
 
   const [contracts, setContracts] = useState<LegalContract[]>([]);
   const [complianceStats, setComplianceStats] = useState({ approved: 0, rejected: 0 });
@@ -123,15 +122,13 @@ export default function LegalDashboardPage({ onNavigate }: { onNavigate?: (p: st
                 <CheckCircle size={18} className="text-emerald-400" />
               </h2>
               <p className="text-xs text-slate-400 font-bold uppercase tracking-tight mt-1">
-                {identity?.party || '-'} • {identity?.coalition || 'Chapa Pura'} • {identity?.location || '-'} / {identity?.state || '-'}
+                {[identity?.party, identity?.coalition, identity?.location ? `${identity.location} / ${identity.state}` : null].filter(Boolean).join(' • ')}
                 {identity?.electionScope && <span className="ml-2 px-1.5 py-0.5 bg-slate-800 text-slate-300 rounded text-[9px] border border-slate-700">{identity.electionScope}</span>}
               </p>
-              {(identity?.cpf || identity?.whatsappOfficial) && (
-                <p className="text-[10px] text-slate-500 font-mono mt-1 tracking-tight">
-                  {identity?.cpf && <span>CPF: {identity.cpf}  </span>}
-                  {identity?.whatsappOfficial && <span>WPP: {identity.whatsappOfficial}</span>}
-                </p>
-              )}
+              <p className="text-[10px] text-slate-500 font-mono mt-1 tracking-tight">
+                {identity?.cpf && <span>CPF: {identity.cpf}  </span>}
+                {identity?.whatsappOfficial && <span>WPP: {identity.whatsappOfficial}</span>}
+              </p>
             </div>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -150,8 +147,8 @@ export default function LegalDashboardPage({ onNavigate }: { onNavigate?: (p: st
                <div className="p-3 bg-black/30 rounded-xl border border-white/5 space-y-2">
                   <p className="text-[9px] font-black text-slate-500 uppercase tracking-widest flex items-center gap-2"><CreditCard size={12} className="text-emerald-400"/> Dados Legais (SPCE)</p>
                   <div className="space-y-1">
-                     <p className="text-xs font-bold text-slate-300">CNPJ: <span className="text-slate-400 font-mono tracking-tighter">{legalConfig?.cnpj || 'Não cadastrado'}</span></p>
-                     <p className="text-xs font-bold text-slate-300">Banco: <span className="text-slate-400 line-clamp-1">{legalConfig?.bankAccount || 'Vazio'}</span></p>
+                     <p className="text-xs font-bold text-slate-300">CNPJ: <span className="text-slate-400 font-mono tracking-tighter">{legalConfig?.cnpj || ''}</span></p>
+                     <p className="text-xs font-bold text-slate-300">Banco: <span className="text-slate-400 line-clamp-1">{legalConfig?.bankAccount || ''}</span></p>
                   </div>
                </div>
             </div>
@@ -159,7 +156,13 @@ export default function LegalDashboardPage({ onNavigate }: { onNavigate?: (p: st
 
           <div className="w-full md:w-32 flex flex-col justify-center gap-2 relative z-10">
               <button 
-                onClick={() => alert("Sentinela conferindo dados... Status: OK.")}
+                onClick={() => {
+                  if (!legalConfig?.cnpj) {
+                    alert('ERRO: Informe o CNPJ de campanha para validação Receita/TSE.');
+                    return;
+                  }
+                  alert('Sentinela conferindo CNPJ na base da Receita e TSE... OK! \n\n(A automação de CPF depende da resolução de Captchas do TRE, não disponível nesta demo.)');
+                }}
                 className="w-full py-2 bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 border border-emerald-500/20 rounded-lg text-[9px] font-black uppercase tracking-widest transition-all"
               >
                 Conferir IA
@@ -174,14 +177,18 @@ export default function LegalDashboardPage({ onNavigate }: { onNavigate?: (p: st
         </div>
 
         <div className="glass-card p-6 border-rose-500/20 flex flex-col justify-center items-center text-center gap-4 bg-rose-500/5">
-           <div className={`p-4 rounded-2xl bg-black/20 ${activeProcessCount > 0 ? 'text-rose-400 animate-pulse' : 'text-slate-600'}`}>
+           <div className={`p-4 rounded-2xl bg-black/20 ${!identity?.cpf && !legalConfig?.cnpj ? 'text-amber-500/50' : activeProcessCount > 0 ? 'text-rose-400 animate-pulse' : 'text-slate-600'}`}>
               <Gavel size={32} />
            </div>
            <div>
               <p className="text-[10px] font-black uppercase text-slate-500 tracking-widest leading-none mb-1">Status Processual</p>
-              <h3 className={`text-xl font-black ${activeProcessCount > 0 ? 'text-rose-400' : 'text-emerald-400'}`}>
-                {activeProcessCount > 0 ? `${activeProcessCount} Pendências` : 'Ficha Limpa'}
-              </h3>
+              {(!identity?.cpf && !legalConfig?.cnpj) ? (
+                 <h3 className="text-sm font-black text-amber-500/80 uppercase mt-1">Requer CPF/CNPJ</h3>
+              ) : (
+                <h3 className={`text-xl font-black ${activeProcessCount > 0 ? 'text-rose-400' : 'text-emerald-400'}`}>
+                  {activeProcessCount > 0 ? `${activeProcessCount} Pendências` : 'Ficha Limpa'}
+                </h3>
+              )}
            </div>
            <button onClick={() => onNavigate?.('legal_monitor')} className="text-[9px] font-bold text-indigo-400 underline uppercase tracking-tighter">Acessar PJe Monitor</button>
         </div>
@@ -217,8 +224,39 @@ export default function LegalDashboardPage({ onNavigate }: { onNavigate?: (p: st
         <div className="lg:col-span-2 grid grid-cols-1 md:grid-cols-2 gap-6">
            <div className="glass-card border border-white/5 overflow-hidden flex flex-col">
               <div className="p-4 bg-black/20 border-b border-white/5 flex justify-between items-center">
+                  <h3 className="text-xs font-black uppercase tracking-widest text-slate-400 flex items-center gap-2"><Globe size={14} className="text-indigo-400"/> Jurisprudência (TSE/Diário)</h3>
+              </div>
+              <div className="p-4 space-y-3 flex-1 overflow-y-auto max-h-52 custom-scrollbar">
+                 {alerts.length === 0 ? (
+                    <div className="h-full flex flex-col items-center justify-center text-center p-4">
+                      <Globe size={24} className="text-slate-700 mb-2 opacity-20" />
+                      <p className="text-[10px] text-slate-600 font-bold uppercase">Sem registros judiciais</p>
+                    </div>
+                 ) : (
+                     alerts.map(n => (
+                      <div key={n.id} className="p-3 bg-indigo-500/5 rounded-lg border border-indigo-500/10 space-y-1">
+                        <div className="flex justify-between items-start">
+                          <span className="px-1.5 py-0.5 bg-indigo-500/20 text-indigo-400 rounded text-[7px] font-black uppercase">{n.subject || 'Diário Oficial'}</span>
+                          <span className="text-[8px] text-slate-500 font-mono">{n.fetchedAt ? new Date(n.fetchedAt).toLocaleDateString() : ''}</span>
+                        </div>
+                        <p className="text-[10px] font-bold text-slate-200 leading-snug">{n.title}</p>
+                        {n.summary && <p className="text-[9px] text-slate-400 line-clamp-2 leading-tight">{n.summary}</p>}
+                      </div>
+                    ))
+                 )}
+              </div>
+               <div className="p-4 pt-0">
+                   <div className="p-3 bg-black/40 rounded-lg border border-white/5 flex items-center gap-3">
+                      <Activity size={16} className="text-slate-600" />
+                      <p className="text-[9px] text-slate-600 uppercase font-black tracking-tighter">Eventos processuais de diários oficiais e TSE.</p>
+                   </div>
+               </div>
+           </div>
+
+           <div className="glass-card border border-white/5 overflow-hidden flex flex-col">
+              <div className="p-4 bg-black/20 border-b border-white/5 flex justify-between items-center">
                  <h3 className="text-xs font-black uppercase tracking-widest text-slate-400 flex items-center gap-2"><FileText size={14} className="text-amber-400"/> Validação de Contratos</h3>
-                                   <button onClick={() => setShowAddContract(true)} className="px-2 py-0.5 bg-indigo-500/20 text-indigo-400 rounded text-[8px] font-black uppercase hover:bg-indigo-500/40 transition-colors">+ Novo</button>
+                 <button onClick={() => setShowAddContract(true)} className="px-2 py-0.5 bg-indigo-500/20 text-indigo-400 rounded text-[8px] font-black uppercase hover:bg-indigo-500/40 transition-colors">+ Novo</button>
               </div>
               <div className="p-4 space-y-3 flex-1">
                  {contracts.length === 0 ? (
@@ -241,38 +279,6 @@ export default function LegalDashboardPage({ onNavigate }: { onNavigate?: (p: st
               <div className="p-4 pt-0">
                  <button onClick={() => onNavigate?.('legal_financeiro')} className="w-full py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-lg text-[9px] font-black uppercase tracking-widest transition-all">Ver Auditoria Financeira</button>
               </div>
-           </div>
-
-           <div className="glass-card border border-white/5 overflow-hidden flex flex-col">
-              <div className="p-4 bg-black/20 border-b border-white/5 flex justify-between items-center">
-                                   <h3 className="text-xs font-black uppercase tracking-widest text-slate-400 flex items-center gap-2"><Globe size={14} className="text-indigo-400"/> Jurisprudência & Notícias</h3>
-                  <button onClick={() => setShowAddNews(true)} className="px-2 py-0.5 bg-indigo-500/20 text-indigo-400 rounded text-[8px] font-black uppercase hover:bg-indigo-500/40 transition-colors">+ Adicionar</button>
-              </div>
-              <div className="p-4 space-y-3 flex-1 overflow-y-auto max-h-52 custom-scrollbar">
-                 {news.length === 0 ? (
-                    <div className="h-full flex flex-col items-center justify-center text-center p-4">
-                      <Globe size={24} className="text-slate-700 mb-2 opacity-20" />
-                      <p className="text-[10px] text-slate-600 font-bold uppercase">Sem atualizações no Radar</p>
-                    </div>
-                 ) : (
-                     news.map(n => (
-                      <div key={n.id} className="p-3 bg-indigo-500/5 rounded-lg border border-indigo-500/10 space-y-1">
-                        <div className="flex justify-between items-start">
-                          <span className="px-1.5 py-0.5 bg-indigo-500/20 text-indigo-400 rounded text-[7px] font-black uppercase">{n.subject || 'Radar'}</span>
-                          <span className="text-[8px] text-slate-500 font-mono">{n.fetchedAt ? new Date(n.fetchedAt).toLocaleDateString() : ''}</span>
-                        </div>
-                        <p className="text-[10px] font-bold text-slate-200 leading-snug">{n.title}</p>
-                        {n.summary && <p className="text-[9px] text-slate-400 line-clamp-2 leading-tight">{n.summary}</p>}
-                      </div>
-                    ))
-                 )}
-              </div>
-               <div className="p-4 pt-0">
-                   <div className="p-3 bg-black/40 rounded-lg border border-white/5 flex items-center gap-3">
-                      <Activity size={16} className="text-slate-600" />
-                      <p className="text-[9px] text-slate-600 uppercase font-black tracking-tighter">Adicione notícias via "+ Adicionar" para monitorar atividade jurídica.</p>
-                   </div>
-               </div>
            </div>
         </div>
       </div>

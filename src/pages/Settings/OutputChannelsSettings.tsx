@@ -20,50 +20,12 @@ import {
 import StatusCards from './StatusCards';
 
 // ── Tipos de configuração ──────────────────────────────────────
+import type { OutputChannelConfig } from '../../types';
 
-interface OutputConfig {
-  // Telegram (GRÁTIS)
-  telegramEnabled: boolean;
-  telegramBotToken: string;
-  telegramDefaultChatId: string;
-  telegramBotName?: string;       // preenchido após teste
-  telegramBotUsername?: string;
+// We removed OutputConfig in favor of OutputChannelConfig from types
 
-  // Email Resend (GRÁTIS 3k/mês)
-  emailEnabled: boolean;
-  emailResendKey: string;
-  emailFromAddress: string;       // ex: campanha@seudominio.com
-  emailFromName: string;          // ex: Campanha João Silva
-
-  // Webhook genérico (GRÁTIS)
-  webhookEnabled: boolean;
-  webhookUrl: string;
-  webhookSecret: string;          // Header Authorization opcional
-
-  // Z-API / Evolution (alternativa barata)
-  zapiEnabled: boolean;
-  zapiInstanceId: string;
-  zapiToken: string;
-  zapiPhone: string;              // número vinculado à instância
-
-  // WhatsApp Business Meta (PAGO)
-  whatsappMetaEnabled: boolean;
-  whatsappMetaToken: string;
-  whatsappMetaPhoneId: string;    // ID do número no Meta Business
-  whatsappMetaPhoneDisplay: string; // Número formatado: +55 51 99999-9999
-
-  // Twilio SMS (PAGO com trial)
-  twilioEnabled: boolean;
-  twilioSid: string;
-  twilioToken: string;
-  twilioFromNumber: string;       // número Twilio: +15005550006
-
-  // Número padrão para testes
-  testRecipientPhone: string;
-  testRecipientEmail: string;
-}
-
-const DEFAULT: OutputConfig = {
+const DEFAULT: OutputChannelConfig = {
+  campaign_id: '',
   telegramEnabled: false, telegramBotToken: '', telegramDefaultChatId: '',
   emailEnabled: false, emailResendKey: '', emailFromAddress: '', emailFromName: '',
   webhookEnabled: false, webhookUrl: '', webhookSecret: '',
@@ -188,7 +150,7 @@ export default function OutputChannelsSettings() {
   const { activeCampaign } = useCampaign();
   const campaignId = activeCampaign?.id;
 
-  const [cfg, setCfg] = useState<OutputConfig>(DEFAULT);
+  const [cfg, setCfg] = useState<OutputChannelConfig>(DEFAULT);
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
 
@@ -205,7 +167,7 @@ export default function OutputChannelsSettings() {
   useEffect(() => {
     if (!campaignId) return;
     getDoc(doc(db, 'output_configs', campaignId)).then(snap => {
-      if (snap.exists()) setCfg(prev => ({ ...prev, ...(snap.data() as Partial<OutputConfig>) }));
+      if (snap.exists()) setCfg(prev => ({ ...prev, ...(snap.data() as Partial<OutputChannelConfig>) }));
     });
   }, [campaignId]);
 
@@ -216,7 +178,7 @@ export default function OutputChannelsSettings() {
     setSaving(false); setSaved(true); setTimeout(() => setSaved(false), 3000);
   }, [cfg, campaignId]);
 
-  const set = <K extends keyof OutputConfig>(k: K, v: OutputConfig[K]) => setCfg(c => ({ ...c, [k]: v }));
+  const set = <K extends keyof OutputChannelConfig>(k: K, v: OutputChannelConfig[K]) => setCfg(c => ({ ...c, [k]: v }));
 
   // Tests
   const testTelegram = async () => {

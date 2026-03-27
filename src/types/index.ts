@@ -397,4 +397,49 @@ export interface SearchEngineConfig {
   updatedAt: Date;
 }
 
+export interface OutputChannelConfig {
+  campaign_id: string;
+  // Telegram (GRÁTIS)
+  telegramEnabled: boolean;
+  telegramBotToken: string;
+  telegramDefaultChatId: string;
+  telegramBotName?: string;       // preenchido após teste
+  telegramBotUsername?: string;
+
+  // Email Resend (GRÁTIS 3k/mês)
+  emailEnabled: boolean;
+  emailResendKey: string;
+  emailFromAddress: string;       // ex: campanha@seudominio.com
+  emailFromName: string;          // ex: Campanha João Silva
+
+  // Webhook genérico (GRÁTIS)
+  webhookEnabled: boolean;
+  webhookUrl: string;
+  webhookSecret: string;          // Header Authorization opcional
+
+  // Z-API / Evolution (alternativa barata)
+  zapiEnabled: boolean;
+  zapiInstanceId: string;
+  zapiToken: string;
+  zapiPhone: string;              // número vinculado à instância
+
+  // WhatsApp Business Meta (PAGO)
+  whatsappMetaEnabled: boolean;
+  whatsappMetaToken: string;
+  whatsappMetaPhoneId: string;    // ID do número no Meta Business
+  whatsappMetaPhoneDisplay: string; // Número formatado: +55 51 99999-9999
+
+  // Twilio SMS (PAGO com trial)
+  twilioEnabled: boolean;
+  twilioSid: string;
+  twilioToken: string;
+  twilioFromNumber: string;       // número Twilio: +15005550006
+
+  // Número padrão para testes
+  testRecipientPhone: string;
+  testRecipientEmail: string;
+  
+  updatedAt?: Date;
+}
+
 

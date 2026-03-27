@@ -1,4 +1,5 @@
 import { logger } from '../utils/logger';
+import { fetchWithProxy } from '../utils/proxyHelper';
 
 export interface NewsItem {
   id: string;
@@ -28,18 +29,10 @@ export async function fetchNewsClipping(sourceName: string = 'G1 RS', maxItems: 
       throw new Error(`Feed RSS não configurado para: ${sourceName}`);
     }
 
-    logger.debug(`[RSS] Buscando feed de ${sourceName} via AllOrigins Proxy...`);
+    logger.debug(`[RSS] Buscando feed de ${sourceName} via ProxyHelper...`);
     
-    // Usando AllOrigins para evitar bloqueio CORS no navegador (comum em SPAs Vite/React)
-    const proxyUrl = `https://api.allorigins.win/get?url=${encodeURIComponent(feedUrl)}`;
-    const response = await fetch(proxyUrl);
-    
-    if (!response.ok) {
-        throw new Error('Falha ao conectar no proxy CORS.');
-    }
-
-    const data = await response.json();
-    const xmlText = data.contents;
+    // Roteador Híbrido lida com CORS e possíveis encerramentos JSON no wrapper
+    const xmlText = await fetchWithProxy(feedUrl);
 
     // Converte a string XML para um Document Object Model
     const parser = new DOMParser();

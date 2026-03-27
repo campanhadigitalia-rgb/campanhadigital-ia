@@ -2,6 +2,7 @@ import { GoogleGenerativeAI } from '@google/generative-ai';
 import { collection, addDoc, serverTimestamp } from 'firebase/firestore';
 import { db } from './firebase';
 import { sanitizeForPrompt } from '../utils/inputSanitizer';
+import { fetchWithProxy } from '../utils/proxyHelper';
 
 const API_KEY = import.meta.env.VITE_GEMINI_API_KEY || '';
 const genAI = new GoogleGenerativeAI(API_KEY);
@@ -106,11 +107,8 @@ export async function fetchCandidacyByCnpj(cnpj: string, year: number): Promise<
   if (digits.length !== 14) return null;
   try {
     const target = `https://divulgacandcontas.tse.jus.br/divulga/rest/v1/cnpj/${digits}`;
-    const proxy = `https://api.allorigins.win/get?url=${encodeURIComponent(target)}`;
-    const res = await fetch(proxy);
-    if (!res.ok) throw new Error('proxy error');
-    const wrapper = await res.json();
-    const data = JSON.parse(wrapper.contents ?? '{}');
+    const rawText = await fetchWithProxy(target);
+    const data = JSON.parse(rawText);
     const cand = data?.candidatura ?? data;
     if (!cand?.nomeUrna && !cand?.nome) return null;
     const seqCand = cand.sequencialCandidato ?? '';

@@ -9,8 +9,8 @@ import { db, COLLECTIONS } from './firebase';
 import { sendMCPMessage } from './mcp';
 import { logger } from '../utils/logger';
 import type { MonitoringItem, Campaign } from '../types';
+import { fetchWithProxy } from '../utils/proxyHelper';
 
-const CORS_PROXY   = 'https://api.allorigins.win/get?url=';
 // Instâncias públicas Nitter (X RSS sem login)
 const NITTER_INSTANCES = [
   'https://nitter.privacydev.net',
@@ -31,13 +31,10 @@ export async function fetchXMentions(
   for (const instance of NITTER_INSTANCES) {
     try {
       const searchUrl = `${instance}/search/rss?q=${encodeURIComponent(keyword)}&f=tweets`;
-      const proxyUrl  = `${CORS_PROXY}${encodeURIComponent(searchUrl)}`;
-      const res = await fetch(proxyUrl, { signal: AbortSignal.timeout(8000) });
-      if (!res.ok) continue;
+      const rawText = await fetchWithProxy(searchUrl);
 
-      const data = await res.json() as { contents: string };
       const parser = new DOMParser();
-      const xml    = parser.parseFromString(data.contents, 'text/xml');
+      const xml    = parser.parseFromString(rawText, 'text/xml');
       const items  = Array.from(xml.querySelectorAll('item')).slice(0, maxItems);
 
       if (items.length === 0) continue;

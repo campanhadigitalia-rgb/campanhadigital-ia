@@ -9,8 +9,8 @@ import { db, COLLECTIONS } from './firebase';
 import { logger } from '../utils/logger';
 import { sanitizeForPrompt } from '../utils/inputSanitizer';
 import type { MonitoringItem, Campaign, CandidacyInfo } from '../types';
+import { fetchWithProxy } from '../utils/proxyHelper';
 
-const CORS_PROXY = 'https://api.allorigins.win/get?url=';
 const API_KEY    = import.meta.env.VITE_GEMINI_API_KEY || '';
 const genAI      = API_KEY ? new GoogleGenerativeAI(API_KEY) : null;
 
@@ -42,13 +42,9 @@ export async function fetchOfficialGazetteMentions(
   await Promise.allSettled(
     Object.entries(DOU_FEEDS).map(async ([feedName, feedUrl]) => {
       try {
-        const proxyUrl = `${CORS_PROXY}${encodeURIComponent(feedUrl)}`;
-        const res = await fetch(proxyUrl, { signal: AbortSignal.timeout(10000) });
-        if (!res.ok) return;
-
-        const data = await res.json() as { contents: string };
+        const rawText = await fetchWithProxy(feedUrl);
         const parser = new DOMParser();
-        const xml    = parser.parseFromString(data.contents, 'text/xml');
+        const xml    = parser.parseFromString(rawText, 'text/xml');
         const items  = Array.from(xml.querySelectorAll('item')).slice(0, maxItemsPerFeed);
 
         for (const item of items) {
@@ -106,12 +102,8 @@ export async function fetchTSEByCnpj(
 
   try {
     const target  = `https://divulgacandcontas.tse.jus.br/divulga/rest/v1/cnpj/${digits}`;
-    const proxyUrl = `${CORS_PROXY}${encodeURIComponent(target)}`;
-    const res = await fetch(proxyUrl, { signal: AbortSignal.timeout(12000) });
-    if (!res.ok) throw new Error(`HTTP ${res.status}`);
-
-    const wrapper = await res.json() as { contents: string };
-    const data    = JSON.parse(wrapper.contents ?? '{}') as Record<string, unknown>;
+    const rawText = await fetchWithProxy(target);
+    const data    = JSON.parse(rawText) as Record<string, unknown>;
     const cand    = (data?.candidatura ?? data) as Record<string, unknown>;
 
     if (!cand?.nomeUrna && !cand?.nome) return { found: false };
