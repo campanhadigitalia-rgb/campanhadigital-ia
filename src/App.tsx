@@ -168,11 +168,10 @@ const NAV_ITEMS: NavItem[] = [
     id: 'grp_juridico', label: '1. Jurídico', Icon: Scale,
     subItems: [
       { id: 'legal_dashboard',   label: '⚖️ Central Jurídica' },
-      { id: 'legal_compliance',  label: '🔍 Compliance de Conteúdo' },
-      { id: 'legal_monitor',     label: '🎯 Monitor de Adversários' },
-      { id: 'legal_financeiro',  label: '📊 Prestação de Contas' },
       { id: 'legal_docs',        label: '🗂️ Dossiê de Registro' },
       { id: 'legal_templates',   label: '📝 Gestão de Minutas' },
+      { id: 'legal_financeiro',  label: '📊 Prestação de Contas' },
+      { id: 'legal_monitor',     label: '🎯 Motor RAG & Monitor' },
     ]
   },
   {

@@ -1,7 +1,7 @@
 import { useState, useMemo, useEffect } from 'react';
 import { DollarSign, ShieldCheck, ShieldAlert, AlertTriangle, CheckCircle, PieChart, Lock, ArrowUpRight } from 'lucide-react';
 import { useCampaign } from '../../context/CampaignContext';
-import { collection, onSnapshot } from 'firebase/firestore';
+import { collection, onSnapshot, query, where } from 'firebase/firestore';
 import { db } from '../../services/firebase';
 
 export default function LegalFinanceiroPage({ onNavigate }: { onNavigate?: (p: any) => void }) {
@@ -15,7 +15,8 @@ export default function LegalFinanceiroPage({ onNavigate }: { onNavigate?: (p: a
   
   useEffect(() => {
     if (!campaignId) return;
-    const unsubCaixa = onSnapshot(collection(db, `campaigns/${campaignId}/finance_caixa`), snap => setCaixa(snap.docs.map(d => ({id: d.id, ...d.data()}))));
+    const qTransaction = query(collection(db, 'finance_transactions'), where('campaign_id', '==', campaignId));
+    const unsubCaixa = onSnapshot(qTransaction, snap => setCaixa(snap.docs.map(d => ({id: d.id, ...d.data()}))));
     const unsubVaquinhas = onSnapshot(collection(db, `campaigns/${campaignId}/vaquinhas`), snap => setVaquinhas(snap.docs.map(d => ({id: d.id, ...d.data()}))));
     const unsubEvents = onSnapshot(collection(db, `campaigns/${campaignId}/events`), snap => setEvents(snap.docs.map(d => ({id: d.id, ...d.data()}))));
     
@@ -46,11 +47,11 @@ export default function LegalFinanceiroPage({ onNavigate }: { onNavigate?: (p: a
   }, [caixa, vaquinhas, events]);
 
   const totalSpent = useMemo(() => 
-    transactions.reduce((acc: number, t: any) => acc + (t.type === 'Saída' ? (t.valor || t.value || 0) : 0), 0)
+    transactions.reduce((acc: number, t: any) => acc + (t.type === 'Saída' || t.type === 'expense' ? (t.valor || t.amount || t.value || 0) : 0), 0)
   , [transactions]);
   
   const totalRaised = useMemo(() => 
-    transactions.reduce((acc: number, t: any) => acc + (t.type === 'Entrada' ? (t.valor || t.value || 0) : 0), 0)
+    transactions.reduce((acc: number, t: any) => acc + (t.type === 'Entrada' || t.type === 'income' ? (t.valor || t.amount || t.value || 0) : 0), 0)
   , [transactions]);
 
   const progress = Math.min((totalSpent / spendLimit) * 100, 100);
