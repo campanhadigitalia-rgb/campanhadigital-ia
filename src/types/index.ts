@@ -20,19 +20,43 @@ export interface Organization {
   };
 }
 
+export type ElectionScope = 'municipal' | 'estadual' | 'federal';
+
 export interface CampaignIdentity {
-  name: string;         // Nome Civil ou Completo
-  urnName: string;      // Nome de Urna
-  position: string;
-  location: string;
-  party: string;
-  coalition?: string;   // ColigaÃ§Ã£o
-  state: string;        // Estado (UF)
-  history: string;      // HistÃ³rico polÃ­tico
-  bio_base: string;     // Biografia Base
-  ai_directives?: string; // Diretrizes extras de tom para a IA
-  photoOfficial?: string; // Base64 ou URL da foto oficial
-  subCharacters?: {     // Vices, suplentes ou figuras-chave
+  // Dados Pessoais
+  name: string;              // Nome Civil ou Completo
+  urnName: string;           // Nome de Urna
+  cpf?: string;              // CPF do candidato
+  candidateNumber?: string;  // Numero TSE (ex: 10, 4015, 45678)
+
+  // Dados Eleitorais
+  position: string;          // Cargo (Ex: Prefeito, Deputado Estadual)
+  electionScope?: ElectionScope; // Ambito da eleicao
+  location: string;          // Cidade sede ou comite central
+  state: string;             // Estado (UF)
+  party: string;             // Partido
+  coalition?: string;        // Coligacao
+
+  // Contato Oficial
+  whatsappOfficial?: string; // WhatsApp oficial da campanha
+  socialMedia?: {
+    instagram?: string;
+    facebook?: string;
+    tiktok?: string;
+    youtube?: string;
+    twitter?: string;
+  };
+
+  // IA & Narrativa
+  history: string;           // Historico politico
+  bio_base: string;          // Biografia Base
+  ai_directives?: string;    // Diretrizes extras de tom para a IA
+
+  // Foto
+  photoOfficial?: string;    // Base64 ou URL da foto oficial
+
+  // Equipe
+  subCharacters?: {          // Vices, suplentes ou figuras-chave
     role: string;
     name: string;
     photo?: string;
@@ -42,6 +66,10 @@ export interface CampaignIdentity {
 export interface Competitor {
   id: string;
   name: string;
+  party?: string;             // Partido do concorrente
+  position?: string;          // Cargo disputado
+  candidateNumber?: string;   // Número TSE
+  aiSuggested?: boolean;      // true = sugerido pela IA, aguardando validação
   socials: {
     instagram?: string;
     tiktok?: string;
@@ -238,7 +266,7 @@ export interface Mention {
 }
 
 export interface AIReply {
-  persona: 'Conciliador' | 'TÃ©cnico' | 'Firme';
+  persona: 'Conciliador' | 'Técnico' | 'Firme';
   text: string;
 }
 
@@ -304,7 +332,20 @@ export interface MonitoringItem {
   rawData?: Record<string, unknown>;
   fetchedAt: Date;
   /** Se IA jÃ¡ processou e classificou este item */
-  processed?: boolean;\r\n  /** Item salvo/bookmarkado pelo usuario */\r\n  saved?: boolean;\r\n  savedAt?: Date;\r\n  savedNotes?: string;\r\n  /** Score de importancia 1-10 atribuido pela IA */\r\n  importance?: number;\r\n  /** Sentimento geral do item */\r\n  aiSentiment?: 'positive' | 'negative' | 'neutral';\r\n  /** Quando a IA classificou */\r\n  aiClassifiedAt?: Date;\r\n  /** Canal especifico de origem (ex: 'Globo News', '@canal', 'r/brasil') */\r\n  sourceChannel?: string;\r\n}
+  processed?: boolean;
+  /** Item salvo/bookmarkado pelo usuario */
+  saved?: boolean;
+  savedAt?: Date;
+  savedNotes?: string;
+  /** Score de importancia 1-10 atribuido pela IA */
+  importance?: number;
+  /** Sentimento geral do item */
+  aiSentiment?: 'positive' | 'negative' | 'neutral';
+  /** Quando a IA classificou */
+  aiClassifiedAt?: Date;
+  /** Canal especifico de origem (ex: 'Globo News', '@canal', 'r/brasil') */
+  sourceChannel?: string;
+}
 
 /** Fonte de RSS configurÃ¡vel pelo usuÃ¡rio */
 export interface RSSFeedConfig {

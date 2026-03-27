@@ -17,6 +17,7 @@ import {
   sendTelegramMessage, getTelegramBotInfo, sendEmail,
   sendWebhook, sendSMS, sendWhatsAppMeta, sendWhatsAppZAPI
 } from '../../services/messagingService';
+import StatusCards from './StatusCards';
 
 // ── Tipos de configuração ──────────────────────────────────────
 
@@ -271,21 +272,19 @@ export default function OutputChannelsSettings() {
     return <div className="flex items-center justify-center py-16 text-slate-500 gap-3"><AlertCircle size={20} /> Selecione uma campanha.</div>;
   }
 
-  const SaveBtn = () => (
-    <button onClick={handleSave} disabled={saving}
-      className="flex items-center gap-2 bg-indigo-600 hover:bg-indigo-500 disabled:opacity-60 text-white px-5 py-2.5 rounded-lg text-sm font-bold">
-      {saving ? <Loader2 size={14} className="animate-spin" /> : saved ? <CheckCircle size={14} /> : <Save size={14} />}
-      {saved ? 'Salvo!' : 'Salvar Configurações'}
-    </button>
-  );
-
   return (
     <div className="flex flex-col gap-4">
       <div className="flex items-center justify-between flex-wrap gap-3">
-        <p className="text-sm text-slate-400">Configure os canais pelos quais a campanha envía mensagens, alertas e comunicados.</p>
-        <SaveBtn />
+        <p className="text-sm text-slate-400">Configure os canais pelos quais a campanha envia mensagens, alertas e comunicados.</p>
+        <button onClick={handleSave} disabled={saving}
+          className="flex items-center gap-2 bg-indigo-600 hover:bg-indigo-500 disabled:opacity-60 text-white px-5 py-2.5 rounded-lg text-sm font-bold">
+          {saving ? <Loader2 size={14} className="animate-spin" /> : saved ? <CheckCircle size={14} /> : <Save size={14} />}
+          {saved ? 'Salvo!' : 'Salvar Configurações'}
+        </button>
       </div>
 
+      {/* ── Status Cards ─────────────────────────────────── */}
+      <StatusCards type="output" />
       {/* ── Resumo "De onde sai" ────────────────────────────── */}
       <div className="glass-card p-5">
         <h3 className="font-bold text-slate-200 mb-3 flex items-center gap-2"><Zap size={15} className="text-yellow-400" /> O que o destinatário vê ao receber</h3>

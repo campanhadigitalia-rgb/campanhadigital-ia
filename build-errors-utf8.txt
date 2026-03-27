@@ -1,0 +1,4 @@
+﻿src/components/ui/SocialSentinel.tsx(252,33): error TS2367: This comparison appears to be unintentional because the types '"Conciliador" | "T├â┬®cnico" | "Firme"' and '"T├®cnico"' have no overlap.
+src/pages/Oracle/index.tsx(9,1): error TS6192: All imports in import declaration are unused.
+src/pages/Settings/index.tsx(4,75): error TS6133: 'Zap' is declared but its value is never read.
+src/services/aiService.ts(61,9): error TS2322: Type '"T├®cnico"' is not assignable to type '"Conciliador" | "T├â┬®cnico" | "Firme"'.

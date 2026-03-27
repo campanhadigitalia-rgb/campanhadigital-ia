@@ -23,6 +23,7 @@ import { TV_CHANNELS } from '../../services/youtubeService';
 import TokenUsageDashboard, { RateLimitSelector } from '../../components/ui/TokenUsageDashboard';
 import type { RSSFeedConfig, SearchEngineConfig, ExtraAIConfig } from '../../types';
 import type { RateLimitMode } from '../../utils/billingMonitor';
+import StatusCards from './StatusCards';
 
 // ── Constantes ─────────────────────────────────────────────────
 
@@ -361,6 +362,8 @@ export default function SearchEnginesSettings() {
         <SaveButton />
       </div>
 
+      {/* ── Status Cards ─────────────────────────────────── */}
+      <StatusCards type="search" />
       {/* ── Painel de Custo ─────────────────────────────────── */}
       <TokenUsageDashboard />
 

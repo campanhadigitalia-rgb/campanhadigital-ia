@@ -1,12 +1,11 @@
 import { useState } from 'react';
 import { useCampaign } from '../../context/CampaignContext';
 import { useAuth } from '../../context/AuthContext';
-import { Save, AlertCircle, DatabaseZap, Loader2, Settings2, ShieldCheck, Zap, Search, Send } from 'lucide-react';
+import { Save, AlertCircle, DatabaseZap, Loader2, Settings2, ShieldCheck, Search, Send } from 'lucide-react';
 import { doc, updateDoc } from 'firebase/firestore';
 import { db, COLLECTIONS } from '../../services/firebase';
 import { seedRSRegions } from '../../utils/seedRS';
 import IdentitySettings from './IdentitySettings';
-import IntegrationDashboard from '../../components/ui/IntegrationDashboard';
 import SearchEnginesSettings from './SearchEnginesSettings';
 import OutputChannelsSettings from './OutputChannelsSettings';
 
@@ -14,7 +13,7 @@ export default function Settings() {
   const { activeCampaign } = useCampaign();
   const { profile } = useAuth();
   const [seeding, setSeeding] = useState(false);
-  const [activeTab, setActiveTab] = useState<'general' | 'identity' | 'integrations' | 'search' | 'output'>('general');
+  const [activeTab, setActiveTab] = useState<'general' | 'identity' | 'search' | 'output'>('general');
   
   const [name, setName] = useState(activeCampaign?.name || '');
   const [year, setYear] = useState(activeCampaign?.year || new Date().getFullYear());
@@ -90,14 +89,6 @@ export default function Settings() {
         >
           <div className="flex items-center gap-2 text-emerald-400">
             <Send size={16} /> Canais de Saída
-          </div>
-        </button>
-        <button 
-          onClick={() => setActiveTab('integrations')}
-          className={`px-4 py-2 text-sm font-bold transition-all border-b-2 ${activeTab === 'integrations' ? 'border-indigo-500 text-indigo-400' : 'border-transparent text-slate-500 hover:text-slate-300'}`}
-        >
-          <div className="flex items-center gap-2 text-amber-500">
-            <Zap size={16} /> Status
           </div>
         </button>
       </div>
@@ -241,10 +232,8 @@ export default function Settings() {
           <IdentitySettings />
         ) : activeTab === 'search' ? (
           <SearchEnginesSettings />
-        ) : activeTab === 'output' ? (
-          <OutputChannelsSettings />
         ) : (
-          <IntegrationDashboard />
+          <OutputChannelsSettings />
         )}
       </div>
     </div>
