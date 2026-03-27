@@ -3,20 +3,7 @@ import { Shield, AlertTriangle, CheckCircle, Gavel, Clock, Activity, CreditCard,
 import { useCampaign } from '../../context/CampaignContext';
 import { collection, onSnapshot, query, orderBy, limit, addDoc, serverTimestamp } from 'firebase/firestore';
 import { db } from '../../services/firebase';
-
-interface LegalAlert {
-  id: string;
-  title: string;
-  type: 'Crítica' | 'Urgente' | 'Informativa';
-  desc: string;
-  createdAt: { seconds: number; nanoseconds: number } | null;
-}
-
-interface LegalNews {
-  id: string;
-  title: string;
-  tag: string;
-}
+import { useLegalItems, useNewsItems } from '../../hooks/useMonitorFeed';
 
 interface LegalContract {
   id: string;
@@ -28,8 +15,11 @@ interface LegalContract {
 
 export default function LegalDashboardPage({ onNavigate }: { onNavigate?: (p: string) => void }) {
   const { campaignId, activeCampaign } = useCampaign();
-  const [alerts, setAlerts] = useState<LegalAlert[]>([]);
-  const [news, setNews] = useState<LegalNews[]>([]);
+  
+  // Real-time feeds do Monitor Central 
+  const { items: alerts } = useLegalItems(campaignId || '', 5);
+  const { items: news } = useNewsItems(campaignId || '', 10);
+
   const [contracts, setContracts] = useState<LegalContract[]>([]);
   const [complianceStats, setComplianceStats] = useState({ approved: 0, rejected: 0 });
   const [showAddNews, setShowAddNews] = useState(false);
@@ -39,19 +29,6 @@ export default function LegalDashboardPage({ onNavigate }: { onNavigate?: (p: st
 
   useEffect(() => {
     if (!campaignId) return;
-    const qAlerts = query(
-      collection(db, `campaigns/${campaignId}/legal_alerts`),
-      orderBy('createdAt', 'desc'),
-      limit(5)
-    );
-    const unsubAlerts = onSnapshot(qAlerts, snap => {
-      setAlerts(snap.docs.map(d => ({ id: d.id, ...d.data() } as LegalAlert)));
-    });
-
-    const qNews = query(collection(db, `campaigns/${campaignId}/legal_news`), orderBy('createdAt', 'desc'), limit(10));
-    const unsubNews = onSnapshot(qNews, snap => {
-      setNews(snap.docs.map(d => ({ id: d.id, ...d.data() } as LegalNews)));
-    });
 
     const qContracts = query(collection(db, `campaigns/${campaignId}/legal_contracts`), orderBy('createdAt', 'desc'), limit(5));
     const unsubContracts = onSnapshot(qContracts, snap => {
@@ -68,8 +45,6 @@ export default function LegalDashboardPage({ onNavigate }: { onNavigate?: (p: st
     });
 
     return () => {
-      unsubAlerts();
-      unsubNews();
       unsubContracts();
       unsubCompliance();
     };
@@ -88,7 +63,9 @@ export default function LegalDashboardPage({ onNavigate }: { onNavigate?: (p: st
   ];
 
   const totalProgress = chkItems.reduce((acc, item) => acc + (checklist[item.key as keyof typeof checklist] ? item.weight : 0), 0);
-  const activeProcessCount = alerts.filter((a: LegalAlert) => a.type === 'Crítica' || a.type === 'Urgente').length;
+  
+  // Alertas agora vem do feed real (Monitor Geral) - sentimentos críticos/negativos contam como processo ativo pendente
+  const activeProcessCount = alerts.filter(a => a.sentiment === 'critico' || a.sentiment === 'negativo').length;
 
   const handleAddNews = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -139,10 +116,22 @@ export default function LegalDashboardPage({ onNavigate }: { onNavigate?: (p: st
           <div className="flex-1 space-y-4 relative z-10">
             <div>
               <h2 className="text-2xl font-black text-slate-100 flex items-center gap-2">
+                {identity?.candidateNumber && (
+                   <span className="px-2 py-1 bg-indigo-500/20 text-indigo-400 rounded-lg text-sm font-mono tracking-widest">{identity.candidateNumber}</span>
+                )}
                 {identity?.urnName || identity?.name || 'Candidato s/ nome'}
                 <CheckCircle size={18} className="text-emerald-400" />
               </h2>
-              <p className="text-xs text-slate-400 font-bold uppercase tracking-tight">{identity?.party || '-'} • {identity?.coalition || 'Chapa Pura'} • {identity?.location || '-'} / {identity?.state || '-'}</p>
+              <p className="text-xs text-slate-400 font-bold uppercase tracking-tight mt-1">
+                {identity?.party || '-'} • {identity?.coalition || 'Chapa Pura'} • {identity?.location || '-'} / {identity?.state || '-'}
+                {identity?.electionScope && <span className="ml-2 px-1.5 py-0.5 bg-slate-800 text-slate-300 rounded text-[9px] border border-slate-700">{identity.electionScope}</span>}
+              </p>
+              {(identity?.cpf || identity?.whatsappOfficial) && (
+                <p className="text-[10px] text-slate-500 font-mono mt-1 tracking-tight">
+                  {identity?.cpf && <span>CPF: {identity.cpf}  </span>}
+                  {identity?.whatsappOfficial && <span>WPP: {identity.whatsappOfficial}</span>}
+                </p>
+              )}
             </div>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -150,7 +139,7 @@ export default function LegalDashboardPage({ onNavigate }: { onNavigate?: (p: st
                   <p className="text-[9px] font-black text-slate-500 uppercase tracking-widest flex items-center gap-2"><Users size={12} className="text-indigo-400"/> Chapa Majoritária</p>
                   <div className="space-y-1">
                     {identity?.subCharacters && identity.subCharacters.length > 0 ? (
-                      identity.subCharacters.map((c: any, i: number) => (
+                      identity.subCharacters.map((c: {role: string; name: string}, i: number) => (
                         <p key={i} className="text-xs font-bold text-slate-300">{c.role}: <span className="text-slate-400">{c.name}</span></p>
                       ))
                     ) : (
@@ -266,12 +255,14 @@ export default function LegalDashboardPage({ onNavigate }: { onNavigate?: (p: st
                       <p className="text-[10px] text-slate-600 font-bold uppercase">Sem atualizações no Radar</p>
                     </div>
                  ) : (
-                    news.map(n => (
+                     news.map(n => (
                       <div key={n.id} className="p-3 bg-indigo-500/5 rounded-lg border border-indigo-500/10 space-y-1">
                         <div className="flex justify-between items-start">
-                          <span className="px-1.5 py-0.5 bg-indigo-500/20 text-indigo-400 rounded text-[7px] font-black uppercase">{n.tag || 'Notícia'}</span>
+                          <span className="px-1.5 py-0.5 bg-indigo-500/20 text-indigo-400 rounded text-[7px] font-black uppercase">{n.subject || 'Radar'}</span>
+                          <span className="text-[8px] text-slate-500 font-mono">{n.fetchedAt ? new Date(n.fetchedAt).toLocaleDateString() : ''}</span>
                         </div>
                         <p className="text-[10px] font-bold text-slate-200 leading-snug">{n.title}</p>
+                        {n.summary && <p className="text-[9px] text-slate-400 line-clamp-2 leading-tight">{n.summary}</p>}
                       </div>
                     ))
                  )}
@@ -309,11 +300,11 @@ export default function LegalDashboardPage({ onNavigate }: { onNavigate?: (p: st
                 <p className="text-[10px] font-black text-rose-400 uppercase tracking-widest mb-3">Últimas Ocorrências Registradas</p>
                 <div className="space-y-3">
                   {alerts.slice(0, 2).length === 0 ? (
-                    <p className="text-[10px] text-slate-600 font-bold uppercase">Nenhuma ocorrência registrada.</p>
-                  ) : alerts.slice(0, 2).map(alert => (
-                    <div key={alert.id} className="p-2 border-l-2 border-rose-500 bg-rose-500/5">
-                      <p className="text-xs font-bold text-slate-200">{alert.title}</p>
-                      <p className="text-[10px] text-slate-500">{alert.desc || 'Sem descrição.'}</p>
+                    <p className="text-[10px] text-slate-600 font-bold uppercase">Nenhum evento jurídico registrado.</p>
+                  ) : alerts.slice(0, 2).map((alert) => (
+                    <div key={alert.id} className={`p-2 border-l-2 bg-black/20 ${alert.sentiment === 'critico' ? 'border-rose-500' : 'border-amber-500'}`}>
+                      <p className="text-[10px] font-bold text-slate-200 line-clamp-1">{alert.title}</p>
+                      <p className="text-[9px] text-slate-500 line-clamp-2 mt-0.5">{alert.summary || 'Sem descrição.'}</p>
                     </div>
                   ))}
                   <button onClick={() => onNavigate?.('legal_monitor')} className="text-[9px] font-black text-indigo-400 uppercase tracking-tighter hover:underline">Ver todas no Monitor →</button>
